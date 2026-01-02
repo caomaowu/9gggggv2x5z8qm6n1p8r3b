@@ -173,14 +173,32 @@ async def analyze_market(
         update_analysis_progress("analyzing", 30, "Running AI analysis...")
         result = await trading_engine.run_analysis(df, request.asset, request.timeframe)
         
-        # Inject Result ID
+        # Inject Result ID and Request Metadata
         result['result_id'] = result_id
+        result['asset'] = request.asset
+        result['timeframe'] = request.timeframe
         
         # 哈雷酱添加：注入未来验证数据
         if future_kline_list:
             result['future_kline_data'] = future_kline_list
             result['future_kline_chart_base64'] = future_kline_chart_base64
         
+        # 4. Generate Charts for Frontend (Optional but good for UX)
+        # 既然用户不想要综合图表，且 pattern_chart 和 trend_chart 已经在 TradingEngine 中处理，
+        # 这里就不再生成 summary_chart 了，避免生成用户不想要的“奇怪图表”。
+        result['summary_chart_base64'] = None
+
+        # 5. Auto-save HTML Report (User Requirement: Automation, No Browser Dependency)
+        try:
+            from app.services.html_export_service import html_export_service
+            saved_path = html_export_service.save_html(result)
+            logger.info(f"[{result_id}] HTML report automatically saved to: {saved_path}")
+            result['html_report_path'] = saved_path
+            update_analysis_progress("completed", 99, f"Report saved: {saved_path}")
+        except Exception as e:
+            logger.error(f"[{result_id}] Failed to auto-save HTML report: {e}")
+            # Do not block response, but log error
+
         logger.info("Analysis completed successfully")
         update_analysis_progress("completed", 100, "Analysis completed")
         

@@ -26,11 +26,11 @@ class Settings(BaseSettings):
     # LLM
     OPENAI_API_KEY: str = "ms-5b276203-2e1d-4083-b7e8-113630a13a14"
     OPENAI_API_BASE: str = "https://api-inference.modelscope.cn/v1"
-   ## AGENT_MODEL: str = "Qwen/Qwen3-Next-80B-A3B-Instruct"
-    ##GRAPH_MODEL: str = "Qwen/Qwen3-VL-30B-A3B-Instruct"
+    ##AGENT_MODEL: str = "Qwen/Qwen3-Next-80B-A3B-Instruct"
     AGENT_MODEL: str = "deepseek-ai/DeepSeek-V3.2"
   ##  GRAPH_MODEL: str = "Qwen/Qwen3-VL-30B-A3B-Instruct"
     GRAPH_MODEL: str = "Qwen/Qwen3-VL-235B-A22B-Instruct"
+  
     model_config = SettingsConfigDict(
         env_file=".env", 
         env_file_encoding="utf-8",

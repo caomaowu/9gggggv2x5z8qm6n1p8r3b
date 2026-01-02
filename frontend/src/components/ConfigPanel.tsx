@@ -145,7 +145,7 @@ export default function ConfigPanel() {
                 </div>
                 {/* Presets */}
                 <div className="flex gap-2">
-                    {[30, 50, 100].map(count => (
+                    {[40, 50, 60].map(count => (
                         <button 
                             key={count}
                             type="button" 
@@ -275,24 +275,26 @@ export default function ConfigPanel() {
         </h4>
         
         <div className={styles.formGroup}>
-            <button 
-                type="button" 
-                className={styles.cleanBtn}
-                onClick={handleClearCache}
-                disabled={isCleaning}
-            >
-                {isCleaning ? (
-                    <>
-                        <i className="fas fa-spinner fa-spin"></i> Cleaning...
-                    </>
-                ) : (
-                    <>
-                        <i className="fas fa-trash-alt"></i> Clean Temp Files
-                    </>
-                )}
-            </button>
+            <div className="flex gap-4">
+                <button 
+                    type="button" 
+                    className={styles.cleanBtn}
+                    onClick={handleClearCache}
+                    disabled={isCleaning}
+                >
+                    {isCleaning ? (
+                        <>
+                            <i className="fas fa-spinner fa-spin"></i> Cleaning Cache...
+                        </>
+                    ) : (
+                        <>
+                            <i className="fas fa-trash-alt"></i> Clean Temp Files
+                        </>
+                    )}
+                </button>
+            </div>
             <small className={styles.textMuted}>
-                清理所有生成的临时图表和数据文件，释放磁盘空间。
+                清理缓存图表。
             </small>
         </div>
     </div>

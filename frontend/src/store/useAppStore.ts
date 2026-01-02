@@ -92,8 +92,8 @@ export const useAppStore = create<AppState>()(
       name: 'quantagent-storage',
       partialize: (state) => ({ 
         customAssets: state.customAssets,
-        // selectedAsset: state.selectedAsset, // Optional: persist selection
-        // selectedTimeframe: state.selectedTimeframe
+        selectedTimeframe: state.selectedTimeframe,
+        klineCount: state.klineCount
       }),
     }
   )

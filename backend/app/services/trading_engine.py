@@ -149,7 +149,9 @@ class TradingEngine:
                             "signal_type": decision_json.get("market_environment", "N/A"),
                             "stop_loss": decision_json.get("stop_loss"),
                             "take_profit": decision_json.get("take_profit"),
-                            "entry_point": decision_json.get("entry_point") or str(latest_price) if latest_price else None
+                            "entry_point": decision_json.get("entry_point") or str(latest_price) if latest_price else None,
+                            # 哈雷酱：保留所有原始字段供 HTML 报告使用
+                            **decision_json
                         }
                         
                         result["decision"] = normalized_decision
@@ -162,8 +164,23 @@ class TradingEngine:
                             "reasoning": f"无法解析决策数据，请查看原始报告。错误: {str(e)}",
                             "confidence": "Low",
                             "signal_type": "Error",
-                            "raw_content": result["final_trade_decision"]
+                            "raw_content": result["final_trade_decision"],
+                            "decision": "HOLD" # Fallback
                         }
+
+            # 哈雷酱：构造 market_data 结构，适配前端和 HTML 报告
+            result["market_data"] = {
+                "analysis": {
+                    "indicators": result.get("indicator_report", "分析失败"),
+                    "patterns": result.get("pattern_report", "分析失败"),
+                    "trend": result.get("trend_report", "分析失败")
+                }
+            }
+            
+            # 哈雷酱：暴露图表数据，确保 HTML 导出能使用
+            # 这些图表由各个 agent (pattern_agent, trend_agent) 生成并保存在 state 中
+            result["pattern_chart"] = result.get("pattern_chart") or result.get("pattern_image")
+            result["trend_chart"] = result.get("trend_chart") or result.get("trend_image")
 
             return result
         except Exception as e:

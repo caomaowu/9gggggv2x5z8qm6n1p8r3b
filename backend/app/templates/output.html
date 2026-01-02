@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuantAgent 分析报告 - {{ result.get('asset') }}</title>
+    <style>
+        {{ css_content | safe }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo-area">
+                {% if logo_base64 %}
+                <img src="data:image/png;base64,{{ logo_base64 }}" alt="Logo" style="height: 40px;">
+                {% else %}
+                <h1>QuantAgent</h1>
+                {% endif %}
+                <span>| 分析报告</span>
+            </div>
+            <div class="report-meta">
+                <div>结果 ID: {{ result.get('result_id') }}</div>
+                <div>标的: {{ result.get('asset') }}</div>
+                <div>生成时间: {{ timestamp }}</div>
+            </div>
+        </header>
+
+        <!-- Final Decision -->
+        <div class="card">
+            <h2 class="card-title">最终决策</h2>
+            {% if result.get('decision') %}
+            <div class="grid-2">
+                <div>
+                    <div style="margin-bottom: 1rem;">
+                        <span class="decision-badge 
+                            {% if result['decision'].get('decision') == '做多' %}decision-long
+                            {% elif result['decision'].get('decision') == '做空' %}decision-short
+                            {% else %}decision-hold{% endif %}">
+                            {{ result['decision'].get('decision', 'N/A') }}
+                        </span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">置信度</span>
+                        <span class="metric-value">{{ result['decision'].get('confidence_level') or result['decision'].get('confidence', 'N/A') }}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">盈亏比 (R/R)</span>
+                        <span class="metric-value">{{ result['decision'].get('risk_reward_ratio', 'N/A') }}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">预测周期</span>
+                        <span class="metric-value">{{ result['decision'].get('forecast_horizon') or result['decision'].get('time_horizon', 'N/A') }}</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="metric-item">
+                        <span class="metric-label">止损价格</span>
+                        <span class="metric-value" style="color: var(--danger-color)">{{ result['decision'].get('stop_loss', 'N/A') }}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">止盈价格</span>
+                        <span class="metric-value" style="color: var(--success-color)">{{ result['decision'].get('take_profit', 'N/A') }}</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">市场环境</span>
+                        <span class="metric-value">{{ result['decision'].get('market_environment', 'N/A') }}</span>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top: 1rem;">
+                <strong>决策依据:</strong>
+                <p>{{ result['decision'].get('justification') or result['decision'].get('reasoning', '暂无详细依据') }}</p>
+            </div>
+            {% else %}
+            <p>分析失败或未生成决策数据。</p>
+            {% if result.get('error') %}
+            <p style="color: red;">错误信息: {{ result.get('error') }}</p>
+            {% endif %}
+            {% endif %}
+        </div>
+
+        <!-- Summary Chart (已移除，用户不想要综合图表) -->
+        {% if result.get('summary_chart_base64') %}
+        <div class="card">
+            <h2 class="card-title">综合图表</h2>
+            <div class="chart-container">
+                <img src="data:image/png;base64,{{ result['summary_chart_base64'] }}" alt="Summary Chart">
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Future Verification (Optional) -->
+        {% if result.get('future_kline_chart_base64') %}
+        <div class="card">
+            <h2 class="card-title">回测验证 (未来走势)</h2>
+            <div class="chart-container">
+                <img src="data:image/png;base64,{{ result['future_kline_chart_base64'] }}" alt="Future Verification Chart">
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Detailed Reports -->
+        <div class="card">
+            <h2 class="card-title">详细分析报告</h2>
+            
+            {% if result['market_data'] and result['market_data']['analysis'] %}
+            
+            <!-- 技术指标 (纯文本) -->
+            <div class="report-section">
+                <h3>技术指标分析</h3>
+                <pre>{{ result['market_data']['analysis']['indicators'] }}</pre>
+            </div>
+
+            <!-- 形态识别 (文本 + 图表) -->
+            <div class="report-section">
+                <h3>形态识别分析</h3>
+                <pre>{{ result['market_data']['analysis']['patterns'] }}</pre>
+                {% if result.get('pattern_chart') %}
+                <div class="chart-container">
+                    <img src="data:image/png;base64,{{ result['pattern_chart'] }}" alt="模式识别可视化">
+                    <div style="text-align: center; color: var(--text-secondary); font-size: 0.9em;">模式识别可视化图表</div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 趋势分析 (文本 + 图表) -->
+            <div class="report-section">
+                <h3>趋势分析</h3>
+                <pre>{{ result['market_data']['analysis']['trend'] }}</pre>
+                {% if result.get('trend_chart') %}
+                <div class="chart-container">
+                    <img src="data:image/png;base64,{{ result['trend_chart'] }}" alt="趋势分析可视化">
+                    <div style="text-align: center; color: var(--text-secondary); font-size: 0.9em;">趋势分析与支撑阻力线</div>
+                </div>
+                {% endif %}
+            </div>
+
+            {% else %}
+            <p>无详细分析数据。</p>
+            {% endif %}
+        </div>
+
+        <div class="footer">
+            <p>Generated by QuantAgent V2</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -13,6 +13,18 @@ import mplfinance as mpf
 import numpy as np
 import pandas as pd
 from typing import Optional
+import platform
+
+# 设置中文字体
+system_name = platform.system()
+if system_name == "Windows":
+    plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial']  # 优先使用黑体
+elif system_name == "Darwin":
+    plt.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'PingFang SC', 'Heiti SC']
+else:
+    plt.rcParams['font.sans-serif'] = ['WenQuanYi Micro Hei', 'SimHei', 'DejaVu Sans']
+
+plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示为方块的问题
 
 from .performance import performance_monitor, monitor_image_generation
 from .style_config import get_trading_style
@@ -152,6 +164,140 @@ class ChartGenerator:
 
         except Exception as e:
             raise ValueError(f"K线图生成失败: {str(e)}")
+
+    @performance_monitor("趋势图生成")
+    def generate_summary_chart(self, data: pd.DataFrame, indicators: dict, decision: dict,
+                           title: str = "综合分析图", save_path: Optional[str] = None) -> str:
+        """
+        生成综合分析图 (替代旧的趋势图)
+        """
+        try:
+            with monitor_image_generation("综合图"):
+                # 创建 GridSpec 布局
+                fig = plt.figure(figsize=(12, 10))
+                gs = fig.add_gridspec(4, 1, height_ratios=[3, 1, 1, 1], hspace=0.4)
+                
+                # 1. 主图 (价格 + MA)
+                ax1 = fig.add_subplot(gs[0])
+                ax1.plot(data.index, data['Close'], label='收盘价', linewidth=1.5)
+                
+                # 添加移动平均线
+                if len(data) >= 20:
+                    ma20 = data['Close'].rolling(window=20).mean()
+                    ax1.plot(data.index, ma20, label='MA20', alpha=0.7, linewidth=1)
+                
+                # 添加布林带 (如果数据足够)
+                if len(data) >= 20:
+                    std = data['Close'].rolling(window=20).std()
+                    upper = ma20 + 2 * std
+                    lower = ma20 - 2 * std
+                    ax1.fill_between(data.index, upper, lower, alpha=0.1, color='gray', label='布林带')
+                
+                ax1.set_title(title, fontsize=14, fontweight='bold')
+                ax1.legend(loc='upper left')
+                ax1.grid(True, alpha=0.3)
+                ax1.set_ylabel('价格')
+                
+                # 决策标注箱
+                action = decision.get('decision', 'N/A')
+                color = 'green' if action == '做多' else 'red' if action == '做空' else 'gray'
+                text_str = f"决策: {action}\n"
+                text_str += f"置信度: {decision.get('confidence_level', 'N/A')}\n"
+                text_str += f"止盈: {decision.get('take_profit', 'N/A')}\n"
+                text_str += f"止损: {decision.get('stop_loss', 'N/A')}"
+                
+                props = dict(boxstyle='round', facecolor=color, alpha=0.1)
+                ax1.text(0.02, 0.95, text_str, transform=ax1.transAxes, fontsize=10,
+                        verticalalignment='top', bbox=props)
+
+                # 2. RSI 子图
+                ax2 = fig.add_subplot(gs[1], sharex=ax1)
+                # 尝试从不同结构中获取 RSI 数据
+                rsi_data = None
+                if indicators and isinstance(indicators, dict):
+                    # 结构 1: indicators['rsi']['rsi']
+                    if 'rsi' in indicators and isinstance(indicators['rsi'], dict) and 'rsi' in indicators['rsi']:
+                        rsi_data = indicators['rsi']['rsi']
+                    # 结构 2: indicators 本身就是 {'rsi': [...]}
+                    elif 'rsi' in indicators and isinstance(indicators['rsi'], list):
+                        rsi_data = indicators['rsi']
+                
+                # 如果没有现成数据，现场计算一个
+                if rsi_data is None or len(rsi_data) == 0:
+                     delta = data['Close'].diff()
+                     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                     rs = gain / loss
+                     rsi_data = 100 - (100 / (1 + rs))
+                
+                # 截取长度匹配
+                if len(rsi_data) > len(data):
+                    rsi_data = rsi_data[-len(data):]
+                elif len(rsi_data) < len(data):
+                    # 填充 NaN
+                    padding = [np.nan] * (len(data) - len(rsi_data))
+                    if isinstance(rsi_data, list):
+                        rsi_data = padding + rsi_data
+                    else:
+                        rsi_data = pd.concat([pd.Series(padding), rsi_data])
+                
+                ax2.plot(data.index, rsi_data, label='RSI (14)', color='purple')
+                ax2.axhline(70, linestyle='--', alpha=0.5, color='red')
+                ax2.axhline(30, linestyle='--', alpha=0.5, color='green')
+                ax2.set_ylabel('RSI')
+                ax2.set_ylim(0, 100)
+                ax2.grid(True, alpha=0.3)
+                
+                # 3. MACD 子图
+                ax3 = fig.add_subplot(gs[2], sharex=ax1)
+                # 简单计算 MACD
+                exp12 = data['Close'].ewm(span=12, adjust=False).mean()
+                exp26 = data['Close'].ewm(span=26, adjust=False).mean()
+                macd = exp12 - exp26
+                signal = macd.ewm(span=9, adjust=False).mean()
+                hist = macd - signal
+                
+                ax3.plot(data.index, macd, label='MACD', linewidth=1)
+                ax3.plot(data.index, signal, label='Signal', linewidth=1)
+                # 柱状图颜色
+                colors = ['red' if v < 0 else 'green' for v in hist]
+                ax3.bar(data.index, hist, color=colors, alpha=0.5, label='Hist')
+                ax3.set_ylabel('MACD')
+                ax3.grid(True, alpha=0.3)
+                
+                # 4. 成交量子图
+                ax4 = fig.add_subplot(gs[3], sharex=ax1)
+                colors = ['red' if c < o else 'green' for c, o in zip(data['Close'], data['Open'])]
+                ax4.bar(data.index, data['Volume'], color=colors, alpha=0.7)
+                ax4.set_ylabel('成交量')
+                ax4.grid(True, alpha=0.3)
+                
+                # 隐藏中间子图的 x 轴标签
+                plt.setp(ax1.get_xticklabels(), visible=False)
+                plt.setp(ax2.get_xticklabels(), visible=False)
+                plt.setp(ax3.get_xticklabels(), visible=False)
+                
+                # 旋转最底部的日期标签
+                plt.xticks(rotation=30)
+                
+                # 转换为base64
+                buffer = io.BytesIO()
+                fig.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
+                buffer.seek(0)
+                image_base64 = base64.b64encode(buffer.getvalue()).decode()
+                plt.close(fig)
+
+                # 保存到文件
+                if save_path:
+                    with open(save_path, 'wb') as f:
+                        f.write(base64.b64decode(image_base64))
+
+                return image_base64
+
+        except Exception as e:
+            # 如果出错，返回一个简单的错误提示图或者空字符串
+            print(f"综合图表生成失败: {e}")
+            return ""
 
     @performance_monitor("趋势图生成")
     def generate_trend_chart(self, data: pd.DataFrame, indicators: dict,
@@ -343,10 +489,16 @@ class ChartGenerator:
             ax_decision = fig.add_subplot(gs[0, 1])
             ax_decision.axis('off')
 
+            # 安全获取置信度
+            try:
+                conf_val = float(decision.get('confidence', 0))
+            except (ValueError, TypeError):
+                conf_val = 0.0
+
             decision_text = f"""
             最终决策: {decision.get('action', 'UNKNOWN')}
 
-            置信度: {decision.get('confidence', 0):.1%}
+            置信度: {conf_val:.1%}
 
             理由: {decision.get('reasoning', '暂无')[:50]}...
 

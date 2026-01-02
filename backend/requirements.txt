@@ -13,3 +13,4 @@ langchain-openai
 langchain-core
 langgraph
 openai
+jinja2
