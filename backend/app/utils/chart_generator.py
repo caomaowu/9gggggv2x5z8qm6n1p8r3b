@@ -51,9 +51,19 @@ class ChartGenerator:
                     raise ValueError("数据缺少必要的OHLC列")
 
                 # 设置mplfinance样式
+                # 兼容性处理：检查可用的 matplotlib 样式
+                base_style = 'seaborn'
+                if base_style not in plt.style.available:
+                    # 尝试查找替代的 seaborn 样式（新版 matplotlib 改名了）
+                    seaborn_styles = [s for s in plt.style.available if 'seaborn' in s]
+                    if seaborn_styles:
+                        base_style = seaborn_styles[0]
+                    else:
+                        base_style = 'ggplot' # 保底方案
+
                 mc = mpf.make_marketcolors(up='red', down='green', edge='black',
                                          wick='black', volume='in')
-                s = mpf.make_mpf_style(base_mpl_style='seaborn', marketcolors=mc, rc=self.style)
+                s = mpf.make_mpf_style(base_mpl_style=base_style, marketcolors=mc, rc=self.style)
 
                 # 创建图表
                 fig, axes = mpf.plot(
@@ -67,6 +77,50 @@ class ChartGenerator:
                     returnfig=True,
                     warn_too_much_data=len(data) > 1000
                 )
+
+                # 添加最高价和最低价标注
+                try:
+                    ax_main = axes[0]
+                    
+                    # 找到最高价和最低价及其索引
+                    high_price = data['High'].max()
+                    low_price = data['Low'].min()
+                    
+                    # 获取对应的时间索引
+                    high_index = data['High'].idxmax()
+                    low_index = data['Low'].idxmin()
+                    
+                    # 在 mplfinance 中，x 轴是整数索引（0, 1, 2...）
+                    # 我们需要找到 high_index 和 low_index 在 data 中的整数位置
+                    high_pos = data.index.get_loc(high_index)
+                    low_pos = data.index.get_loc(low_index)
+                    
+                    # 标注最高价
+                    ax_main.annotate(
+                        f'{high_price:.2f}',
+                        xy=(high_pos, high_price),
+                        xytext=(10, 10),
+                        textcoords='offset points',
+                        arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=.2', color='red'),
+                        fontsize=10,
+                        color='red',
+                        fontweight='bold'
+                    )
+                    
+                    # 标注最低价
+                    ax_main.annotate(
+                        f'{low_price:.2f}',
+                        xy=(low_pos, low_price),
+                        xytext=(10, -20),
+                        textcoords='offset points',
+                        arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=.2', color='green'),
+                        fontsize=10,
+                        color='green',
+                        fontweight='bold'
+                    )
+                except Exception as e:
+                    # 标注失败不影响图表生成
+                    print(f"Failed to add price annotations: {e}")
 
                 # 优化布局
                 fig.tight_layout()

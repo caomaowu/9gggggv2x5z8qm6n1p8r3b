@@ -64,7 +64,18 @@ export default function AnalysisForm() {
             console.log("Sending analysis request:", request);
             const result = await analyzeMarket(request);
             console.log("Analysis result:", result);
-            setAnalysisResult(result);
+            
+            // 注入用户选择的参数，供前端展示使用
+            const enrichedResult = {
+                ...result,
+                asset_name: selectedAsset,
+                timeframe: selectedTimeframe,
+                data_length: klineCount, // 或者使用后端返回的实际数据点数
+                pattern_chart: result.pattern_chart || result.pattern_image,
+                trend_chart: result.trend_chart || result.trend_image
+            };
+            
+            setAnalysisResult(enrichedResult);
             
             // Scroll to results
             setTimeout(() => {

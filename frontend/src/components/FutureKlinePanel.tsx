@@ -12,31 +12,36 @@ export default function FutureKlinePanel() {
             <div className={styles.panel}>
                 <div className={styles.panelHeader}>
                     <h3 className={styles.panelTitle}>
-                        <i className="fas fa-chart-line"></i> 未来价格预测
+                        <i className="fas fa-history"></i> 未来走势回测验证
                     </h3>
                 </div>
                 <div className={styles.panelBody}>
                     {/* 图表展示 */}
                     <div className={styles.chartContainer}>
-                        <div className={styles.chartTitle}>未来K线预测图</div>
+                        <div className={styles.chartTitle}>分析时间点后的实际K线走势</div>
                         <div className={styles.chartImageWrapper}>
                             {future_kline_chart_base64 ? (
                                 <img 
                                     src={`data:image/png;base64,${future_kline_chart_base64}`} 
-                                    alt="Future Kline Prediction" 
+                                    alt="Future Kline Verification" 
                                     className={styles.chartImage}
                                 />
                             ) : (
-                                <div className={styles.chartPlaceholder}>暂无预测图表数据</div>
+                                <div className={styles.chartPlaceholder}>
+                                    <div className="text-center">
+                                        <p>暂无回测数据</p>
+                                        <small className="text-muted">仅在选择"到指定时间为止的N根K线"模式并设置了未来K线数量时可用</small>
+                                    </div>
+                                </div>
                             )}
-                            <div className={styles.chartCaption}>基于多重模型集成的未来价格走势预测（仅供参考）</div>
+                            <div className={styles.chartCaption}>展示分析时间点之后实际发生的市场走势，用于验证AI决策的准确性（非预测生成）</div>
                         </div>
                     </div>
 
                     {/* 数据表格 */}
                     {future_kline_data && future_kline_data.length > 0 && (
                         <div className={styles.tableContainer}>
-                            <div className={styles.tableTitle}>预测数据详情</div>
+                            <div className={styles.tableTitle}>实际行情数据详情</div>
                             <div className="overflow-x-auto">
                                 <table className={styles.table}>
                                     <thead>

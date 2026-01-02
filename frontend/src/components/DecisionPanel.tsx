@@ -315,13 +315,13 @@ export default function DecisionPanel() {
                             <div className={styles.priceItem}>
                                 <div className={styles.priceLabel}>预测周期</div>
                                 <div className={styles.priceValue}>
-                                    {singleDecision?.forecast_horizon || '24-48 hours'}
+                                    {singleDecision?.forecast_horizon || '未提供'}
                                 </div>
                             </div>
                             <div className={styles.priceItem}>
                                 <div className={styles.priceLabel}>风险回报比</div>
                                 <div className={styles.priceValue}>
-                                    {singleDecision?.risk_reward_ratio || singleDecision?.risk_reward || '1:2.5'}
+                                    {singleDecision?.risk_reward_ratio || singleDecision?.risk_reward || '未提供'}
                                 </div>
                             </div>
                              {data_method_short && analysis_time_display && (
@@ -388,7 +388,7 @@ export default function DecisionPanel() {
                     <div className={styles.reasoningSection}>
                         <div className={styles.reasoningLabel}>决策理由</div>
                         <div className={styles.reasoningContent}>
-                            {singleDecision?.justification || singleDecision?.reasoning || '基于技术指标、模式识别和趋势分析的综合分析，系统生成了交易决策建议。'}
+                            {singleDecision?.justification || singleDecision?.reasoning || '暂无详细决策理由。'}
                         </div>
                     </div>
                 </div>

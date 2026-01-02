@@ -5,6 +5,7 @@ Style Configuration - 图表样式配置
 """
 
 import mplfinance as mpf
+import matplotlib.pyplot as plt
 
 
 def get_trading_style():
@@ -27,6 +28,8 @@ def get_trading_style():
         'grid.alpha': 0.3,
         'axes.spines.top': False,
         'axes.spines.right': False,
+        'font.sans-serif': ['SimHei', 'Microsoft YaHei', 'Arial'],
+        'axes.unicode_minus': False,
     }
 
 
@@ -53,12 +56,22 @@ def create_trading_style(name="harley_trading"):
         mplfinance样式对象
     """
     market_colors = get_market_colors()
-    base_style = get_trading_style()
+    base_style_rc = get_trading_style()
+    
+    # 兼容性处理：检查可用的 matplotlib 样式
+    base_mpl_style = 'seaborn'
+    if base_mpl_style not in plt.style.available:
+        # 尝试查找替代的 seaborn 样式
+        seaborn_styles = [s for s in plt.style.available if 'seaborn' in s]
+        if seaborn_styles:
+            base_mpl_style = seaborn_styles[0]
+        else:
+            base_mpl_style = 'ggplot' # 保底方案
 
     return mpf.make_mpf_style(
-        base_mpl_style='seaborn',
+        base_mpl_style=base_mpl_style,
         marketcolors=market_colors,
-        rc=base_style,
+        rc=base_style_rc,
         y_on_right=True
     )
 

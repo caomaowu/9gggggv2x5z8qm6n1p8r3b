@@ -262,13 +262,13 @@ def monitor_llm_call(model_name: str = None):
 
 def monitor_image_generation(chart_type: str = None):
     """
-    图像生成监控装饰器
+    图像生成监控装饰器/上下文管理器
 
     Args:
         chart_type: 图表类型
     """
     name = f"图像生成: {chart_type}" if chart_type else "图像生成"
-    return performance_monitor(name)
+    return monitor_context(name)
 
 
 def monitor_api_call(api_name: str = None):
