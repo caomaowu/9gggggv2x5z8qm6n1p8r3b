@@ -1,0 +1,497 @@
+/**
+ * QuantAgent Results Components - 结果展示组件样式
+ * 专门用于分析结果、决策信息和数据展示的现代化组件样式
+ *
+ * @author 浮浮酱 (Hailei)
+ * @version 1.0.0
+ * @description 结果展示专用组件，包含分析卡片、决策面板、统计信息等
+ */
+
+@import url('../base/variables.css');
+
+/* ================================
+   面板组件系统
+   ================================ */
+
+.panel {
+    background: var(--white);
+    border: 2px solid var(--gray-200);
+    border-radius: 16px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    font-synthesis: none;
+}
+
+.panel:hover {
+    border-color: var(--etrade-purple-light);
+    box-shadow: 0 8px 24px rgba(86, 39, 216, 0.1);
+    transform: translateY(-2px);
+}
+
+.panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--etrade-purple), var(--etrade-purple-light));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.panel:hover::before {
+    opacity: 1;
+}
+
+.panel-title {
+    color: var(--color-text-primary);
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin: 0.3rem 0 0.5rem 0;
+    padding-bottom: 0.3rem;
+    border-bottom: 2px solid var(--gray-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.panel-title i {
+    font-size: 2rem;
+    color: var(--etrade-purple-light);
+    background: linear-gradient(135deg, var(--etrade-purple-light) 0%, var(--etrade-purple) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 2px 4px rgba(86, 39, 216, 0.2));
+}
+
+/* ================================
+   大型面板组件
+   ================================ */
+
+.large-panel {
+    background: var(--white);
+    border: 2px solid var(--gray-200);
+    border-radius: 16px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    position: relative;
+    transition: all 0.3s ease;
+    font-synthesis: none;
+}
+
+.large-panel:hover {
+    border-color: var(--etrade-purple-light);
+    box-shadow: 0 8px 24px rgba(86, 39, 216, 0.1);
+}
+
+.large-panel-title {
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 3px solid var(--etrade-purple-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+}
+
+.large-panel-title i {
+    font-size: 2.5rem;
+    background: linear-gradient(135deg, var(--etrade-purple-light) 0%, var(--etrade-purple) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 3px 6px rgba(86, 39, 216, 0.3));
+}
+
+.large-panel-content {
+    padding: 0.5rem 0;
+}
+
+.large-panel-content .panel-group-2 {
+    width: 100%;
+}
+
+.large-panel-content .panel {
+    height: fit-content;
+    min-height: 300px;
+}
+
+.large-panel-section {
+    margin-bottom: 0.6rem;
+}
+
+.large-panel-section:last-child {
+    margin-bottom: 0;
+}
+
+.large-panel-section h5 {
+    color: var(--etrade-purple);
+    font-weight: 600;
+    font-size: 1.2rem;
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.large-panel-section h5 i {
+    color: var(--etrade-purple-light);
+    font-size: 1.2rem;
+}
+
+/* ================================
+   决策结果展示系统
+   ================================ */
+
+.decision-result-container {
+    background: var(--white);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* AI版本信息显示 */
+.ai-version-info {
+    background: linear-gradient(135deg, #E8F4FD 0%, #F0F9FF 100%);
+    border: 2px solid #0EA5E9;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+    display: flex;
+    align-items: center;
+}
+
+.ai-version-info .icon {
+    margin-right: 1rem;
+}
+
+.ai-version-info .icon i {
+    font-size: 2rem;
+    color: #0EA5E9;
+}
+
+.ai-version-info .content {
+    flex: 1;
+}
+
+.ai-version-info .title {
+    color: #0C4A6E;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.ai-version-badge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.version-standard {
+    background-color: #10B981;
+    color: white;
+}
+
+.version-experimental {
+    background-color: #F59E0B;
+    color: white;
+}
+
+.version-description {
+    color: #475569;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin-top: 0.5rem;
+}
+
+/* ================================
+   决策详情展示
+   ================================ */
+
+.decision-details {
+    margin-top: 1rem;
+}
+
+.decision-details p {
+    margin-bottom: 0.8rem;
+    font-weight: 500;
+}
+
+.decision-details strong {
+    color: var(--gray-700);
+}
+
+.decision-reasoning {
+    background: rgba(59, 130, 246, 0.1);
+    padding: 1rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin-top: 0.5rem;
+    border-left: 4px solid var(--etrade-purple-light);
+}
+
+/* ================================
+   市场信息展示
+   ================================ */
+
+.market-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.market-info-item {
+    background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+    padding: 0.8rem;
+    border-radius: 8px;
+    border: 1px solid var(--gray-200);
+}
+
+.market-info-label {
+    font-weight: 600;
+    color: var(--gray-600);
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+}
+
+.market-info-value {
+    color: var(--gray-800);
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+/* ================================
+   价格信息显示
+   ================================ */
+
+.price-info-card {
+    background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+    border: 1px solid #CBD5E1;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.price-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.price-item {
+    text-align: center;
+}
+
+.price-label {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.price-value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' on, 'lnum' on;
+}
+
+.price-value.current {
+    color: var(--etrade-purple);
+}
+
+.price-value.stop-loss {
+    color: #dc3545;
+}
+
+.price-value.take-profit {
+    color: #28a745;
+}
+
+/* ================================
+   状态指示器
+   ================================ */
+
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-indicator.high {
+    background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%);
+    color: #065F46;
+}
+
+.status-indicator.medium {
+    background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+    color: #92400E;
+}
+
+.status-indicator.low {
+    background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
+    color: #374151;
+}
+
+.status-indicator i {
+    font-size: 0.8rem;
+}
+
+/* ================================
+   加载状态和空状态
+   ================================ */
+
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    color: var(--gray-500);
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--gray-200);
+    border-top: 4px solid var(--etrade-purple);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--gray-500);
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-state h5 {
+    color: var(--gray-600);
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+/* ================================
+   响应式适配
+   ================================ */
+
+@media (max-width: 768px) {
+    .panel-title {
+        font-size: 1rem;
+    }
+
+    .panel-title i {
+        font-size: 1.5rem;
+    }
+
+    .large-panel-title {
+        font-size: 1.1rem;
+    }
+
+    .large-panel-title i {
+        font-size: 2rem;
+    }
+
+    .market-info-grid {
+        grid-template-columns: 1fr;
+        gap: 0.8rem;
+    }
+
+    .price-info-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.8rem;
+    }
+
+    .ai-version-info {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .ai-version-info .icon {
+        margin-right: 0;
+        margin-bottom: 0.8rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .panel {
+        padding: 0.8rem;
+    }
+
+    .large-panel {
+        padding: 0.8rem;
+    }
+
+    .price-info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .decision-badge {
+        font-size: 1.2em;
+        padding: 0.8rem 1.2rem;
+    }
+}
+
+/* ================================
+   打印样式
+   ================================ */
+
+@media print {
+    .panel {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        break-inside: avoid;
+    }
+
+    .large-panel {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        break-inside: avoid;
+    }
+
+    .decision-badge {
+        background: #f8f9fa !important;
+        color: #000 !important;
+        border: 1px solid #000;
+    }
+}

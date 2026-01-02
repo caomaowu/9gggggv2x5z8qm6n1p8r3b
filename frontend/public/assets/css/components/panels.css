@@ -1,0 +1,671 @@
+/**
+ * Panels - 面板组件样式
+ *
+ * 此文件包含所有面板组件的样式
+ * 包括卡片、信息面板、结果展示面板等
+ *
+ * 创建时间: 2025-11-12
+ * 项目: QuantAgent Templates优化
+ */
+
+/* ========================================
+     面板基础样式
+     ======================================== */
+
+.panel {
+  background-color: var(--color-bg-primary);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.panel:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.panel-header {
+  padding: var(--spacing-lg) var(--spacing-xl);
+  background-color: var(--color-bg-secondary);
+  border-bottom: var(--border-width) solid var(--border-color);
+}
+
+.panel-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: var(--spacing-xs) 0 0 0;
+}
+
+.panel-body {
+  padding: var(--spacing-xl);
+}
+
+.panel-footer {
+  padding: var(--spacing-lg) var(--spacing-xl);
+  background-color: var(--color-bg-secondary);
+  border-top: var(--border-width) solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ========================================
+     卡片样式变体
+     ======================================== */
+
+.panel-default {
+  border-color: var(--border-color);
+}
+
+.panel-primary {
+  border-color: var(--color-primary);
+}
+
+.panel-primary .panel-header {
+  background-color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.panel-primary .panel-title {
+  color: var(--color-text-inverse);
+}
+
+.panel-primary .panel-subtitle {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.panel-success {
+  border-color: var(--color-success);
+}
+
+.panel-success .panel-header {
+  background-color: var(--color-success);
+  border-bottom-color: var(--color-success);
+}
+
+.panel-success .panel-title {
+  color: var(--color-text-inverse);
+}
+
+.panel-warning {
+  border-color: var(--color-warning);
+}
+
+.panel-warning .panel-header {
+  background-color: var(--color-warning);
+  border-bottom-color: var(--color-warning);
+}
+
+.panel-warning .panel-title {
+  color: var(--color-gray-900);
+}
+
+.panel-danger {
+  border-color: var(--color-danger);
+}
+
+.panel-danger .panel-header {
+  background-color: var(--color-danger);
+  border-bottom-color: var(--color-danger);
+}
+
+.panel-danger .panel-title {
+  color: var(--color-text-inverse);
+}
+
+.panel-info {
+  border-color: var(--color-info);
+}
+
+.panel-info .panel-header {
+  background-color: var(--color-info);
+  border-bottom-color: var(--color-info);
+}
+
+.panel-info .panel-title {
+  color: var(--color-text-inverse);
+}
+
+/* ========================================
+     无边框面板样式
+     ======================================== */
+
+.panel-borderless {
+  border: none;
+  box-shadow: none;
+}
+
+.panel-borderless .panel-header,
+.panel-borderless .panel-footer {
+  border: none;
+  background-color: transparent;
+}
+
+/* ========================================
+     紧凑面板样式
+     ======================================== */
+
+.panel-compact .panel-header {
+  padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.panel-compact .panel-body {
+  padding: var(--spacing-lg);
+}
+
+.panel-compact .panel-footer {
+  padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.panel-compact .panel-title {
+  font-size: var(--font-size-lg);
+}
+
+/* ========================================
+     大型面板样式
+     ======================================== */
+
+.panel-large .panel-header {
+  padding: var(--spacing-2xl) var(--spacing-3xl);
+}
+
+.panel-large .panel-body {
+  padding: var(--spacing-3xl);
+}
+
+.panel-large .panel-footer {
+  padding: var(--spacing-2xl) var(--spacing-3xl);
+}
+
+.panel-large .panel-title {
+  font-size: var(--font-size-2xl);
+}
+
+/* ========================================
+     统计面板样式
+     ======================================== */
+
+.panel-stats {
+  text-align: center;
+}
+
+.panel-stats .panel-body {
+  padding: var(--spacing-2xl) var(--spacing-xl);
+}
+
+.stats-number {
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  margin: 0;
+  line-height: 1;
+}
+
+.stats-label {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  margin: var(--spacing-sm) 0 0 0;
+  font-weight: var(--font-weight-medium);
+}
+
+.stats-change {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-full);
+}
+
+.stats-change.positive {
+  color: var(--color-success);
+  background-color: var(--color-success-light);
+}
+
+.stats-change.negative {
+  color: var(--color-danger);
+  background-color: var(--color-danger-light);
+}
+
+.stats-change i {
+  margin-right: var(--spacing-xs);
+}
+
+/* ========================================
+     分析结果面板样式
+     ======================================== */
+
+.panel-result {
+  position: relative;
+}
+
+.panel-result::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background-color: var(--color-primary);
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+}
+
+.panel-result.success::before {
+  background-color: var(--color-success);
+}
+
+.panel-result.warning::before {
+  background-color: var(--color-warning);
+}
+
+.panel-result.danger::before {
+  background-color: var(--color-danger);
+}
+
+.result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-lg);
+}
+
+.result-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.result-badge {
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-full);
+}
+
+.result-badge.primary {
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
+.result-badge.success {
+  background-color: var(--color-success);
+  color: var(--color-text-inverse);
+}
+
+.result-badge.warning {
+  background-color: var(--color-warning);
+  color: var(--color-gray-900);
+}
+
+.result-badge.danger {
+  background-color: var(--color-danger);
+  color: var(--color-text-inverse);
+}
+
+.result-content {
+  display: grid;
+  gap: var(--spacing-lg);
+}
+
+.result-metric {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md);
+  background-color: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.metric-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.metric-value {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+/* ========================================
+     图表面板样式
+     ======================================== */
+
+.panel-chart {
+  position: relative;
+}
+
+.chart-container {
+  position: relative;
+  height: 300px;
+  margin: var(--spacing-lg) 0;
+}
+
+.chart-container.large {
+  height: 400px;
+}
+
+.chart-container.small {
+  height: 200px;
+}
+
+.chart-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+.chart-description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--spacing-lg) 0;
+}
+
+.chart-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+}
+
+.chart-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-lg);
+  opacity: 0;
+  visibility: hidden;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.panel-chart:hover .chart-overlay {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ========================================
+     配置面板样式
+     ======================================== */
+
+.panel-config {
+  background-color: var(--color-bg-secondary);
+}
+
+.panel-config .panel-header {
+  background-color: var(--color-bg-tertiary);
+  border-bottom: none;
+}
+
+.config-section {
+  padding: var(--spacing-lg) 0;
+  border-bottom: var(--border-width) solid var(--border-color);
+}
+
+.config-section:last-child {
+  border-bottom: none;
+}
+
+.config-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+.config-description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--spacing-lg) 0;
+}
+
+.config-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.config-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md);
+  background-color: var(--color-bg-primary);
+  border-radius: var(--radius-md);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.config-option:hover {
+  background-color: var(--color-bg-tertiary);
+}
+
+.option-label {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.option-description {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: var(--spacing-xs);
+}
+
+/* ========================================
+     进度面板样式
+     ======================================== */
+
+.panel-progress {
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-lg);
+}
+
+.progress-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.progress-percentage {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  margin: 0;
+}
+
+.progress-bar-container {
+  height: 8px;
+  background-color: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: var(--spacing-lg);
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+  border-radius: var(--radius-full);
+  transition: width var(--duration-slow) var(--ease-out);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: progressShimmer 2s infinite;
+}
+
+@keyframes progressShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.progress-steps {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--spacing-lg);
+}
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  flex: 1;
+  position: relative;
+}
+
+.progress-step::before {
+  content: '';
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background-color: var(--color-bg-tertiary);
+  z-index: 0;
+}
+
+.progress-step:first-child::before {
+  display: none;
+}
+
+.progress-step.completed::before {
+  background-color: var(--color-success);
+}
+
+.progress-indicator {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background-color: var(--color-bg-tertiary);
+  border: 2px solid var(--color-bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  position: relative;
+  z-index: 1;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.progress-step.completed .progress-indicator {
+  background-color: var(--color-success);
+  border-color: var(--color-success);
+  color: var(--color-text-inverse);
+}
+
+.progress-step.active .progress-indicator {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  box-shadow: 0 0 0 4px rgba(86, 39, 216, 0.1);
+}
+
+.progress-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: var(--spacing-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.progress-step.completed .progress-label,
+.progress-step.active .progress-label {
+  color: var(--color-text-primary);
+}
+
+/* ========================================
+     响应式面板
+     ======================================== */
+
+@media (max-width: 768px) {
+  .panel-header,
+  .panel-body,
+  .panel-footer {
+    padding: var(--spacing-lg);
+  }
+
+  .panel-compact .panel-header,
+  .panel-compact .panel-body,
+  .panel-compact .panel-footer {
+    padding: var(--spacing-md);
+  }
+
+  .panel-large .panel-header,
+  .panel-large .panel-body,
+  .panel-large .panel-footer {
+    padding: var(--spacing-lg);
+  }
+
+  .stats-number {
+    font-size: var(--font-size-3xl);
+  }
+
+  .result-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+
+  .chart-container {
+    height: 250px;
+  }
+
+  .progress-steps {
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+  }
+
+  .progress-step {
+    flex: 0 0 calc(50% - var(--spacing-sm));
+  }
+
+  .progress-step::before {
+    display: none;
+  }
+}

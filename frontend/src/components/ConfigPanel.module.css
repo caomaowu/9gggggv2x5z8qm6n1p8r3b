@@ -1,0 +1,211 @@
+.panel {
+    background: var(--white);
+    border: 2px solid var(--gray-200);
+    border-radius: 16px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    font-synthesis: none;
+    margin-bottom: 2rem;
+}
+
+.panel:hover {
+    border-color: var(--etrade-purple-light);
+    box-shadow: 0 8px 24px rgba(86, 39, 216, 0.1);
+    transform: translateY(-2px);
+}
+
+.panelTitle {
+    color: var(--color-text-primary);
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin: 0.3rem 0 0.5rem 0;
+    padding-bottom: 0.3rem;
+    border-bottom: 2px solid var(--gray-100);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.panelTitle i {
+    font-size: 1.5rem;
+    color: var(--etrade-purple-light);
+    background: linear-gradient(135deg, var(--etrade-purple-light) 0%, var(--etrade-purple) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 2px 4px rgba(86, 39, 216, 0.2));
+}
+
+.formGroup {
+    margin-bottom: 1.5rem;
+}
+
+.formLabel {
+    display: flex;
+    align-items: center;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: 0.75rem;
+}
+
+.formLabel i {
+    color: var(--gray-500);
+    margin-right: 0.5rem;
+}
+
+.formControl {
+    display: block;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--gray-700);
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 2px solid var(--gray-200);
+    border-radius: 0.5rem;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.formControl:focus {
+    color: var(--gray-700);
+    background-color: #fff;
+    border-color: var(--etrade-purple);
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(86, 39, 216, 0.1);
+}
+
+.formControl:disabled {
+    background-color: var(--gray-100);
+    opacity: 1;
+}
+
+.formRange {
+    width: 100%;
+    height: 0.5rem;
+    padding: 0;
+    background-color: var(--gray-200);
+    border-radius: 1rem;
+    appearance: none;
+    cursor: pointer;
+}
+
+.formRange::-webkit-slider-thumb {
+    appearance: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    background: var(--etrade-purple);
+    border: 0;
+    border-radius: 50%;
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.formRange::-webkit-slider-thumb:hover {
+    background: var(--etrade-purple-light);
+}
+
+.datetimeConfigSection {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background-color: #F9FAFB;
+    border-radius: 12px;
+    border: 1px solid #E5E7EB;
+}
+
+.aiConfigGrid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+}
+
+.dualModelSettings {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: #F9FAFB;
+    border-radius: 0.5rem;
+    border: 1px solid #E5E7EB;
+}
+
+/* Toggle Switch */
+.formSwitch {
+    padding-left: 2.5em;
+    display: inline-block;
+    position: relative;
+}
+
+.formCheckInput {
+    height: 1.5em;
+    width: 3em;
+    margin-left: -2.5em;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba%280, 0, 0, 0.25%29'/%3e%3c/svg%3e");
+    background-position: left center;
+    border-radius: 3em;
+    transition: background-position .15s ease-in-out;
+    appearance: none;
+    background-color: #e9ecef;
+    border: 1px solid rgba(0,0,0,.25);
+    vertical-align: top;
+    background-repeat: no-repeat;
+    background-size: contain;
+    cursor: pointer;
+}
+
+.formCheckInput:checked {
+    background-position: right center;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+    background-color: var(--etrade-purple);
+    border-color: var(--etrade-purple);
+}
+
+.btn {
+    display: inline-block;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--gray-700);
+    text-align: center;
+    text-decoration: none;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none;
+    background-color: transparent;
+    border: 1px solid transparent;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.9rem;
+    border-radius: 0.375rem;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.btnPrimary {
+    color: #fff;
+    background-color: var(--etrade-purple);
+    border-color: var(--etrade-purple);
+}
+
+.btnPrimary:hover {
+    color: #fff;
+    background-color: var(--etrade-purple-light);
+    border-color: var(--etrade-purple-light);
+}
+
+.btnOutlinePrimary {
+    color: var(--etrade-purple);
+    border-color: var(--etrade-purple);
+}
+
+.btnOutlinePrimary:hover {
+    color: #fff;
+    background-color: var(--etrade-purple);
+    border-color: var(--etrade-purple);
+}
+
+.textMuted {
+    color: #6c757d;
+    font-size: 0.875em;
+    margin-top: 0.5rem;
+    display: block;
+}

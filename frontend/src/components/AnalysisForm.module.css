@@ -1,0 +1,144 @@
+.analysisSection {
+    padding-top: 3rem;
+    padding-bottom: 5rem;
+    background-color: var(--gray-50);
+}
+
+.formContainer {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+.formSection {
+    background: var(--white);
+    border-radius: 20px;
+    padding: 3rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--gray-200);
+}
+
+@media (max-width: 768px) {
+    .formSection {
+        padding: 1.5rem;
+    }
+}
+
+.sectionTitle {
+    text-align: center;
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--etrade-purple);
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.sectionTitle i {
+    font-size: 1.5rem;
+    color: var(--etrade-purple-light);
+}
+
+.panelGroup {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+}
+
+@media (min-width: 992px) {
+    .panelGroup {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.runControlsContainer {
+    margin-top: 3rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.startAnalysisBtn {
+    padding: 1rem 3rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+    border-radius: 50px;
+    background: linear-gradient(135deg, var(--etrade-purple) 0%, #6366f1 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.startAnalysisBtn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+}
+
+.startAnalysisBtn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.startAnalysisBtn:disabled {
+    opacity: 0.8;
+    cursor: not-allowed;
+    background: linear-gradient(135deg, var(--gray-400) 0%, var(--gray-500) 100%);
+    box-shadow: none;
+}
+
+.progressContainer {
+    width: 100%;
+    max-width: 28rem;
+    margin-top: 1.5rem;
+}
+
+.progressLabel {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+}
+
+.progressText {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #1d4ed8; /* blue-700 */
+}
+
+@media (prefers-color-scheme: dark) {
+    .progressText {
+        color: white;
+    }
+}
+
+.progressBarTrack {
+    width: 100%;
+    background-color: var(--gray-200);
+    border-radius: 9999px;
+    height: 0.625rem;
+}
+
+.progressBarFill {
+    background-color: #2563eb; /* blue-600 */
+    height: 0.625rem;
+    border-radius: 9999px;
+    transition: width 0.3s ease-out;
+}
+
+.progressSteps {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+.stepActive {
+    color: #3b82f6; /* blue-500 */
+    font-weight: 700;
+}

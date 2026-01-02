@@ -1,0 +1,152 @@
+.autoBeautify {
+    font-family: 'Microsoft YaHei', 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Source Han Sans SC', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+    line-height: 1.7;
+    color: var(--gray-800);
+    word-wrap: break-word;
+}
+
+/* Headings */
+.autoBeautify :global(h1), 
+.autoBeautify :global(h2), 
+.autoBeautify :global(h3), 
+.autoBeautify :global(h4), 
+.autoBeautify :global(h5), 
+.autoBeautify :global(h6) {
+    color: var(--color-text-primary);
+    font-weight: 600;
+    margin-top: 1.2rem;
+    margin-bottom: 0.8rem;
+    line-height: 1.4;
+}
+
+.autoBeautify :global(h3) {
+    font-size: 1.2rem;
+    border-left: 4px solid var(--etrade-purple-light);
+    padding-left: 0.8rem;
+    background: linear-gradient(90deg, rgba(86, 39, 216, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
+    padding-top: 0.2rem;
+    padding-bottom: 0.2rem;
+    border-radius: 0 4px 4px 0;
+}
+
+/* Paragraphs */
+.autoBeautify :global(p) {
+    margin-bottom: 0.8rem;
+    font-size: 1rem;
+    line-height: 1.75;
+}
+
+/* Lists */
+.autoBeautify :global(ul), 
+.autoBeautify :global(ol) {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+}
+
+.autoBeautify :global(li) {
+    margin-bottom: 0.4rem;
+    position: relative;
+}
+
+.autoBeautify :global(ul) {
+    list-style-type: disc;
+}
+
+.autoBeautify :global(ol) {
+    list-style-type: decimal;
+}
+
+/* Emphasis & Strong */
+.autoBeautify :global(strong) {
+    font-weight: 700;
+    color: var(--etrade-purple); /* Highlight important text */
+}
+
+.autoBeautify :global(em) {
+    font-style: italic;
+    color: var(--gray-600);
+}
+
+/* Blockquotes (Callouts) */
+.autoBeautify :global(blockquote) {
+    margin: 1rem 0;
+    padding: 1rem 1.2rem;
+    background: #F8FAFC;
+    border-left: 4px solid #0EA5E9;
+    border-radius: 0 8px 8px 0;
+    color: var(--gray-700);
+    font-style: italic;
+}
+
+.autoBeautify :global(blockquote p:last-child) {
+    margin-bottom: 0;
+}
+
+/* Horizontal Rule */
+.autoBeautify :global(hr) {
+    border: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gray-300), transparent);
+    margin: 1.5rem 0;
+}
+
+/* Code */
+.autoBeautify :global(code) {
+    background: var(--gray-100);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.9em;
+    color: #BE185D;
+}
+
+.autoBeautify :global(pre) {
+    background: var(--gray-900);
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+}
+
+.autoBeautify :global(pre code) {
+    background: transparent;
+    color: var(--gray-100);
+    padding: 0;
+}
+
+/* Links */
+.autoBeautify :global(a) {
+    color: var(--etrade-purple-light);
+    text-decoration: none;
+    border-bottom: 1px dashed currentColor;
+    transition: all 0.2s ease;
+}
+
+.autoBeautify :global(a:hover) {
+    color: var(--etrade-purple);
+    border-bottom-style: solid;
+}
+
+/* Tables */
+.autoBeautify :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+    font-size: 0.95rem;
+}
+
+.autoBeautify :global(th),
+.autoBeautify :global(td) {
+    padding: 0.75rem;
+    border: 1px solid var(--gray-200);
+    text-align: left;
+}
+
+.autoBeautify :global(th) {
+    background-color: var(--gray-50);
+    font-weight: 600;
+}
+
+.autoBeautify :global(tr:nth-child(even)) {
+    background-color: var(--gray-50);
+}

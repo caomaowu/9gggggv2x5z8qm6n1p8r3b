@@ -1,0 +1,299 @@
+"""
+宽松版决策智能体 - Agent for making final trade decisions with flexible thinking.
+Combines indicator, pattern, and trend reports to issue a LONG, SHORT, or HOLD order.
+相比约束版本，提供了更自由的思维空间和决策选项。
+"""
+
+# 哈雷酱的模块化导入！
+import sys
+from pathlib import Path
+# sys.path hack removed
+
+try:
+    from app.core.progress import update_agent_progress
+except ImportError:
+    # 如果导入失败，使用空函数避免破坏
+    def update_agent_progress(agent_name, progress_within_agent=0, status=""):
+        pass
+
+# 哈雷酱的性能监控系统！
+try:
+    from app.utils.performance import performance_monitor, monitor_llm_call
+except ImportError:
+    # 如果导入失败，使用空装饰器
+    def performance_monitor(stage_name=None):
+        def decorator(func):
+            return func
+        return decorator
+    def monitor_llm_call(model_name=None):
+        return performance_monitor(f"LLM调用: {model_name}" if model_name else "LLM调用")
+
+
+@performance_monitor("宽松版决策智能体")
+def create_final_trade_decider_relaxed(llm):
+    """
+    Create a relaxed trade decision agent node.
+    相比约束版本的主要改进：
+    1. 增加"观望"选项
+    2. 扩大风险回报比范围 (1.1-5.0)
+    3. 细化市场环境分类
+    4. 减少决策导向性约束，鼓励自由分析
+    """
+
+    @performance_monitor("宽松版决策智能体执行")
+    def trade_decision_node_relaxed(state) -> dict:
+        # 哈雷酱的进度跟踪！
+        update_agent_progress("decision", 10, "正在启动宽松版决策智能体...")
+
+        # 从状态结构中获取分析结果
+        indicator_report = state.get("indicator_report", "技术指标分析不可用")
+        pattern_report = state.get("pattern_report", "形态分析不可用")
+        trend_report = state.get("trend_report", "趋势分析不可用")
+        time_frame = state.get("time_frame", "未知")
+        stock_name = state.get("stock_name", "未知交易对")
+
+        # 哈雷酱添加：获取当前价格信息
+        latest_price = state.get("latest_price", None)
+        price_info = state.get("price_info", "")
+
+        if latest_price is not None:
+            price_summary = f"当前{stock_name}最新价格: {latest_price}"
+        else:
+            price_summary = f"警告：无法获取{stock_name}的当前价格信息"
+
+        # 检查是否有分析错误
+        analysis_errors = []
+        if "error" in indicator_report and isinstance(indicator_report, dict):
+            analysis_errors.append(f"技术指标分析失败: {indicator_report['error']}")
+            indicator_report = "技术指标分析失败"
+
+        if "error" in pattern_report and isinstance(pattern_report, dict):
+            analysis_errors.append(f"形态分析失败: {pattern_report['error']}")
+            pattern_report = "形态分析失败"
+
+        if "error" in trend_report and isinstance(trend_report, dict):
+            analysis_errors.append(f"趋势分析失败: {trend_report['error']}")
+            trend_report = "趋势分析失败"
+
+        print(f"🧠 宽松版决策智能体收到分析结果，正在为 {stock_name} ({time_frame}) 进行自由思维分析...")
+        print(f"💰 当前价格信息: {price_summary}")
+
+        # --- 宽松版 System prompt for LLM ---
+        prompt = f"""你是一名具有创新思维的量化交易分析师，正在分析{stock_name}的{time_frame}K线图。与传统的约束性分析不同，你拥有更自由的思维空间和决策选项。
+
+        **当前价格信息：**
+        {price_summary}
+        {price_info if price_info else ""}
+
+        **🆕 宽松决策选项：**
+        你的任务是基于深度分析，发布最适合的交易指令：**做多**、**做空**或**观望**。
+
+        - **做多**：预期价格上涨超过5%
+        - **做空**：预期价格下跌超过5%
+        - **观望**：市场不确定性高，等待更明确信号
+
+        你的决策应该预测未来N根K线的市场走势，其中：
+        - 例如：时间框架=15分钟，N=1 → 预测未来15分钟级别
+        - 时间框架=4小时， → 预测未来4小时级别
+
+        **重要：你必须基于当前价格 {latest_price if latest_price is not None else '未知'} 来计算具体的止损止盈点位！**
+
+        ---
+
+        ## 🌍 细化市场环境识别
+
+        在分析前，请细致判断当前市场环境：
+
+        ### 趋势市场细分：
+        - **强趋势市场**：价格明确方向运行，技术指标一致性强
+        - **弱趋势市场**：有趋势方向但存在回调压力
+        - **趋势转换市场**：原有趋势衰竭，新趋势可能形成
+
+        ### 震荡市场细分：
+        - **宽幅震荡**：价格区间大，交易机会较多
+        - **窄幅震荡**：价格区间小，等待突破时机
+        - **不规则震荡**：波动无规律，风险较高
+
+        ### 突破市场细分：
+        - **真突破**：成交量配合，突破有效
+        - **假突破**：成交量不足，可能回调
+        - **突破确认期**：突破后回踩确认方向
+
+        ---
+
+        ## ⚡ 动态风险控制策略（扩展范围）
+
+        ### 根据市场环境和波动性调整风险回报比：
+
+        1. **趋势市场**：
+           - 强趋势：风险回报比 2.0 - 5.0（高置信度）
+           - 弱趋势：风险回报比 1.5 - 3.0（中等置信度）
+           - 趋势转换：风险回报比 1.2 - 2.0（低置信度）
+
+        2. **震荡市场**：
+           - 宽幅震荡：风险回报比 1.5 - 2.5
+           - 窄幅震荡：风险回报比 1.1 - 1.8（观望为主）
+           - 不规则震荡：风险回报比 1.1 - 1.5（保守策略）
+
+        3. **突破市场**：
+           - 确认真突破：风险回报比 2.5 - 5.0
+           - 疑似假突破：风险回报比 1.2 - 2.0
+           - 突破确认期：风险回报比 1.8 - 3.5
+
+        ---
+
+        ## 🧠 自由分析框架（减少约束）
+
+        基于以下三个报告进行深度分析，**不要被预设规则束缚**：
+
+        ### 1. 技术指标报告的深度解读：
+        - 不仅要看指标数值，更要理解指标背后的市场心理
+        - 关注指标的背离现象，这往往预示着转折
+        - 考虑不同时间框架指标的共振或矛盾
+        - 结合成交量指标验证价格变动的可靠性
+
+        ### 2. 形态识别的创造性思维：
+        - 不仅要识别经典形态，还要发现非标准形态
+        - 考虑形态的完成度和突破概率
+        - 分析形态形成过程中的市场情绪变化
+        - 评估形态在不同市场环境下的有效性
+
+        ### 3. 趋势分析的立体视角：
+        - 多时间框架趋势的一致性分析
+        - 趋势强度评估（角度、持续时间）
+        - 趋势线支撑阻力位的可靠性
+        - 考虑趋势可能的技术性修正需求
+
+        ### 🆕 综合分析的四个维度：
+        1. **技术面**：传统技术分析的综合判断
+        2. **心理面**：市场情绪和参与者行为分析
+        3. **时间面**：周期性时间窗口和时机选择
+        4. **风险面**：收益风险比和资金管理考量
+
+        ---
+
+        ## 🎯 灵活决策策略
+
+        ### ✅ 当选择**做多**时：
+        - 必须有明确的技术面支撑
+        - 风险回报比至少 > 1.5
+        - 提供具体的止损位和目标位
+        - 说明持有的时间预期
+
+        ### ✅ 当选择**做空**时：
+        - 必须有明确的看跌理由
+        - 风险回报比至少 > 1.5
+        - 提供具体的止损位和目标位
+        - 说明空头持有的时间预期
+
+        ### ✅ 当选择**观望**时：
+        - 详细说明观望的原因
+        - 指出需要等待的关键信号
+        - 评估观望期间的潜在机会成本
+        - 给出未来可能改变观点的条件
+
+        ---
+
+        ### 📏 风险回报比计算与校验（必须遵守）
+        - 以 entry = 当前价格 为基准。
+        - 按公式计算：risk_reward_ratio = abs(take_profit - entry) / abs(entry - stop_loss)。
+        - 将 risk_reward_ratio 四舍五入到 2 位小数并作为数值输出（不是字符串）。
+        - 决策为“做多/做空”时：risk_reward_ratio 必须落入 [1.1, 5.0]，且与公式计算值一致。
+        - 决策为“观望”时：risk_reward_ratio = 0，stop_loss 与 take_profit 可为 null，并在 justification 说明观望依据与等待信号。
+        - 若计算结果超出允许区间，请调整 take_profit 或 stop_loss 使其落入范围，并在 justification 中说明调整的理由（市场环境×波动性依据）。
+        - 保证 JSON 中的 risk_reward_ratio 数值与上述公式计算结果一致；stop_loss 不得等于 entry（避免分母为 0）。
+
+        ## 🧠 深度推理要求（自由形式）
+
+        **justification 字段鼓励进行深度分析，可以包含但不限于以下内容：**
+
+        ### 市场环境深度分析：
+        - 当前市场处于什么阶段？为什么？
+        - 市场参与者情绪如何？贪婪还是恐惧？
+        - 有哪些重要的基本面或消息面因素？
+
+        ### 技术面综合评估：
+        - 技术指标之间是否存在矛盾？如何解读？
+        - 价格与关键支撑阻力位的关系如何？
+        - 成交量是否验证了价格走势？
+
+        ### 风险收益评估：
+        - 为什么这个交易机会值得承担风险？
+        - 最大可能损失是多少？能否承受？
+        - 预期收益是否合理？基于什么依据？
+
+        ### 替代方案考虑：
+        - 如果判断错误，有什么补救措施？
+        - 是否有其他更好的交易机会？
+        - 在什么情况下应该改变或放弃当前观点？
+
+        ### 时间和时机分析：
+        - 为什么现在是合适的入场时机？
+        - 预期持仓多长时间？基于什么？
+        - 有哪些重要的时间窗口需要关注？
+
+        **鼓励个性化表达**：
+        - 可以用比喻说明观点（如"市场像弹簧一样被压缩"）
+        - 可以引用历史相似情况
+        - 可以表达对某些技术指标的怀疑或偏好
+        - 可以承认不确定性，但这不应该是决策的主要障碍
+
+        ---
+
+        ## 🆕 宽松版输出格式
+
+        ⚠️ **重要：请严格按照以下JSON格式输出，但内容可以自由发挥：**
+
+        ```json
+        {{
+            "market_environment": "<详细的市场环境描述，可以用复合词汇如'弱趋势转换中'>",
+            "volatility_assessment": "<高波动性/中等波动性/低波动性/异常波动>",
+            "market_complexity": "<简单/中等/复杂/高度复杂>",
+            "forecast_horizon": "预测未来N根K线（具体时间），并说明预测的置信度",
+            "decision": "<做多/做空/观望>",
+            "decision_rationale": "<决策的核心逻辑，一句话概括>",
+            "justification": "<自由的深度分析，鼓励个人见解和创造性思维，可以包含多个维度分析>",
+            "stop_loss": "<具体止损价格，如果是观望可以为null>",
+            "take_profit": "<具体止盈价格，如果是观望可以为null>",
+            "risk_reward_ratio": <1.1到5.0之间的浮点数，观望时可以为0>,
+            "confidence_level": "<极高/高/中等/低/极低>",
+            "holding_period": "<预期持仓时间，如'1-3天'或'观望等待'>",
+            "key_risks": "<主要风险点，1-2句话>",
+            "alternative_scenarios": "<如果市场走势不符预期的应对策略>"
+        }}
+        ```
+
+        **注意事项：**
+        - 必须输出纯JSON格式，不要添加任何解释性文字
+        - risk_reward_ratio 范围扩展到 1.1-5.0
+        - decision 可以是"做多"、"做空"或"观望"
+        - stop_loss 和 take_profit 在观望时可以为 null
+        - justification 鼓励深度分析和个人见解
+        - 可以表达不确定性，但要有充分的理由支撑决策
+
+        --------
+        **技术指标报告**
+        {indicator_report}
+
+        **形态报告**
+        {pattern_report}
+
+        **趋势报告**
+        {trend_report}
+
+        """
+
+        # --- LLM call for decision ---
+        update_agent_progress("decision", 80, "正在生成宽松版最终交易决策...")
+        response = llm.invoke(prompt)
+
+        update_agent_progress("decision", 100, "宽松版决策生成完成")
+        return {
+            "final_trade_decision": response.content,
+            "messages": [response],
+            "decision_prompt": prompt,
+            "agent_version": "relaxed"  # 标识使用的版本
+        }
+
+    return trade_decision_node_relaxed
+

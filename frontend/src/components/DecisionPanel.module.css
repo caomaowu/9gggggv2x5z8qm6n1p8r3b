@@ -1,0 +1,386 @@
+.panel {
+    background: var(--white);
+    border: 2px solid var(--gray-200);
+    border-radius: 16px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    font-synthesis: none;
+}
+
+.panel:hover {
+    border-color: var(--etrade-purple-light);
+    box-shadow: 0 8px 24px rgba(86, 39, 216, 0.1);
+    transform: translateY(-2px);
+}
+
+.panelTitle {
+    color: var(--color-text-primary);
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin: 0.3rem 0 0.5rem 0;
+    padding-bottom: 0.3rem;
+    border-bottom: 2px solid var(--gray-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+/* AI版本信息显示 */
+.aiVersionInfo {
+    background: linear-gradient(135deg, #E8F4FD 0%, #F0F9FF 100%);
+    border: 2px solid #0EA5E9;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+    display: flex;
+    align-items: center;
+}
+
+.aiVersionInfo .icon {
+    margin-right: 1rem;
+}
+
+.aiVersionInfo .icon i {
+    font-size: 2rem;
+    color: #0EA5E9;
+}
+
+.aiVersionInfo .content {
+    flex: 1;
+}
+
+.aiVersionInfo .title {
+    color: #0C4A6E;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.versionBadge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.versionExperimental {
+    background-color: #E0E7FF;
+    color: #4F46E5;
+    border: 1px solid #C7D2FE;
+}
+
+.versionStandard {
+    background-color: #DCFCE7;
+    color: #15803D;
+    border: 1px solid #86EFAC;
+}
+
+.versionDescription {
+    font-size: 0.85rem;
+    color: #64748B;
+    margin-top: 0.5rem;
+    font-style: italic;
+}
+
+/* 双模型对比结果 */
+.dualModelResults {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.comparisonStatus {
+    text-align: center;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.comparisonStatus h6 {
+    color: var(--gray-600);
+    margin-bottom: 0.5rem;
+}
+
+.modelVsContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.modelBadge {
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.modelA {
+    background-color: #E0E7FF;
+    color: #4338CA;
+}
+
+.modelB {
+    background-color: #FCE7F3;
+    color: #BE185D;
+}
+
+.vsSeparator {
+    font-weight: 800;
+    color: var(--gray-400);
+    font-style: italic;
+}
+
+.consensusIndicator .badge {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    border-radius: 8px;
+}
+
+.consensus {
+    background-color: #DCFCE7;
+    color: #15803D;
+}
+
+.divergent {
+    background-color: #FEE2E2;
+    color: #B91C1C;
+}
+
+.modelInfoGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* 默认两列 */
+    gap: 1rem;
+}
+
+@media (min-width: 768px) {
+    .modelInfoGrid {
+        grid-template-columns: repeat(4, 1fr); /* 大屏幕四列 */
+    }
+}
+
+.modelInfoItem {
+    background: var(--gray-50);
+    padding: 0.8rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.modelInfoLabel {
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    margin-bottom: 0.3rem;
+}
+
+.modelInfoValue {
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+/* 单模型结果 */
+.singleModelResults {
+    padding: 1rem 0;
+}
+
+.decisionBadge {
+    display: inline-block;
+    padding: 0.8rem 2rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    border-radius: 12px;
+    text-transform: uppercase;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.decisionLong {
+    background: linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%);
+    color: #15803D;
+    border: 2px solid #86EFAC;
+}
+
+.decisionShort {
+    background: linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%);
+    color: #B91C1C;
+    border: 2px solid #FCA5A5;
+}
+
+.decisionHold {
+    background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
+    color: #374151;
+    border: 2px solid #D1D5DB;
+}
+
+.priceInfoCard {
+    background: var(--gray-50);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.priceInfoGrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+    .priceInfoGrid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+.priceItem {
+    text-align: center;
+}
+
+.priceLabel {
+    font-size: 0.9rem;
+    color: var(--gray-500);
+    margin-bottom: 0.5rem;
+}
+
+.priceValue {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+.priceValue.current { color: var(--etrade-purple); }
+.priceValue.stopLoss { color: #DC2626; }
+.priceValue.takeProfit { color: #16A34A; }
+
+.confidenceSection {
+    margin: 1.5rem 0;
+}
+
+.confidenceLabel {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+.confidenceBar {
+    height: 12px;
+    background-color: var(--gray-200);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.confidenceBarFill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.5s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: white;
+}
+
+.confidenceHigh { background-color: #10B981; }
+.confidenceMedium { background-color: #F59E0B; }
+.confidenceLow { background-color: #EF4444; }
+
+.reasoningSection {
+    background-color: #FFFBEB;
+    border: 1px solid #FCD34D;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.reasoningLabel {
+    font-weight: 600;
+    color: #92400E;
+    margin-bottom: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.reasoningLabel::before {
+    content: '\f0eb'; /* fa-lightbulb */
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+}
+
+.reasoningContent {
+    color: #78350F;
+    line-height: 1.6;
+    font-size: 0.95rem;
+}
+
+/* Percentage Badge */
+.pctBadge {
+    display: inline-block;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 0.5rem;
+}
+
+.pctUp {
+    background-color: #DCFCE7;
+    color: #166534;
+}
+
+.pctDown {
+    background-color: #FEE2E2;
+    color: #991B1B;
+}
+
+/* Metric Items */
+.metricItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.5rem;
+    background-color: white;
+    border-radius: 6px;
+    border: 1px solid var(--gray-200);
+}
+
+.metricLabel {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+.metricValue {
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+.priceInline {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--gray-200);
+}
+
+.priceInline > div {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.9rem;
+}
+
+.priceInline .label {
+    color: var(--gray-500);
+}
+
+.priceInline .val {
+    font-weight: 600;
+}

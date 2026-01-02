@@ -1,0 +1,182 @@
+.largePanel {
+    background: var(--white);
+    border: 2px solid var(--gray-200);
+    border-radius: 16px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    font-synthesis: none;
+    margin-bottom: 2rem;
+}
+
+.largePanelTitle {
+    color: var(--color-text-primary);
+    font-weight: 600;
+    font-size: 1.3rem;
+    margin: 0.3rem 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--gray-100);
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.largePanelTitle i {
+    font-size: 2rem;
+    color: var(--etrade-purple-light);
+    background: linear-gradient(135deg, var(--etrade-purple-light) 0%, var(--etrade-purple) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.panelGroup {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+}
+
+@media (min-width: 992px) {
+    .panelGroup {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.panel {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    padding: 1.2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    height: 100%;
+}
+
+.panelTitle {
+    color: var(--color-text-primary);
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--gray-100);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.panelTitle i {
+    color: var(--etrade-purple-light);
+}
+
+.formGroup {
+    margin-bottom: 1rem;
+}
+
+.formGroup h5 {
+    font-size: 1rem;
+    color: var(--gray-700);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.emptyState {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--gray-500);
+    background: var(--gray-50);
+    border-radius: 8px;
+    border: 1px dashed var(--gray-300);
+}
+
+.emptyState i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: var(--gray-400);
+}
+
+.emptyState h5 {
+    font-size: 1.1rem;
+    color: var(--gray-600);
+    margin-bottom: 0.5rem;
+}
+
+.alert {
+    padding: 1rem;
+    background-color: #F8F9FA;
+    border: 1px solid #E9ECEF;
+    border-radius: 8px;
+    display: flex;
+    align-items: start;
+    gap: 0.8rem;
+    font-size: 0.95rem;
+    color: var(--gray-600);
+}
+
+.alert i {
+    color: var(--etrade-purple);
+    margin-top: 0.2rem;
+}
+
+/* Chart Styles */
+.chartContainer {
+    background: var(--white);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.chartWrapper {
+    position: relative;
+    padding: 0.5rem;
+}
+
+.chartImageWrapper {
+    position: relative;
+    width: 100%;
+    text-align: center;
+    background: var(--gray-50);
+    border-radius: 8px;
+    padding: 0.5rem;
+}
+
+.chartImage {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    display: block;
+    margin: 0 auto;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.chartCaption {
+    margin-top: 0.8rem;
+    font-size: 0.85rem;
+    color: var(--gray-500);
+    text-align: center;
+    font-style: italic;
+}
+
+.chartPlaceholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    color: var(--gray-500);
+    background-color: var(--gray-50);
+    border-radius: 8px;
+}
+
+.loadingSpinner {
+    width: 3rem;
+    height: 3rem;
+    border: 0.25rem solid var(--gray-200);
+    border-top-color: var(--etrade-purple);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

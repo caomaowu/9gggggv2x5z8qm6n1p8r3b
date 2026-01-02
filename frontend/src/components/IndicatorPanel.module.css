@@ -1,0 +1,63 @@
+.largePanel {
+    background: var(--white);
+    border: 2px solid var(--gray-200);
+    border-radius: 16px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    font-synthesis: none;
+    margin-bottom: 2rem;
+}
+
+.largePanel:hover {
+    border-color: var(--etrade-purple-light);
+    box-shadow: 0 8px 24px rgba(86, 39, 216, 0.1);
+    transform: translateY(-2px);
+}
+
+.largePanelTitle {
+    color: var(--color-text-primary);
+    font-weight: 600;
+    font-size: 1.3rem;
+    margin: 0.3rem 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--gray-100);
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.largePanelTitle i {
+    font-size: 2rem;
+    color: var(--etrade-purple-light);
+    background: linear-gradient(135deg, var(--etrade-purple-light) 0%, var(--etrade-purple) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.largePanelSection {
+    margin-bottom: 0.6rem;
+}
+
+.largePanelSection:last-child {
+    margin-bottom: 0;
+}
+
+/* Fallback list style */
+.fallbackList ul {
+    list-style: none;
+    padding: 0;
+}
+
+.fallbackList li {
+    margin-bottom: 0.5rem;
+    color: var(--gray-600);
+}
+
+.fallbackList strong {
+    color: var(--gray-800);
+    margin-right: 0.5rem;
+}

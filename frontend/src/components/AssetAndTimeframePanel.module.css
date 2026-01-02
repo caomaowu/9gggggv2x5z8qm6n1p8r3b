@@ -1,0 +1,308 @@
+.panel {
+    background: var(--white);
+    border: 2px solid var(--gray-200);
+    border-radius: 16px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    font-synthesis: none;
+    height: 100%;
+}
+
+.panel:hover {
+    border-color: var(--etrade-purple-light);
+    box-shadow: 0 8px 24px rgba(86, 39, 216, 0.1);
+    transform: translateY(-2px);
+}
+
+.panelTitle {
+    color: var(--color-text-primary);
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin: 0.3rem 0 0.5rem 0;
+    padding-bottom: 0.3rem;
+    border-bottom: 2px solid var(--gray-100);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.panelTitle i {
+    font-size: 1.5rem;
+    color: var(--etrade-purple-light);
+    background: linear-gradient(135deg, var(--etrade-purple-light) 0%, var(--etrade-purple) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 2px 4px rgba(86, 39, 216, 0.2));
+}
+
+.assetManagementPanel {
+    background: linear-gradient(135deg, #F8F5FF 0%, #F3E8FF 100%);
+    border: 2px solid #E9D5FF;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.managementControls {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.batchControls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.checkboxWrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    color: var(--gray-700);
+}
+
+.formGroup {
+    margin-bottom: 1.5rem;
+}
+
+.formLabel {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--gray-700);
+    font-weight: 500;
+}
+
+.formLabel i {
+    margin-right: 0.5rem;
+    color: var(--etrade-purple-light);
+}
+
+.assetButtonGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    justify-content: center;
+    max-width: 100%;
+}
+
+@media (max-width: 768px) {
+    .assetButtonGrid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+    }
+}
+
+.assetBtn {
+    background: var(--gray-100);
+    border: 2px solid var(--gray-200);
+    border-radius: 16px;
+    padding: 1rem 0.75rem;
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--gray-700);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    width: 120px;
+    height: 100px;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+    .assetBtn {
+        width: 100%;
+        min-height: 70px;
+        font-size: 0.9rem;
+    }
+}
+
+.assetBtn:hover {
+    background: var(--gray-200);
+    border-color: var(--etrade-purple-light);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(86, 39, 216, 0.15);
+}
+
+.assetBtn.active {
+    background: var(--etrade-purple-light);
+    border-color: var(--etrade-purple-light);
+    color: var(--white);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(86, 39, 216, 0.3);
+}
+
+.assetBtn i {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.customAssetBtn {
+    background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-200) 100%);
+    border: 2px dashed var(--gray-400);
+}
+
+.customAssetBtn:hover {
+    background: linear-gradient(135deg, var(--etrade-purple-light) 0%, var(--etrade-purple) 100%);
+    border-color: var(--etrade-purple-light);
+    color: var(--white);
+}
+
+.deleteBtn {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #EF4444;
+    color: white;
+    border: 2px solid white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.3s ease;
+    z-index: 10;
+    font-size: 0.7rem;
+}
+
+.assetBtn:hover .deleteBtn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.deleteBtn:hover {
+    background: #DC2626;
+    transform: scale(1.1);
+}
+
+/* Timeframe Selector */
+.timeframeSelector {
+    display: flex;
+    background: var(--gray-100);
+    border-radius: 12px;
+    padding: 4px;
+    gap: 2px;
+    border: 2px solid var(--gray-200);
+    position: relative;
+    overflow: hidden;
+}
+
+@media (max-width: 768px) {
+    .timeframeSelector {
+        overflow-x: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    .timeframeSelector::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+.timeframeBtn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    min-width: 0;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .timeframeBtn {
+        flex-shrink: 0;
+        min-width: 60px;
+        padding: 10px 12px;
+        font-size: 0.8rem;
+    }
+}
+
+.timeframeBtn:hover {
+    background: rgba(86, 39, 216, 0.1);
+    color: var(--etrade-purple);
+    transform: translateY(-1px);
+}
+
+.timeframeBtn.active {
+    background: var(--etrade-purple-light);
+    color: var(--white);
+    box-shadow: 0 4px 12px rgba(86, 39, 216, 0.3);
+    transform: translateY(-1px);
+}
+
+/* Custom Input */
+.inputGroup {
+    display: flex;
+    gap: 0.75rem;
+    align-items: stretch;
+}
+
+.formControl {
+    flex: 1;
+    border-radius: 12px;
+    border: 2px solid var(--gray-200);
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.formControl:focus {
+    border-color: var(--etrade-purple);
+    box-shadow: 0 0 0 3px rgba(36, 16, 86, 0.1);
+    outline: none;
+}
+
+.btn {
+    border-radius: 12px;
+    white-space: nowrap;
+    min-width: 100px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btnPrimary {
+    background: var(--etrade-purple);
+    color: white;
+    border: none;
+}
+
+.btnPrimary:hover {
+    background: var(--etrade-purple-light);
+}
+
+.btnOutlineSecondary {
+    background: transparent;
+    color: var(--gray-600);
+    border: 2px solid var(--gray-300);
+}
+
+.btnOutlineSecondary:hover {
+    background: var(--gray-100);
+    color: var(--gray-800);
+}

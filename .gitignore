@@ -1,0 +1,38 @@
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 日志文件
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python / Backend 忽略规则
+__pycache__/
+*.py[cod]
+*$py.class
+# 虚拟环境
+venv/
+.venv/
+env/
+.env
+# 构建产物
+build/
+dist/
+*.egg-info/
+# 临时生成的图表和数据
+backend/temp_charts/
+backend/*.png
+# Node / Frontend 忽略规则
+node_modules/
+# 前端构建产物
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+
+# IDE 配置文件
+.idea/
+.vscode/
+*.swp
+*.swo

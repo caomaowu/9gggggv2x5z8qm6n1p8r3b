@@ -1,0 +1,145 @@
+.section {
+    width: 100%;
+    margin-bottom: 2rem;
+}
+
+.panel {
+    background-color: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.panelHeader {
+    padding: 1rem 1.5rem;
+    background-color: var(--gray-50);
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.panelTitle {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.panelBody {
+    padding: 1.5rem;
+}
+
+/* Chart Styles */
+.chartContainer {
+    background: var(--white);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--gray-100);
+}
+
+.chartTitle {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--etrade-purple);
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.chartImageWrapper {
+    position: relative;
+    width: 100%;
+    text-align: center;
+    background: var(--gray-50);
+    border-radius: 8px;
+    padding: 0.5rem;
+    overflow: hidden;
+}
+
+.chartImage {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    display: block;
+    margin: 0 auto;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.chartImage:hover {
+    transform: scale(1.01);
+}
+
+.chartPlaceholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    color: var(--gray-500);
+    background-color: var(--gray-100);
+    border-radius: 8px;
+}
+
+.chartCaption {
+    margin-top: 0.8rem;
+    font-size: 0.85rem;
+    color: var(--gray-500);
+    text-align: center;
+    font-style: italic;
+}
+
+/* Table Styles */
+.tableContainer {
+    margin-top: 2rem;
+    overflow-x: auto;
+}
+
+.tableTitle {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 1rem;
+    padding-left: 0.5rem;
+    border-left: 4px solid var(--etrade-purple);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.table th {
+    background-color: var(--gray-800);
+    color: var(--white);
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-weight: 600;
+}
+
+.table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--gray-200);
+    color: var(--gray-700);
+}
+
+.table tr:nth-child(even) {
+    background-color: var(--gray-50);
+}
+
+.table tr:hover {
+    background-color: var(--gray-100);
+}
+
+.textSuccess {
+    color: #10B981;
+    font-weight: 600;
+}
+
+.textDanger {
+    color: #EF4444;
+    font-weight: 600;
+}

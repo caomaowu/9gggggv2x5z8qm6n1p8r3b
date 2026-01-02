@@ -1,0 +1,554 @@
+/**
+ * Forms - 表单组件样式
+ *
+ * 此文件包含所有表单组件的样式
+ * 包括输入框、选择框、复选框、单选框等
+ *
+ * 创建时间: 2025-11-12
+ * 项目: QuantAgent Templates优化
+ */
+
+/* ========================================
+     表单基础样式
+     ======================================== */
+
+.form-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+.form-label {
+  display: inline-block;
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.form-label.required::after {
+  content: ' *';
+  color: var(--color-danger);
+}
+
+.form-help {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: var(--spacing-xs);
+}
+
+.form-error {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+  margin-top: var(--spacing-xs);
+  animation: formErrorShake 0.5s ease-in-out;
+}
+
+@keyframes formErrorShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* ========================================
+     输入框样式
+     ======================================== */
+
+.form-control {
+  display: block;
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  background-image: none;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: all var(--duration-normal) var(--ease-out);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--border-color-focus);
+  box-shadow: 0 0 0 3px rgba(86, 39, 216, 0.1);
+}
+
+.form-control:hover {
+  border-color: var(--color-gray-300);
+}
+
+.form-control:disabled,
+.form-control[readonly] {
+  background-color: var(--color-bg-tertiary);
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.form-control.is-invalid {
+  border-color: var(--color-danger);
+  padding-right: calc(1.5em + 0.75rem);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right calc(0.375em + 0.1875rem) center;
+  background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+.form-control.is-valid {
+  border-color: var(--color-success);
+  padding-right: calc(1.5em + 0.75rem);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' width='8' height='8'%3e%3cpath fill='%2328a745' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right calc(0.375em + 0.1875rem) center;
+  background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+/* 输入框尺寸变体 */
+.form-control-sm {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+}
+
+.form-control-lg {
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: var(--font-size-lg);
+  border-radius: var(--radius-lg);
+}
+
+/* ========================================
+     文本域样式
+     ======================================== */
+
+.form-textarea {
+  resize: vertical;
+  min-height: 6rem;
+}
+
+.form-textarea-sm {
+  min-height: 4rem;
+}
+
+.form-textarea-lg {
+  min-height: 8rem;
+}
+
+/* ========================================
+     选择框样式
+     ======================================== */
+
+.form-select {
+  display: block;
+  width: 100%;
+  padding: var(--spacing-sm) calc(var(--spacing-md) + 1.5rem) var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right var(--spacing-sm) center;
+  background-size: 16px 12px;
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: all var(--duration-normal) var(--ease-out);
+  box-shadow: var(--shadow-sm);
+  appearance: none;
+  cursor: pointer;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: var(--border-color-focus);
+  box-shadow: 0 0 0 3px rgba(86, 39, 216, 0.1);
+}
+
+.form-select:hover {
+  border-color: var(--color-gray-300);
+}
+
+.form-select:disabled {
+  background-color: var(--color-bg-tertiary);
+  cursor: not-allowed;
+  opacity: var(--opacity-disabled);
+}
+
+/* ========================================
+     复选框和单选框样式
+     ======================================== */
+
+.form-check {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+  cursor: pointer;
+}
+
+.form-check-input {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0;
+  margin-right: var(--spacing-sm);
+  vertical-align: top;
+  background-color: var(--color-bg-primary);
+  border: var(--border-width) solid var(--border-color);
+  appearance: none;
+  cursor: pointer;
+  position: relative;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.form-check-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(86, 39, 216, 0.25);
+  border-color: var(--border-color-focus);
+}
+
+.form-check-input:checked {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.form-check-input[type="checkbox"]:checked {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10l3 3l6-6'/%3e%3c/svg%3e");
+}
+
+.form-check-input[type="radio"]:checked {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23fff'/%3e%3c/svg%3e");
+}
+
+.form-check-input:checked {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.form-check-input:indeterminate {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M5 10h10'/%3e%3c/svg%3e");
+}
+
+.form-check-label {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* ========================================
+     开关样式
+     ======================================== */
+
+.form-switch {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.form-switch-input {
+  position: relative;
+  width: 2.5rem;
+  height: 1.25rem;
+  margin: 0 var(--spacing-sm) 0 0;
+  background-color: var(--color-gray-300);
+  border-radius: var(--radius-full);
+  appearance: none;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.form-switch-input::before {
+  content: '';
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1rem;
+  height: 1rem;
+  background-color: var(--color-white);
+  border-radius: var(--radius-full);
+  transition: all var(--duration-normal) var(--ease-out);
+  box-shadow: var(--shadow-sm);
+}
+
+.form-switch-input:checked {
+  background-color: var(--color-primary);
+}
+
+.form-switch-input:checked::before {
+  transform: translateX(1.25rem);
+}
+
+.form-switch-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(86, 39, 216, 0.25);
+}
+
+.form-switch-label {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  user-select: none;
+}
+
+/* ========================================
+     范围滑块样式
+     ======================================== */
+
+.form-range {
+  width: 100%;
+  height: 1.5rem;
+  padding: 0;
+  background-color: transparent;
+  appearance: none;
+}
+
+.form-range:focus {
+  outline: none;
+}
+
+.form-range:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(86, 39, 216, 0.1);
+}
+
+.form-range:focus::-moz-range-thumb {
+  box-shadow: 0 0 0 3px rgba(86, 39, 216, 0.1);
+}
+
+.form-range::-moz-focus-outer {
+  border: 0;
+}
+
+.form-range::-webkit-slider-thumb {
+  width: 1rem;
+  height: 1rem;
+  margin-top: -0.25rem;
+  background-color: var(--color-primary);
+  border: 0;
+  border-radius: var(--radius-full);
+  appearance: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.form-range::-webkit-slider-thumb:hover {
+  background-color: var(--color-primary-light);
+  transform: scale(1.1);
+}
+
+.form-range::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  background-color: var(--color-primary);
+  border: 0;
+  border-radius: var(--radius-full);
+  appearance: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.form-range::-moz-range-thumb:hover {
+  background-color: var(--color-primary-light);
+  transform: scale(1.1);
+}
+
+.form-range::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 0.5rem;
+  color: transparent;
+  cursor: pointer;
+  background-color: var(--color-gray-200);
+  border-color: transparent;
+  border-radius: var(--radius-full);
+}
+
+.form-range::-moz-range-track {
+  width: 100%;
+  height: 0.5rem;
+  color: transparent;
+  cursor: pointer;
+  background-color: var(--color-gray-200);
+  border-color: transparent;
+  border-radius: var(--radius-full);
+}
+
+/* ========================================
+     输入组样式
+     ======================================== */
+
+.input-group {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  width: 100%;
+}
+
+.input-group .form-control {
+  position: relative;
+  flex: 1 1 auto;
+  width: 1%;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.input-group .form-control:focus {
+  z-index: 3;
+}
+
+.input-group-text,
+.input-group-prepend,
+.input-group-append {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin-bottom: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-secondary);
+  text-align: center;
+  white-space: nowrap;
+  background-color: var(--color-bg-secondary);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.input-group-text {
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.input-group-prepend .btn,
+.input-group-append .btn {
+  position: relative;
+  z-index: 2;
+}
+
+.input-group-prepend {
+  margin-right: -var(--border-width);
+}
+
+.input-group-append {
+  margin-left: -var(--border-width);
+}
+
+.input-group-prepend .form-control,
+.input-group-prepend .input-group-text {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.input-group-append .form-control,
+.input-group-append .input-group-text {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+/* ========================================
+     浮动标签样式
+     ======================================== */
+
+.form-floating {
+  position: relative;
+}
+
+.form-floating > .form-control {
+  height: calc(3.5rem + 2px);
+  line-height: 1.25;
+  padding: 1rem 0.75rem;
+}
+
+.form-floating > label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  padding: 1rem 0.75rem;
+  pointer-events: none;
+  border: var(--border-width) solid transparent;
+  transform-origin: 0 0;
+  transition: opacity 0.1s ease-in-out, transform 0.1s ease-in-out;
+}
+
+.form-floating > .form-control:focus ~ label,
+.form-floating > .form-control:not(:placeholder-shown) ~ label,
+.form-floating > .form-select ~ label {
+  opacity: 0.65;
+  transform: scale(0.85) translateY(-0.5rem) translateX(0.15rem);
+}
+
+/* ========================================
+     表单布局样式
+     ======================================== */
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: -0.5rem;
+  margin-left: -0.5rem;
+}
+
+.form-row > .col,
+.form-row > [class*="col-"] {
+  padding-right: 0.5rem;
+  padding-left: 0.5rem;
+}
+
+.form-inline {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+}
+
+.form-inline .form-group {
+  display: flex;
+  flex: 0 0 auto;
+  flex-flow: row wrap;
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.form-inline .form-control {
+  display: inline-block;
+  width: auto;
+  vertical-align: middle;
+}
+
+.form-inline .form-label {
+  justify-content: center;
+}
+
+.form-inline .form-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 0;
+  margin-right: var(--spacing-md);
+}
+
+/* ========================================
+     响应式表单
+     ======================================== */
+
+@media (max-width: 768px) {
+  .form-row {
+    margin-right: 0;
+    margin-left: 0;
+  }
+
+  .form-row > .col,
+  .form-row > [class*="col-"] {
+    padding-right: 0;
+    padding-left: 0;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .form-inline .form-group {
+    margin-bottom: var(--spacing-md);
+  }
+
+  .form-inline .form-control {
+    width: 100%;
+  }
+}

@@ -1,0 +1,15 @@
+fastapi>=0.109.0
+uvicorn>=0.27.0
+pydantic>=2.8.2
+pydantic-settings>=2.1.0
+requests
+pandas
+numpy
+python-dotenv
+cachetools
+# Existing dependencies that might be needed
+langchain
+langchain-openai
+langchain-core
+langgraph
+openai

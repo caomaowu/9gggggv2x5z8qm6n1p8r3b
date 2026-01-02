@@ -1,0 +1,26 @@
+.pageFooter {
+    background-color: var(--color-bg-secondary);
+    border-top: 1px solid var(--gray-200);
+    padding: 1.5rem 0;
+    margin-top: auto;
+    text-align: center;
+    color: var(--gray-600);
+}
+
+.pageFooter p {
+    margin-bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.pageFooter i {
+    color: var(--etrade-purple);
+}
+
+.pageFooter small {
+    color: var(--gray-500);
+    font-size: 0.85rem;
+}

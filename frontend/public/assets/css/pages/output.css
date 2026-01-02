@@ -1,0 +1,661 @@
+/**
+ * QuantAgent Output Page - 现代化样式重构
+ * 采用与demo_new.html相同的现代化架构模式
+ *
+ * @author 浮浮酱 (Hailei)
+ * @version 1.0.0
+ * @description 输出页面主样式文件，包含基础布局、响应式设计和核心组件样式
+ */
+
+/* ================================
+   设计令牌系统 - 继承项目主题
+   ================================ */
+@import url('../base/variables.css');
+
+/* ================================
+   基础布局与响应式设计
+   ================================ */
+
+/* 页面主容器 */
+.output-page-container {
+    font-family: var(--font-family-primary);
+    background: var(--etrade-purple-bg);
+    color: var(--gray-800);
+    line-height: 1.6;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+}
+
+/* 主容器 */
+.main-container {
+    background: var(--white);
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(36, 16, 86, 0.25);
+    margin: 2rem auto;
+    max-width: 1200px;
+    overflow: hidden;
+}
+
+/* ================================
+   现代化头部区域
+   ================================ */
+
+.header {
+    background: linear-gradient(135deg, var(--etrade-purple) 0%, var(--etrade-purple-light) 100%);
+    color: var(--white);
+    padding: 1.5rem 2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(86, 39, 216, 0.3);
+}
+
+/* 头部背景纹理 */
+.header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.1"/><circle cx="10" cy="60" r="0.5" fill="white" opacity="0.1"/><circle cx="90" cy="40" r="0.5" fill="white" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+    opacity: 0.3;
+}
+
+.header > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* 标题高亮效果 */
+.title-highlight {
+    color: #2b2b2b;
+    text-shadow: none;
+}
+
+/* Logo展示区域 */
+.logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0rem;
+    margin-bottom: 0.5rem;
+}
+
+.logo-container img {
+    width: 5rem;
+    height: 5rem;
+    object-fit: contain;
+    background: transparent;
+    box-shadow: none;
+    border: none;
+    border-radius: 0;
+    transform: translateY(0.3rem);
+}
+
+.logo-container .title-text {
+    font-size: 3.0rem;
+    font-weight: 700;
+    color: white;
+    line-height: 1.0;
+}
+
+/* 返回按钮 */
+.back-button {
+    margin-top: 1rem;
+}
+
+.back-button .btn {
+    color: var(--white);
+    border-color: var(--white);
+    background: transparent;
+    padding: 0.5rem 1.2rem;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    font-size: 1.1rem;
+}
+
+.back-button .btn:hover {
+    background: var(--white);
+    color: var(--etrade-purple);
+}
+
+/* ================================
+   结果展示区域
+   ================================ */
+
+.results-section {
+    padding: 1rem 1.5rem;
+    background: var(--white);
+}
+
+/* 面板组布局系统 */
+.panel-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    margin-bottom: 0.8rem;
+}
+
+.panel-group-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+    margin-bottom: 0.8rem;
+    align-items: start;
+}
+
+.panel-group-full {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+}
+
+/* ================================
+   统计数据卡片
+   ================================ */
+
+.stats-card {
+    background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+    border-radius: 15px;
+    padding: 0.8rem;
+    text-align: center;
+    margin-bottom: 1rem;
+    height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stats-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.stats-number {
+    font-size: 2.5em;
+    font-weight: bold;
+    color: var(--etrade-purple);
+}
+
+.stats-label {
+    color: var(--gray-600);
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 0.5rem;
+}
+
+/* ================================
+   分析卡片系统
+   ================================ */
+
+.analysis-card {
+    background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+    border-radius: 15px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    height: 100%;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    border: 2px solid var(--gray-200);
+    transition: all 0.3s ease;
+}
+
+.analysis-card:hover {
+    border-color: var(--etrade-purple-light);
+    box-shadow: 0 8px 24px rgba(86, 39, 216, 0.1);
+}
+
+.analysis-card-title {
+    color: var(--etrade-purple);
+    font-weight: 600;
+    font-size: 1.3rem;
+    margin-bottom: 0.6rem;
+    text-align: center;
+}
+
+/* ================================
+   现代化按钮系统
+   ================================ */
+
+.decision-badge {
+    font-size: 1.5em;
+    padding: 1rem 2rem;
+    border-radius: 15px;
+    font-weight: 600;
+    display: inline-block;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.decision-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.decision-long {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: var(--white);
+}
+
+.decision-short {
+    background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);
+    color: var(--white);
+}
+
+.decision-hold {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: var(--white);
+}
+
+/* ================================
+   置信度显示系统
+   ================================ */
+
+.confidence-high {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: var(--white);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.confidence-medium {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    color: var(--white);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.confidence-low {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: var(--white);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+/* 置信度进度条 */
+.confidence-bar {
+    width: 100%;
+    background-color: #e9ecef;
+    border-radius: 10px;
+    overflow: hidden;
+    height: 24px;
+    margin-top: 0.5rem;
+}
+
+.confidence-bar-fill {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    transition: width 0.8s ease-in-out;
+}
+
+/* ================================
+   内容美化系统
+   ================================ */
+
+.auto-beautify {
+    font-family: 'Microsoft YaHei', 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Source Han Sans SC', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+    line-height: 1.7;
+    color: var(--gray-800);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.auto-beautify h1, .auto-beautify h2, .auto-beautify h3, .auto-beautify h4, .auto-beautify h5, .auto-beautify h6 {
+    color: var(--color-text-primary);
+    font-weight: 600;
+    margin-top: 1rem;
+    margin-bottom: 0.6rem;
+}
+
+.auto-beautify p {
+    margin-bottom: 0.6rem;
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+.auto-beautify ul, .auto-beautify ol {
+    margin-bottom: 0.6rem;
+    padding-left: 1.2rem;
+}
+
+.auto-beautify li {
+    margin-bottom: 0.4rem;
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+.auto-beautify strong {
+    color: inherit;
+    font-weight: 600;
+}
+
+.auto-beautify em {
+    color: var(--etrade-purple-light);
+    font-style: italic;
+}
+
+.auto-beautify code {
+    background: var(--gray-100);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: var(--font-family-mono);
+    color: var(--etrade-purple);
+}
+
+/* ================================
+   文本展示结构（非Markdown样式）
+   ================================ */
+.auto-beautify .section-title {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    border-left: 3px solid var(--color-primary-light);
+    padding-left: 0.6rem;
+    margin: 0.75rem 0;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' on, 'lnum' on;
+}
+
+.auto-beautify .bullet-list {
+    list-style: disc;
+    padding-left: 1.2rem;
+    margin: 0.4rem 0 0.6rem 0;
+}
+
+.auto-beautify .bullet-list li {
+    line-height: 1.8;
+    margin: 0.35rem 0;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' on, 'lnum' on;
+}
+
+.auto-beautify .em {
+    font-weight: 600;
+    color: inherit;
+}
+
+.auto-beautify .para {
+    font-size: 1rem;
+    line-height: 1.75;
+    letter-spacing: 0.1px;
+    margin: 0.5rem 0;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' on, 'lnum' on;
+}
+
+.auto-beautify .callout {
+    padding: 0.75rem 0.9rem;
+    margin: 0.6rem 0;
+    background: #F8FAFC;
+    border-left: 3px solid var(--color-info);
+    border-radius: 6px;
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' on, 'lnum' on;
+}
+.auto-beautify .callout-success { border-left-color: var(--color-success); }
+.auto-beautify .callout-warn { border-left-color: var(--color-warning); }
+
+@media (prefers-color-scheme: dark) {
+    .auto-beautify .callout {
+        background: rgba(255,255,255,0.06);
+        color: var(--color-text-primary);
+    }
+}
+
+/* ================================
+   价格差百分比徽标
+   ================================ */
+.pct-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1;
+}
+.pct-up { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: #fff; }
+.pct-down { background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%); color: #fff; }
+.pct-neutral { background: #6c757d; color: #fff; }
+
+.price-inline {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    font-size: 0.95rem;
+    margin-top: 0.4rem;
+}
+.price-inline .label { color: var(--gray-600); font-size: 0.85rem; }
+
+.auto-beautify blockquote {
+    border-left: 4px solid var(--etrade-purple-light);
+    padding-left: 1rem;
+    margin: 1rem 0;
+    font-style: italic;
+    color: var(--gray-600);
+}
+
+/* 关键术语高亮 */
+.auto-beautify .key-term {
+    color: var(--etrade-purple);
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--etrade-purple-light) 0%, transparent 100%);
+    padding: 0.1rem 0.3rem;
+    border-radius: 4px;
+    font-size: 0.95em;
+}
+
+/* ================================
+   图片展示系统
+   ================================ */
+
+.image-container {
+    text-align: center;
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--white);
+    border-radius: 15px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.image-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    border: 2px dashed var(--etrade-purple);
+    border-radius: 15px;
+    padding: 2rem;
+    color: var(--gray-500);
+}
+
+.analysis-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    display: block;
+    margin: 0 auto;
+}
+
+.chart-caption {
+    text-align: center;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    font-style: italic;
+}
+
+/* ================================
+   响应式设计
+   ================================ */
+
+/* 平板设备适配 */
+@media (max-width: 992px) {
+    .panel-group-2 {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .panel-group-full {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .main-container {
+        margin: 1.5rem auto;
+    }
+}
+
+/* 手机设备适配 */
+@media (max-width: 768px) {
+    .main-container {
+        margin: 1rem;
+        border-radius: 16px;
+    }
+
+    .results-section {
+        padding: 2rem 1rem;
+    }
+
+    .stats-card {
+        height: 100px;
+    }
+
+    .stats-number {
+        font-size: 2em;
+    }
+
+    .panel-group-2, .panel-group-full {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .image-container {
+        padding: 0.5rem;
+    }
+
+    .logo-container .title-text {
+        font-size: 2.5rem;
+    }
+
+    .logo-container img {
+        width: 4rem;
+        height: 4rem;
+    }
+}
+
+/* 小屏手机适配 */
+@media (max-width: 480px) {
+    .main-container {
+        margin: 0.5rem;
+        border-radius: 12px;
+    }
+
+    .header {
+        padding: 1rem;
+    }
+
+    .logo-container .title-text {
+        font-size: 2rem;
+    }
+
+    .decision-badge {
+        font-size: 1.2em;
+        padding: 0.8rem 1.5rem;
+    }
+}
+
+/* ================================
+   页脚区域
+   ================================ */
+
+.page-footer {
+    margin-top: 1.5rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--gray-200);
+    text-align: center;
+    color: var(--gray-600);
+}
+
+/* ================================
+   工具类
+   ================================ */
+
+.text-center { text-align: center; }
+.text-danger { color: #dc3545 !important; font-weight: 600; }
+.text-success { color: #28a745 !important; font-weight: 600; }
+.mb-3 { margin-bottom: 1rem; }
+.mb-4 { margin-bottom: 1.5rem; }
+.mt-3 { margin-top: 1rem; }
+.w-100 { width: 100%; }
+
+/* Bootstrap兼容性类 */
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+}
+
+.col-md-4 {
+    flex: 0 0 33.333333%;
+    max-width: 33.333333%;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+.col-md-6 {
+    flex: 0 0 50%;
+    max-width: 50%;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+.d-flex { display: flex; }
+.align-items-stretch { align-items: stretch; }
+.align-items-center { align-items: center; }
+.justify-content-between { justify-content: space-between; }
+.justify-content-center { justify-content: center; }
+.btn { display: inline-block; }
+.img-fluid { max-width: 100%; height: auto; }
+
+/* 数字与表格可读性增强 */
+#futureKlineTable th,
+#futureKlineTable td {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: 'tnum' on, 'lnum' on;
+}
+
+.price-value,
+.model-decision-badge,
+.price-value .badge,
+.model-info-item .badge {
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: 'tnum' on, 'lnum' on;
+}

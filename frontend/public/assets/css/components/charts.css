@@ -1,0 +1,614 @@
+/**
+ * QuantAgent Charts Components - 图表展示组件样式
+ * 专门用于K线图、趋势图、模式识别图表等可视化组件的现代化样式
+ *
+ * @author 浮浮酱 (Hailei)
+ * @version 1.0.0
+ * @description 图表展示专用组件，包含图表容器、加载状态、交互效果等
+ */
+
+@import url('../base/variables.css');
+
+/* ================================
+   图表容器系统
+   ================================ */
+
+.chart-container {
+    background: var(--white);
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.chart-container:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.chart-wrapper {
+    position: relative;
+    padding: 1rem;
+    background: linear-gradient(135deg, #FAFAFA 0%, #F5F5F5 100%);
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: var(--white);
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.chart-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--etrade-purple);
+}
+
+.chart-title i {
+    color: var(--etrade-purple-light);
+    font-size: 1.2rem;
+}
+
+.chart-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.chart-action-btn {
+    background: transparent;
+    border: 1px solid var(--gray-300);
+    color: var(--gray-600);
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.chart-action-btn:hover {
+    background: var(--etrade-purple-light);
+    color: white;
+    border-color: var(--etrade-purple-light);
+}
+
+/* ================================
+   图表图片展示
+   ================================ */
+
+.chart-image-wrapper {
+    position: relative;
+    width: 100%;
+    text-align: center;
+    background: var(--white);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.chart-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    display: block;
+    margin: 0 auto;
+    transition: transform 0.3s ease;
+}
+
+.chart-image:hover {
+    transform: scale(1.02);
+}
+
+/* 图表加载占位符 */
+.chart-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+    border: 2px dashed #CBD5E1;
+    border-radius: 12px;
+    color: #64748B;
+    position: relative;
+    overflow: hidden;
+}
+
+.chart-placeholder::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, var(--etrade-purple-light), var(--etrade-purple), var(--etrade-purple-light));
+    border-radius: 12px;
+    opacity: 0;
+    z-index: -1;
+    animation: borderRotate 3s linear infinite;
+}
+
+@keyframes borderRotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.chart-placeholder.loading::before {
+    opacity: 0.3;
+}
+
+.chart-placeholder i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: #94A3B8;
+}
+
+.chart-placeholder h5 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    color: #475569;
+}
+
+.chart-placeholder p {
+    font-size: 0.9rem;
+    color: #64748B;
+    margin: 0;
+}
+
+/* 图表加载动画 */
+.chart-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #E2E8F0;
+    border-top: 3px solid var(--etrade-purple-light);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ================================
+   图表标题和说明
+   ================================ */
+
+.chart-caption {
+    text-align: center;
+    margin-top: 0.8rem;
+    font-size: 0.9rem;
+    color: var(--gray-600);
+    font-style: italic;
+    line-height: 1.4;
+}
+
+.chart-subtitle {
+    text-align: center;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--gray-500);
+}
+
+/* ================================
+   图表信息标签
+   ================================ */
+
+.chart-info-badge {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.8rem;
+    color: var(--gray-700);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.chart-info-badge.success {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: #10B981;
+    color: #065F46;
+}
+
+.chart-info-badge.warning {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: #F59E0B;
+    color: #92400E;
+}
+
+.chart-info-badge.error {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: #EF4444;
+    color: #991B1B;
+}
+
+/* ================================
+   图表交互状态
+   ================================ */
+
+.chart-interactive {
+    cursor: pointer;
+    position: relative;
+}
+
+.chart-interactive::after {
+    content: '\f002';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 0.8rem;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.chart-interactive:hover::after {
+    opacity: 1;
+}
+
+/* 全屏查看按钮 */
+.chart-fullscreen-btn {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    border: none;
+    padding: 0.6rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+.chart-container:hover .chart-fullscreen-btn {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.chart-fullscreen-btn:hover {
+    background: rgba(0, 0, 0, 0.9);
+}
+
+/* ================================
+   图表网格布局
+   ================================ */
+
+.charts-grid {
+    display: grid;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.charts-grid.cols-2 {
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+}
+
+.charts-grid.cols-3 {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.chart-item {
+    background: var(--white);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.chart-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+/* ================================
+   特殊图表类型样式
+   ================================ */
+
+/* K线图特殊样式 */
+.kline-chart {
+    background: linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 100%);
+    border-radius: 12px;
+    padding: 1rem;
+}
+
+.kline-chart .chart-image {
+    filter: brightness(1.1);
+}
+
+/* 趋势图特殊样式 */
+.trend-chart {
+    background: linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%);
+}
+
+.trend-chart .chart-title i {
+    color: #0284C7;
+}
+
+/* 模式识别图表样式 */
+.pattern-chart {
+    background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+}
+
+.pattern-chart .chart-title i {
+    color: #D97706;
+}
+
+/* ================================
+   图表错误状态
+   ================================ */
+
+.chart-error {
+    background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%);
+    border: 2px solid #FCA5A5;
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    color: #991B1B;
+}
+
+.chart-error i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: #DC2626;
+}
+
+.chart-error h5 {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.chart-error p {
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin-bottom: 1rem;
+}
+
+.chart-retry-btn {
+    background: #DC2626;
+    color: white;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.chart-retry-btn:hover {
+    background: #B91C1C;
+}
+
+/* ================================
+   图表工具提示
+   ================================ */
+
+.chart-tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 0.5rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.chart-tooltip.show {
+    opacity: 1;
+}
+
+.chart-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.9);
+}
+
+/* ================================
+   图表导出功能
+   ================================ */
+
+.chart-export-menu {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
+    transition: all 0.3s ease;
+}
+
+.chart-export-menu.show {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.chart-export-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    font-size: 0.9rem;
+    color: var(--gray-700);
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.chart-export-item:hover {
+    background: var(--gray-100);
+}
+
+.chart-export-item:first-child {
+    border-radius: 8px 8px 0 0;
+}
+
+.chart-export-item:last-child {
+    border-radius: 0 0 8px 8px;
+}
+
+/* ================================
+   响应式适配
+   ================================ */
+
+@media (max-width: 992px) {
+    .charts-grid.cols-2 {
+        grid-template-columns: 1fr;
+    }
+
+    .charts-grid.cols-3 {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+
+    .chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.8rem;
+        padding: 0.8rem 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .chart-wrapper {
+        padding: 0.8rem;
+    }
+
+    .chart-placeholder {
+        min-height: 200px;
+    }
+
+    .chart-placeholder i {
+        font-size: 2rem;
+    }
+
+    .chart-info-badge {
+        top: 0.5rem;
+        right: 0.5rem;
+        font-size: 0.7rem;
+        padding: 0.4rem 0.6rem;
+    }
+
+    .charts-grid {
+        gap: 1rem;
+    }
+
+    .chart-action-btn {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.7rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .chart-title {
+        font-size: 1rem;
+    }
+
+    .chart-caption {
+        font-size: 0.8rem;
+        margin-top: 0.5rem;
+    }
+
+    .chart-placeholder {
+        min-height: 150px;
+        padding: 1rem;
+    }
+
+    .chart-placeholder h5 {
+        font-size: 1rem;
+    }
+
+    .chart-placeholder p {
+        font-size: 0.8rem;
+    }
+
+    .charts-grid.cols-3 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ================================
+   打印样式
+   ================================ */
+
+@media print {
+    .chart-container {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        break-inside: avoid;
+    }
+
+    .chart-header {
+        background: #f8f9fa !important;
+        color: #000 !important;
+    }
+
+    .chart-image {
+        max-width: 100%;
+        height: auto;
+        filter: grayscale(100%);
+    }
+
+    .chart-action-btn,
+    .chart-fullscreen-btn,
+    .chart-export-menu {
+        display: none !important;
+    }
+
+    .chart-placeholder {
+        border: 1px solid #ccc;
+        background: #f8f9fa;
+    }
+}
+
+/* ================================
+   高对比度模式
+   ================================ */
+
+@media (prefers-contrast: high) {
+    .chart-container {
+        border: 2px solid #000;
+    }
+
+    .chart-image {
+        border: 1px solid #000;
+    }
+
+    .chart-action-btn {
+        border: 2px solid #000;
+        background: white;
+        color: black;
+    }
+}

@@ -1,0 +1,269 @@
+/**
+ * Demo New Modular - 模块化的demo_new.css
+ *
+ * 此文件是demo_new.css的模块化重构版本
+ * 通过导入各个模块来实现功能分离
+ *
+ * 创建时间: 2025-11-12
+ * 项目: QuantAgent Templates优化
+ */
+
+/* ========================================
+     基础样式导入
+     ======================================== */
+
+@import url('./base/variables.css');
+@import url('./base/base.css');
+
+/* ========================================
+     组件样式导入
+     ======================================== */
+
+@import url('./components/buttons.css');
+@import url('./components/forms.css');
+@import url('./components/panels.css');
+
+/* ========================================
+     布局样式导入
+     ======================================== */
+
+@import url('./layout/layout.css');
+
+/* ========================================
+     页面样式导入
+     ======================================== */
+
+@import url('./pages/index.css');
+
+/* ========================================
+     demo_new页面特有样式
+     ======================================== */
+
+/* 这里保留仅针对demo_new页面特有的样式 */
+/* 其他通用样式已经模块化到上述文件中 */
+
+/* 页面特定的动画效果 */
+.page-animation {
+  animation: pageFadeIn 0.6s ease-out;
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 特殊的滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-gray-400);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-500);
+}
+
+/* Firefox滚动条 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gray-400) var(--color-bg-secondary);
+}
+
+/* 特殊选择器样式 */
+.form-select.custom-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23241056' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+}
+
+/* 数据源选择器的特殊样式 */
+.data-source-section {
+  background: linear-gradient(135deg, var(--color-bg-brand) 0%, var(--color-white) 100%);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+}
+
+.data-source-option {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+  background: var(--color-white);
+  border-radius: var(--radius-md);
+  border: var(--border-width) solid var(--border-color);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.data-source-option:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.data-source-option.selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+}
+
+/* 模型配置器的特殊样式 */
+.model-config-section {
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
+  margin-top: var(--spacing-xl);
+}
+
+.model-selector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.model-option {
+  padding: var(--spacing-lg);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: var(--border-width) solid var(--border-color);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.model-option:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.model-option.selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+}
+
+/* 资产管理的特殊样式 */
+.asset-management-section {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+}
+
+.custom-asset-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+
+.asset-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-white);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.asset-tag .remove-btn {
+  margin-left: var(--spacing-xs);
+  color: var(--color-danger);
+  cursor: pointer;
+  transition: color var(--duration-normal) var(--ease-out);
+}
+
+.asset-tag .remove-btn:hover {
+  color: var(--color-danger-dark);
+}
+
+/* 时间选择的特殊样式 */
+.time-selection-section {
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+}
+
+.time-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.time-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+/* 提交按钮区域的特殊样式 */
+.submit-section {
+  text-align: center;
+  padding: var(--spacing-2xl);
+  background: linear-gradient(135deg, var(--color-primary-bg) 0%, var(--color-white) 100%);
+  border-radius: var(--radius-xl);
+  margin-top: var(--spacing-xl);
+}
+
+.submit-btn {
+  position: relative;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  transition: transform var(--duration-normal) var(--ease-out);
+}
+
+.submit-btn:hover {
+  transform: translateY(-3px) rotateX(5deg);
+}
+
+.submit-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left var(--duration-slow) var(--ease-out);
+}
+
+.submit-btn:hover::before {
+  left: 100%;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .model-selector {
+    grid-template-columns: 1fr;
+  }
+
+  .time-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .asset-management-section,
+  .model-config-section,
+  .time-selection-section {
+    padding: var(--spacing-lg);
+  }
+
+  .data-source-section {
+    padding: var(--spacing-lg);
+  }
+}
