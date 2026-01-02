@@ -50,3 +50,30 @@ def cleanup_on_startup():
                     
     except Exception as e:
         print(f"启动清理临时文件时出错: {e}")
+
+def cleanup_all_temp_files():
+    """强制清理所有临时文件（API调用）"""
+    try:
+        temp_dir = "temp_charts"
+        cleaned_count = 0
+        
+        if os.path.exists(temp_dir):
+            # 扩展清理范围，包含图片和CSV
+            files_to_clean = []
+            files_to_clean.extend(glob.glob(os.path.join(temp_dir, "*.png")))
+            files_to_clean.extend(glob.glob(os.path.join(temp_dir, "*.csv")))
+            files_to_clean.extend(glob.glob(os.path.join(temp_dir, "*.txt")))
+            files_to_clean.extend(glob.glob(os.path.join("temp_results", "*.json")))
+            
+            for file_path in files_to_clean:
+                try:
+                    os.remove(file_path)
+                    cleaned_count += 1
+                    print(f"手动清理临时文件: {file_path}")
+                except OSError as e:
+                    print(f"删除临时文件失败 {file_path}: {e}")
+                    
+        return cleaned_count
+    except Exception as e:
+        print(f"手动清理临时文件时出错: {e}")
+        return 0

@@ -2,6 +2,8 @@ import { useAppStore } from '../store/useAppStore';
 import { AVAILABLE_MODELS } from '../types';
 import type { AnalyzeRequest } from '../types';
 import styles from './ConfigPanel.module.css';
+import { clearSystemCache } from '../api/system';
+import { useState } from 'react';
 
 export default function ConfigPanel() {
   const { 
@@ -11,10 +13,29 @@ export default function ConfigPanel() {
       klineCount, setKlineCount, futureKlineCount, setFutureKlineCount
   } = useAppStore();
 
+  const [isCleaning, setIsCleaning] = useState(false);
+
   type DataMethod = AnalyzeRequest['data_method'];
 
   const handleDataMethodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
       setDataMethod(e.target.value as DataMethod);
+  };
+
+  const handleClearCache = async () => {
+      if (!confirm('确定要清理所有临时图表和缓存文件吗？')) {
+          return;
+      }
+      
+      setIsCleaning(true);
+      try {
+          const res = await clearSystemCache();
+          alert(`${res.message}`);
+      } catch (error) {
+          console.error("Failed to clear cache:", error);
+          alert("清理失败，请检查控制台");
+      } finally {
+          setIsCleaning(false);
+      }
   };
 
   return (
@@ -244,6 +265,35 @@ export default function ConfigPanel() {
                     </div>
                 )}
             </div>
+        </div>
+    </div>
+
+    {/* System Maintenance */}
+    <div className={styles.panel}>
+        <h4 className={styles.panelTitle}>
+            <i className="fas fa-tools"></i> System Maintenance
+        </h4>
+        
+        <div className={styles.formGroup}>
+            <button 
+                type="button" 
+                className={styles.cleanBtn}
+                onClick={handleClearCache}
+                disabled={isCleaning}
+            >
+                {isCleaning ? (
+                    <>
+                        <i className="fas fa-spinner fa-spin"></i> Cleaning...
+                    </>
+                ) : (
+                    <>
+                        <i className="fas fa-trash-alt"></i> Clean Temp Files
+                    </>
+                )}
+            </button>
+            <small className={styles.textMuted}>
+                清理所有生成的临时图表和数据文件，释放磁盘空间。
+            </small>
         </div>
     </div>
     </>

@@ -5,7 +5,88 @@ export default function FutureKlinePanel() {
     const { analysisResult } = useAppStore();
     if (!analysisResult) return null;
 
-    const { future_kline_chart_base64, future_kline_data } = analysisResult;
+    const { 
+        future_kline_chart_base64, 
+        future_kline_data,
+        latest_price,
+        decision: singleDecision,
+        dual_model_analysis
+    } = analysisResult;
+
+    // 1. Determine active decision (Prioritize Model 1 if Dual Mode)
+    const activeDecision = dual_model_analysis?.model_1_result || singleDecision;
+    
+    // 2. Extract Key Values
+    const stopLoss = activeDecision?.stop_loss;
+    const takeProfit = activeDecision?.take_profit;
+    const action = activeDecision?.action || activeDecision?.decision || '';
+    
+    // Normalize Action
+    const isLong = action.toLowerCase().includes('buy') || action.toLowerCase().includes('long') || action.includes('做多');
+    const isShort = action.toLowerCase().includes('sell') || action.toLowerCase().includes('short') || action.includes('做空');
+
+    // 3. Verification Logic
+    let slTriggered = false;
+    let tpTriggered = false;
+    
+    const slVal = typeof stopLoss === 'number' ? stopLoss : parseFloat(stopLoss as string);
+    const tpVal = typeof takeProfit === 'number' ? takeProfit : parseFloat(takeProfit as string);
+    const latestVal = latest_price || 0;
+
+    if (future_kline_data && future_kline_data.length > 0) {
+        for (const kline of future_kline_data) {
+            const high = parseFloat(kline.high);
+            const low = parseFloat(kline.low);
+            
+            if (isLong) {
+                if (!isNaN(tpVal) && high >= tpVal) tpTriggered = true;
+                if (!isNaN(slVal) && low <= slVal) slTriggered = true;
+            } else if (isShort) {
+                if (!isNaN(tpVal) && low <= tpVal) tpTriggered = true;
+                if (!isNaN(slVal) && high >= slVal) slTriggered = true;
+            }
+        }
+    }
+
+    // 4. Trend Verification
+    // Future Kline 1
+    const firstKline = future_kline_data && future_kline_data.length >= 1 ? future_kline_data[0] : null;
+    let firstTrendPassed = false;
+    let firstTrendDiff = 0;
+
+    if (firstKline && latestVal) {
+        const close = parseFloat(firstKline.close);
+        firstTrendDiff = ((close - latestVal) / latestVal) * 100;
+        
+        if (isLong) {
+            firstTrendPassed = close > latestVal;
+        } else if (isShort) {
+            firstTrendPassed = close < latestVal;
+        }
+    }
+
+    // Future Kline 2
+    const secondKline = future_kline_data && future_kline_data.length >= 2 ? future_kline_data[1] : null;
+    let trendPassed = false;
+    let trendDiff = 0;
+    
+    if (secondKline && latestVal) {
+        const close = parseFloat(secondKline.close);
+        trendDiff = ((close - latestVal) / latestVal) * 100;
+        
+        if (isLong) {
+            trendPassed = close > latestVal;
+        } else if (isShort) {
+            trendPassed = close < latestVal;
+        }
+    }
+
+    // Helper for Pct Display
+    const getPct = (target: number) => {
+        if (!latestVal) return '';
+        const pct = ((target - latestVal) / latestVal) * 100;
+        return (pct > 0 ? '+' : '') + pct.toFixed(2) + '%';
+    };
 
     return (
         <section className={styles.section}>
@@ -13,10 +94,154 @@ export default function FutureKlinePanel() {
                 <div className={styles.panelHeader}>
                     <h3 className={styles.panelTitle}>
                         <i className="fas fa-history"></i> 未来走势回测验证
+                        {isLong && (
+                            <span className={`${styles.directionBadge} ${styles.directionLong}`}>
+                                <i className="fas fa-arrow-up me-1"></i> 预测做多
+                            </span>
+                        )}
+                        {isShort && (
+                            <span className={`${styles.directionBadge} ${styles.directionShort}`}>
+                                <i className="fas fa-arrow-down me-1"></i> 预测做空
+                            </span>
+                        )}
                     </h3>
                 </div>
                 <div className={styles.panelBody}>
-                    {/* 图表展示 */}
+                    
+                    {/* Contrast Analysis Panel - Only if we have future data */}
+                    {future_kline_data && future_kline_data.length > 0 && (
+                        <div className={styles.analysisGrid}>
+                            {/* Card 1: Data Contrast */}
+                            <div className={styles.dataCard}>
+                                <div className={styles.cardHeader}>
+                                    <i className="fas fa-balance-scale me-2"></i> 数据对比分析
+                                </div>
+                                <div className={styles.priceGrid}>
+                                    {/* Latest Price */}
+                                    <div className={styles.priceItem}>
+                                        <div className={styles.priceLabel}>预测时价格</div>
+                                        <div className={styles.priceValue}>{latestVal}</div>
+                                        <span className={styles.statusPending}>基准点</span>
+                                    </div>
+
+                                    {/* Stop Loss */}
+                                    <div className={styles.priceItem}>
+                                        <div className={styles.priceLabel}>止损价格</div>
+                                        <div className={`${styles.priceValue} ${styles.textDanger}`}>
+                                            {!isNaN(slVal) ? slVal : '未设置'}
+                                        </div>
+                                        {!isNaN(slVal) && (
+                                            <>
+                                                <div style={{fontSize: '0.8rem', marginBottom: '4px'}}>{getPct(slVal)}</div>
+                                                <span className={`${styles.priceStatus} ${slTriggered ? styles.statusTriggeredBad : styles.statusPending}`}>
+                                                    {slTriggered ? '已触发' : '未触发'}
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    {/* Take Profit */}
+                                    <div className={styles.priceItem}>
+                                        <div className={styles.priceLabel}>止盈价格</div>
+                                        <div className={`${styles.priceValue} ${styles.textSuccess}`}>
+                                            {!isNaN(tpVal) ? tpVal : '未设置'}
+                                        </div>
+                                        {!isNaN(tpVal) && (
+                                            <>
+                                                <div style={{fontSize: '0.8rem', marginBottom: '4px'}}>{getPct(tpVal)}</div>
+                                                <span className={`${styles.priceStatus} ${tpTriggered ? styles.statusTriggered : styles.statusPending}`}>
+                                                    {tpTriggered ? '已触及' : '未触及'}
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Card 2: Trend Verification */}
+                            <div className={styles.dataCard}>
+                                <div className={styles.cardHeader}>
+                                    <i className="fas fa-check-double me-2"></i> K线走势验证
+                                </div>
+                                <div className={styles.trendList}>
+                                    {/* Item 1: Latest Price */}
+                                    <div className={styles.trendItem}>
+                                        <div className={styles.itemLabel}>
+                                            <i className="fas fa-map-marker-alt"></i> 预测时点
+                                        </div>
+                                        <div className={styles.itemValue}>
+                                            <span className="text-muted">最新价</span>
+                                            <span className={styles.priceNum}>{latestVal}</span>
+                                        </div>
+                                    </div>
+
+                                     {/* Item 2: 1st Future Kline */}
+                                     {firstKline ? (
+                                        <div className={styles.trendItem}>
+                                            <div className={styles.itemLabel}>
+                                                <i className="fas fa-clock"></i> 未来第1根K线
+                                            </div>
+                                            <div className={styles.itemValue}>
+                                                <div style={{textAlign: 'right', marginRight: '8px'}}>
+                                                    <div className={styles.priceNum}>{Number(firstKline.close).toFixed(2)}</div>
+                                                    <small style={{color: firstTrendDiff > 0 ? '#10B981' : '#EF4444', fontSize: '0.75rem'}}>
+                                                        {firstTrendDiff > 0 ? '+' : ''}{firstTrendDiff.toFixed(2)}%
+                                                    </small>
+                                                </div>
+                                                {firstTrendPassed ? (
+                                                    <span className={`${styles.verifyBadge} ${styles.verifyPass}`}>
+                                                        <i className="fas fa-check"></i> 符合
+                                                    </span>
+                                                ) : (
+                                                    <span className={`${styles.verifyBadge} ${styles.verifyFail}`}>
+                                                        <i className="fas fa-times"></i> 不符
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className={styles.trendItem}>
+                                            <div className={styles.itemLabel}>未来第1根K线</div>
+                                            <div className="text-muted small">数据不足</div>
+                                        </div>
+                                    )}
+
+                                    {/* Item 3: 2nd Future Kline */}
+                                    {secondKline ? (
+                                        <div className={`${styles.trendItem} ${styles.active}`}>
+                                            <div className={styles.itemLabel}>
+                                                <i className="fas fa-clock"></i> 未来第2根K线
+                                            </div>
+                                            <div className={styles.itemValue}>
+                                                <div style={{textAlign: 'right', marginRight: '8px'}}>
+                                                    <div className={styles.priceNum}>{Number(secondKline.close).toFixed(2)}</div>
+                                                    <small style={{color: trendDiff > 0 ? '#EF4444' : '#10B981', fontSize: '0.75rem'}}>
+                                                        {trendDiff > 0 ? '+' : ''}{trendDiff.toFixed(2)}%
+                                                    </small>
+                                                </div>
+                                                {trendPassed ? (
+                                                    <span className={`${styles.verifyBadge} ${styles.verifyPass}`}>
+                                                        <i className="fas fa-check"></i> 符合
+                                                    </span>
+                                                ) : (
+                                                    <span className={`${styles.verifyBadge} ${styles.verifyFail}`}>
+                                                        <i className="fas fa-times"></i> 不符
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className={styles.trendItem}>
+                                            <div className={styles.itemLabel}>未来第2根K线</div>
+                                            <div className="text-muted small">数据不足，无法验证</div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Chart Container */}
                     <div className={styles.chartContainer}>
                         <div className={styles.chartTitle}>分析时间点后的实际K线走势</div>
                         <div className={styles.chartImageWrapper}>
@@ -38,7 +263,7 @@ export default function FutureKlinePanel() {
                         </div>
                     </div>
 
-                    {/* 数据表格 */}
+                    {/* Table Container */}
                     {future_kline_data && future_kline_data.length > 0 && (
                         <div className={styles.tableContainer}>
                             <div className={styles.tableTitle}>实际行情数据详情</div>

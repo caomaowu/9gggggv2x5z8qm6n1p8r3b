@@ -9,8 +9,8 @@ font = {
 
 my_color_style = mpf.make_mpf_style(
     marketcolors=mpf.make_marketcolors(
-        down="#A02128",  # color for bullish candles
-        up="#006340",  # color for bearish candles
+        up="#A02128",  # color for bullish candles (Red for Up)
+        down="#006340",  # color for bearish candles (Green for Down)
         edge="none",  # use candle fill color for edge
         wick="black",  # color of the wicks
         volume="in",  # default volume coloring

@@ -95,11 +95,22 @@ class ChartGenerator:
                     high_pos = data.index.get_loc(high_index)
                     low_pos = data.index.get_loc(low_index)
                     
+                    # 调整 Y 轴范围，留出更多边距以防标注被遮挡
+                    ymin, ymax = ax_main.get_ylim()
+                    yrange = ymax - ymin
+                    # 上下各增加 10% 的边距
+                    ax_main.set_ylim(ymin - yrange * 0.1, ymax + yrange * 0.1)
+
+                    # 动态计算水平偏移量，避免在右边界被遮挡
+                    data_len = len(data)
+                    high_offset_x = -60 if high_pos > data_len * 0.85 else 10
+                    low_offset_x = -60 if low_pos > data_len * 0.85 else 10
+
                     # 标注最高价
                     ax_main.annotate(
                         f'{high_price:.2f}',
                         xy=(high_pos, high_price),
-                        xytext=(10, 10),
+                        xytext=(high_offset_x, 15),
                         textcoords='offset points',
                         arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=.2', color='red'),
                         fontsize=10,
@@ -111,7 +122,7 @@ class ChartGenerator:
                     ax_main.annotate(
                         f'{low_price:.2f}',
                         xy=(low_pos, low_price),
-                        xytext=(10, -20),
+                        xytext=(low_offset_x, -25),
                         textcoords='offset points',
                         arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=.2', color='green'),
                         fontsize=10,
