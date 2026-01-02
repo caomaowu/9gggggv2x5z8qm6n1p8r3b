@@ -3,6 +3,8 @@ from app.models.schemas.analyze import AnalyzeRequest
 from app.services.market_data import MarketDataService
 from app.services.trading_engine import TradingEngine
 from app.core.progress import update_analysis_progress
+from app.utils.id_manager import get_result_id_manager
+from app.utils.analysis_log import get_analysis_logger
 import logging
 import pandas as pd
 
@@ -22,11 +24,20 @@ async def analyze_market(
     market_service: MarketDataService = Depends(get_market_service),
     # trading_engine: TradingEngine = Depends(get_trading_engine) # Instantiating per request for config flexibility
 ):
+    result_id = "UNKNOWN" # Default safe value for error handling
     try:
-        update_analysis_progress("start", 0, f"Starting analysis for {request.asset}")
+        # 1. Generate Result ID
+        id_manager = get_result_id_manager()
+        result_id = id_manager.get_next_id()
         
-        logger.info(f"Fetching market data for {request.asset} ({request.timeframe})...")
-        update_analysis_progress("fetching_data", 10, "Fetching market data...")
+        # 2. Log Analysis Start
+        analysis_logger = get_analysis_logger()
+        analysis_logger.append_start_log(result_id, request.asset, request.timeframe)
+
+        update_analysis_progress("start", 0, f"[{result_id}] Starting analysis for {request.asset}")
+        
+        logger.info(f"[{result_id}] Fetching market data for {request.asset} ({request.timeframe})...")
+        update_analysis_progress("fetching_data", 10, f"[{result_id}] Fetching market data...")
         
         # Determine start/end time based on request
         # (Simplified logic compared to original for brevity, but should be robust)
@@ -158,9 +169,12 @@ async def analyze_market(
         trading_engine = TradingEngine(config=engine_config)
         
         # 3. Run Analysis
-        logger.info(f"Starting AI analysis with engine config: {engine_config}")
+        logger.info(f"[{result_id}] Starting AI analysis with engine config: {engine_config}")
         update_analysis_progress("analyzing", 30, "Running AI analysis...")
         result = await trading_engine.run_analysis(df, request.asset, request.timeframe)
+        
+        # Inject Result ID
+        result['result_id'] = result_id
         
         # 哈雷酱添加：注入未来验证数据
         if future_kline_list:
@@ -175,6 +189,6 @@ async def analyze_market(
         return result
         
     except Exception as e:
-        logger.error(f"Analysis error: {e}")
+        logger.error(f"[{result_id}] Analysis error: {e}")
         update_analysis_progress("error", 0, f"Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

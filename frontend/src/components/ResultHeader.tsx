@@ -1,6 +1,9 @@
+import { useAppStore } from '../store/useAppStore';
 import styles from './ResultHeader.module.css';
 
 export default function ResultHeader() {
+    const { analysisResult } = useAppStore();
+
     return (
         <header className={styles.header}>
             <div className="text-center">
@@ -11,6 +14,12 @@ export default function ResultHeader() {
                 <div className="text-center">
                     <span className={styles.titleHighlight}>Multi-Agent Trading System</span>
                 </div>
+                {/* Result ID Display */}
+                {analysisResult?.result_id && (
+                    <div className={styles.resultIdBadge}>
+                        <i className="fas fa-fingerprint"></i> ID: {analysisResult.result_id}
+                    </div>
+                )}
                 <div className={styles.backButton}>
                     {/* 使用 window.location.reload() 模拟返回并重置状态，或者调用 store 方法重置 */}
                     <a href="/" className={styles.backBtn} onClick={(e) => {
