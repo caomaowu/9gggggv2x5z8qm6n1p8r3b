@@ -91,7 +91,7 @@ export default function AnalysisForm() {
             }, 300);
         } catch (error) {
             console.error("Analysis failed:", error);
-            alert("Analysis failed. See console for details.");
+            // alert("Analysis failed. See console for details.");
         } finally {
             setIsLoading(false);
         }

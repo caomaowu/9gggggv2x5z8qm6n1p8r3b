@@ -29,7 +29,7 @@ async def analyze_market(
     try:
         # 1. Generate Result ID
         id_manager = get_result_id_manager()
-        result_id = id_manager.get_next_id()
+        result_id = id_manager.get_next_id(asset=request.asset, timeframe=request.timeframe)
         
         # 2. Log Analysis Start
         analysis_logger = get_analysis_logger()

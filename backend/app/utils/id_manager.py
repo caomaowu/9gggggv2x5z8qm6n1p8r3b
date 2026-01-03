@@ -40,9 +40,10 @@ class ResultIDManager:
             json.dump(state, f)
         os.replace(tmp_path, self.store_path)
 
-    def get_next_id(self) -> str:
+    def get_next_id(self, asset: str = None, timeframe: str = None) -> str:
         """
-        Generate the next ID in format R-{AXXX}-{YYMMDD}-{HHMM}
+        Generate the next ID in format R-{AXXX}-{YYMMDD}-{HHMM}-{ASSET}-{TF}
+        Example: R-A001-240102-1430-BTC-1H
         """
         with self._lock:
             now = datetime.now()
@@ -64,8 +65,19 @@ class ResultIDManager:
             # We use 'A' as a fixed prefix for the sequence part as requested
             seq_str = f"A{str(next_counter).zfill(3)}"
             
-            # Construct full ID: R-{AXXX}-{YYMMDD}-{HHMM}
+            # Construct base ID: R-{AXXX}-{YYMMDD}-{HHMM}
             result_id = f"R-{seq_str}-{current_date_str}-{time_str}"
+            
+            # Add Asset and Timeframe suffix if provided
+            if asset:
+                # Clean asset name (remove -USDT etc if needed, but keeping it simple usually better)
+                # Just replace special chars to be safe for filenames
+                safe_asset = asset.replace("/", "").replace("\\", "").upper()
+                result_id += f"-{safe_asset}"
+            
+            if timeframe:
+                safe_tf = timeframe.upper()
+                result_id += f"-{safe_tf}"
             
             # Save state
             self._write_state({"date": current_date_str, "counter": next_counter})
