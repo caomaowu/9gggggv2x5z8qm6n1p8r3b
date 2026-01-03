@@ -3,12 +3,6 @@ export interface Asset {
   name?: string;
 }
 
-export interface DualModelConfig {
-  dual_model: boolean;
-  model_1?: string;
-  model_2?: string;
-}
-
 export interface AnalyzeRequest {
   asset: string;
   timeframe: string;
@@ -22,24 +16,7 @@ export interface AnalyzeRequest {
   end_time?: string;
   use_current_time: boolean;
   ai_version: string;
-  dual_model_config?: DualModelConfig;
 }
-
-export interface AIModel {
-  id: string;
-  name: string;
-  provider: string;
-  description: string;
-}
-
-export const AVAILABLE_MODELS: AIModel[] = [
-    { id: 'MiniMax/MiniMax-M2', name: 'MiniMax M2', provider: 'MiniMax', description: '高性能通用模型，适合大多数交易场景' },
-    { id: 'deepseek-ai/DeepSeek-V3.2-Exp', name: 'DeepSeek V3.2 Exp', provider: 'DeepSeek', description: '实验性高性能模型，分析能力强' },
-    { id: 'Qwen/Qwen3-VL-235B-A22B-Instruct', name: 'Qwen3 VL 235B', provider: 'Qwen', description: '视觉语言大模型，擅长图表分析' },
-    { id: 'Qwen/Qwen3-Next-80B-A3B-Instruct', name: 'Qwen3 Next 80B', provider: 'Qwen', description: '下一代高性能模型，推理能力强' },
-    { id: 'ZhipuAI/GLM-4.6', name: 'GLM 4.6', provider: 'ZhipuAI', description: '智谱AI最新模型，综合能力优秀' },
-    { id: 'Qwen/Qwen3-VL-30B-A3B-Instruct', name: 'Qwen3 VL 30B', provider: 'Qwen', description: '视觉语言模型，支持多模态分析' }
-];
 
 export interface DecisionResult {
   action: string;
@@ -62,18 +39,8 @@ export interface DecisionResult {
   [key: string]: any;
 }
 
-export interface DualModelAnalysis {
-  model_1_result?: DecisionResult;
-  model_2_result?: DecisionResult;
-  comparison?: {
-    consensus: boolean;
-    [key: string]: any;
-  };
-}
-
 export interface AnalysisResult {
   decision?: DecisionResult;
-  dual_model_analysis?: DualModelAnalysis;
   indicator_report?: string;
   pattern_report?: string;
   trend_report?: string;

@@ -161,10 +161,6 @@ async def analyze_market(
             "decision_agent_version": request.ai_version,
             # Add other config overrides if needed
         }
-        
-        if request.dual_model_config and request.dual_model_config.dual_model:
-            # Handle dual model config if needed
-            pass
             
         trading_engine = TradingEngine(config=engine_config)
         

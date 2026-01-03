@@ -9,17 +9,12 @@ export default function FutureKlinePanel() {
         future_kline_chart_base64, 
         future_kline_data,
         latest_price,
-        decision: singleDecision,
-        dual_model_analysis
+        decision: singleDecision
     } = analysisResult;
 
-    // 1. Determine active decision (Prioritize Model 1 if Dual Mode)
-    const activeDecision = dual_model_analysis?.model_1_result || singleDecision;
-    
-    // 2. Extract Key Values
-    const stopLoss = activeDecision?.stop_loss;
-    const takeProfit = activeDecision?.take_profit;
-    const action = activeDecision?.action || activeDecision?.decision || '';
+    const stopLoss = singleDecision?.stop_loss;
+    const takeProfit = singleDecision?.take_profit;
+    const action = singleDecision?.action || singleDecision?.decision || '';
     
     // Normalize Action
     const isLong = action.toLowerCase().includes('buy') || action.toLowerCase().includes('long') || action.includes('做多');

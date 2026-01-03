@@ -1,5 +1,4 @@
 import { useAppStore } from '../store/useAppStore';
-import { AVAILABLE_MODELS } from '../types';
 import type { AnalyzeRequest } from '../types';
 import styles from './ConfigPanel.module.css';
 import { clearSystemCache, clearExportsFiles } from '../api/system';
@@ -9,7 +8,7 @@ export default function ConfigPanel() {
   const { 
       dataMethod, setDataMethod,
       startDate, startTime, endDate, endTime, useCurrentTime, setDateConfig,
-      aiVersion, setAiVersion, dualModelConfig, setDualModelConfig,
+      aiVersion, setAiVersion,
       klineCount, setKlineCount, futureKlineCount, setFutureKlineCount
   } = useAppStore();
 
@@ -237,55 +236,6 @@ export default function ConfigPanel() {
                 <small className={styles.textMuted}>
                     Select the risk appetite for the decision agent.
                 </small>
-            </div>
-
-            {/* Dual Model Config */}
-            <div>
-                <div className="flex items-center justify-between mb-3">
-                    <label className={`${styles.formLabel} mb-0`}>
-                        <i className="fas fa-project-diagram"></i> Dual Model System
-                    </label>
-                    <div className={styles.formSwitch}>
-                        <input 
-                            className={styles.formCheckInput} 
-                            type="checkbox" 
-                            id="dualModelToggle"
-                            checked={dualModelConfig.dual_model}
-                            onChange={e => setDualModelConfig({ dual_model: e.target.checked })}
-                        />
-                    </div>
-                </div>
-
-                {dualModelConfig.dual_model && (
-                    <div className={styles.dualModelSettings}>
-                        <div className="mb-4">
-                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Primary Model (Analysis)</label>
-                            <select 
-                                className={styles.formControl}
-                                value={dualModelConfig.model_1 || ''}
-                                onChange={e => setDualModelConfig({ model_1: e.target.value })}
-                            >
-                                <option value="">Select Model A...</option>
-                                {AVAILABLE_MODELS.map(m => (
-                                    <option key={m.id} value={m.id}>{m.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-sm font-semibold text-gray-700 mb-2 block">Secondary Model (Decision)</label>
-                             <select 
-                                className={styles.formControl}
-                                value={dualModelConfig.model_2 || ''}
-                                onChange={e => setDualModelConfig({ model_2: e.target.value })}
-                            >
-                                <option value="">Select Model B...</option>
-                                {AVAILABLE_MODELS.map(m => (
-                                    <option key={m.id} value={m.id}>{m.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     </div>

@@ -43,7 +43,7 @@ usage_stats = {
 }
 
 class DecisionAgentFactory:
-    """决策智能体工厂类 - 哈雷酱的双模型升级版！"""
+    """决策智能体工厂类"""
 
     SUPPORTED_VERSIONS = {
     "constrained": create_final_trade_decider,
@@ -55,9 +55,6 @@ class DecisionAgentFactory:
         """初始化工厂"""
         self._validate_versions()
         self._init_usage_stats()
-
-        # 哈雷酱的双模型支持！
-        self._dual_model_support = True
 
     def _validate_versions(self):
         """验证支持的有效版本"""
@@ -260,36 +257,3 @@ def get_version_usage_stats() -> Dict[str, Any]:
     """获取版本使用统计"""
     factory = get_decision_agent_factory()
     return factory.get_usage_stats()
-
-
-# 哈雷酱的双模型扩展功能！
-def create_dual_model_decision_agent(model_1: str, model_2: str, version: str = None, **kwargs):
-    """创建双模型决策智能体"""
-    try:
-        from app.agents.decision_dual_agent import get_dual_model_decision_agent
-        return get_dual_model_decision_agent()
-    except ImportError:
-        print("哈雷酱警告：双模型决策智能体模块不可用")
-        # 降级为单模型
-        return create_decision_agent(version, **kwargs)
-
-
-def is_dual_model_supported() -> bool:
-    """检查是否支持双模型"""
-    try:
-        from app.agents.decision_dual_agent import DualModelDecisionAgent
-        from app.core.dual_model_config import get_dual_model_config_manager
-        return True
-    except ImportError:
-        return False
-
-
-def get_dual_model_factory():
-    """获取双模型工厂"""
-    if is_dual_model_supported():
-        try:
-            from app.agents.decision_dual_agent import get_dual_model_decision_agent
-            return get_dual_model_decision_agent()
-        except:
-            pass
-    return None

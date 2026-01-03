@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { DualModelConfig, AnalysisResult } from '../types';
+import type { AnalysisResult } from '../types';
 
 interface AppState {
   selectedAsset: string;
@@ -21,7 +21,6 @@ interface AppState {
   
   // AI Config
   aiVersion: string;
-  dualModelConfig: DualModelConfig;
   
   // Analysis Result
   analysisResult: AnalysisResult | null;
@@ -36,7 +35,6 @@ interface AppState {
   setFutureKlineCount: (count: number) => void;
   setDateConfig: (config: Partial<AppState>) => void;
   setAiVersion: (version: string) => void;
-  setDualModelConfig: (config: Partial<DualModelConfig>) => void;
   setAnalysisResult: (result: AnalysisResult | null) => void;
 }
 
@@ -58,11 +56,6 @@ export const useAppStore = create<AppState>()(
       useCurrentTime: false,
       
       aiVersion: 'constrained',
-      dualModelConfig: {
-        dual_model: false,
-        model_1: '',
-        model_2: ''
-      },
       
       analysisResult: null,
       
@@ -83,9 +76,6 @@ export const useAppStore = create<AppState>()(
       setDateConfig: (config) => set((state) => ({ ...state, ...config })),
       
       setAiVersion: (version) => set({ aiVersion: version }),
-      setDualModelConfig: (config) => set((state) => ({
-        dualModelConfig: { ...state.dualModelConfig, ...config }
-      })),
       setAnalysisResult: (result) => set({ analysisResult: result }),
     }),
     {

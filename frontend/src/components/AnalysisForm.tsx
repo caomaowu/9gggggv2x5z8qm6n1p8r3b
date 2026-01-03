@@ -11,7 +11,7 @@ export default function AnalysisForm() {
         selectedAsset, selectedTimeframe,
         dataMethod, klineCount, futureKlineCount,
         startDate, startTime, endDate, endTime, useCurrentTime,
-        aiVersion, dualModelConfig,
+        aiVersion,
         setAnalysisResult
     } = useAppStore();
     
@@ -53,7 +53,6 @@ export default function AnalysisForm() {
             future_kline_count: futureKlineCount,
             use_current_time: useCurrentTime,
             ai_version: aiVersion,
-            dual_model_config: dualModelConfig,
             start_date: startDate || undefined,
             start_time: startTime || undefined,
             end_date: endDate || undefined,

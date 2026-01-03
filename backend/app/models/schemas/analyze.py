@@ -1,10 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
-
-class DualModelConfig(BaseModel):
-    dual_model: bool = False
-    model_1: Optional[str] = None
-    model_2: Optional[str] = None
+from typing import Optional
 
 class AnalyzeRequest(BaseModel):
     asset: str
@@ -21,4 +16,3 @@ class AnalyzeRequest(BaseModel):
     use_current_time: bool = False
     
     ai_version: str = "constrained"
-    dual_model_config: Optional[DualModelConfig] = None

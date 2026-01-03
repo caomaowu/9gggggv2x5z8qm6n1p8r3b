@@ -346,11 +346,6 @@ class LLMConfig:
         self.graph_temperature: float = graph_config["temperature"]
         self.api_key: str = agent_config["api_key"]
         self.base_url: str = agent_config["base_url"]
-        
-        # Dual model support
-        self.dual_model_enabled: bool = False
-        self.agent_model_2: str = "deepseek-ai/DeepSeek-V3.2-Exp"
-        self.agent_temperature_2: float = 0.1
     
     def update_from_provider_config(self):
         """从供应商配置更新"""
