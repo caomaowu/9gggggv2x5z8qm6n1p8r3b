@@ -101,6 +101,10 @@ class HTMLExportService:
             # self.base_dir is '.../backend', so self.base_dir.parent is '.../refactor_v2-1-2'
             out_path = (self.base_dir.parent / output_dir).resolve()
             
+        # Add date-based subdirectory (YYYY-MM-DD)
+        current_date = datetime.now().strftime("%Y-%m-%d")
+        out_path = out_path / current_date
+            
         try:
             out_path.mkdir(parents=True, exist_ok=True)
             print(f"Directory ensured: {out_path}")
