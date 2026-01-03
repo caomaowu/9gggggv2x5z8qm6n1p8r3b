@@ -4,147 +4,346 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QuantAgent 分析报告 - {{ result.get('asset') }}</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#2563eb',
+                        secondary: '#475569',
+                        success: '#10b981',
+                        danger: '#ef4444',
+                        warning: '#f59e0b',
+                        'card-bg': '#ffffff',
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
-        {{ css_content | safe }}
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8; 
+        }
+        
+        .prose pre {
+            margin: 0;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
-<body>
-    <div class="container">
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto space-y-6">
+        
         <!-- Header -->
-        <header>
-            <div class="logo-area">
+        <header class="bg-white rounded-2xl shadow-sm p-6 flex flex-col md:flex-row justify-between items-center border border-slate-100">
+            <div class="flex items-center gap-4 mb-4 md:mb-0">
                 {% if logo_base64 %}
-                <img src="data:image/png;base64,{{ logo_base64 }}" alt="Logo" style="height: 40px;">
+                <img src="data:image/png;base64,{{ logo_base64 }}" alt="Logo" class="h-12 w-auto">
                 {% else %}
-                <h1>QuantAgent</h1>
+                <div class="h-12 w-12 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-xl">QA</div>
                 {% endif %}
-                <span>| 分析报告</span>
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900 tracking-tight">QuantAgent</h1>
+                    <p class="text-sm text-slate-500 font-medium">Multi-Agent Trading System</p>
+                </div>
             </div>
-            <div class="report-meta">
-                <div>结果 ID: {{ result.get('result_id') }}</div>
-                <div>标的: {{ result.get('asset') }}</div>
-                <div>生成时间: {{ timestamp }}</div>
+            
+            <div class="text-center md:text-right">
+                <div class="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-mono mb-2">
+                    <i class="fas fa-fingerprint mr-2"></i> ID: {{ result.get('result_id') }}
+                </div>
+                <div class="text-sm text-slate-500">
+                    生成时间: {{ timestamp }}
+                </div>
             </div>
         </header>
 
-        <!-- Final Decision -->
-        <div class="card">
-            <h2 class="card-title">最终决策</h2>
-            {% if result.get('decision') %}
-            <div class="grid-2">
-                <div>
-                    <div style="margin-bottom: 1rem;">
-                        <span class="decision-badge 
-                            {% if result['decision'].get('decision') == '做多' %}decision-long
-                            {% elif result['decision'].get('decision') == '做空' %}decision-short
-                            {% else %}decision-hold{% endif %}">
-                            {{ result['decision'].get('decision', 'N/A') }}
-                        </span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="metric-label">置信度</span>
-                        <span class="metric-value">{{ result['decision'].get('confidence_level') or result['decision'].get('confidence', 'N/A') }}</span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="metric-label">盈亏比 (R/R)</span>
-                        <span class="metric-value">{{ result['decision'].get('risk_reward_ratio', 'N/A') }}</span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="metric-label">预测周期</span>
-                        <span class="metric-value">{{ result['decision'].get('forecast_horizon') or result['decision'].get('time_horizon', 'N/A') }}</span>
-                    </div>
-                </div>
-                <div>
-                    <div class="metric-item">
-                        <span class="metric-label">止损价格</span>
-                        <span class="metric-value" style="color: var(--danger-color)">{{ result['decision'].get('stop_loss', 'N/A') }}</span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="metric-label">止盈价格</span>
-                        <span class="metric-value" style="color: var(--success-color)">{{ result['decision'].get('take_profit', 'N/A') }}</span>
-                    </div>
-                    <div class="metric-item">
-                        <span class="metric-label">市场环境</span>
-                        <span class="metric-value">{{ result['decision'].get('market_environment', 'N/A') }}</span>
-                    </div>
-                </div>
+        <!-- Summary Panel -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100 flex flex-col items-center justify-center hover:shadow-md transition-shadow">
+                <div class="text-3xl font-bold text-primary mb-1">{{ result.get('data_length', '--') }}</div>
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">数据点</div>
             </div>
-            <div style="margin-top: 1rem;">
-                <strong>决策依据:</strong>
-                <p>{{ result['decision'].get('justification') or result['decision'].get('reasoning', '暂无详细依据') }}</p>
+            <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100 flex flex-col items-center justify-center hover:shadow-md transition-shadow">
+                <div class="text-3xl font-bold text-primary mb-1">{{ result.get('timeframe', '--') }}</div>
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">时间框架</div>
             </div>
-            {% else %}
-            <p>分析失败或未生成决策数据。</p>
-            {% if result.get('error') %}
-            <p style="color: red;">错误信息: {{ result.get('error') }}</p>
-            {% endif %}
-            {% endif %}
-        </div>
+            <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100 flex flex-col items-center justify-center hover:shadow-md transition-shadow">
+                <div class="text-3xl font-bold text-primary mb-1">{{ result.get('asset', '--') }}</div>
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">交易标的</div>
+            </div>
+        </section>
 
-        <!-- Summary Chart (已移除，用户不想要综合图表) -->
-        {% if result.get('summary_chart_base64') %}
-        <div class="card">
-            <h2 class="card-title">综合图表</h2>
-            <div class="chart-container">
-                <img src="data:image/png;base64,{{ result['summary_chart_base64'] }}" alt="Summary Chart">
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Future Verification (Optional) -->
-        {% if result.get('future_kline_chart_base64') %}
-        <div class="card">
-            <h2 class="card-title">回测验证 (未来走势)</h2>
-            <div class="chart-container">
-                <img src="data:image/png;base64,{{ result['future_kline_chart_base64'] }}" alt="Future Verification Chart">
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Detailed Reports -->
-        <div class="card">
-            <h2 class="card-title">详细分析报告</h2>
-            
-            {% if result['market_data'] and result['market_data']['analysis'] %}
-            
-            <!-- 技术指标 (纯文本) -->
-            <div class="report-section">
-                <h3>技术指标分析</h3>
-                <pre>{{ result['market_data']['analysis']['indicators'] }}</pre>
-            </div>
-
-            <!-- 形态识别 (文本 + 图表) -->
-            <div class="report-section">
-                <h3>形态识别分析</h3>
-                <pre>{{ result['market_data']['analysis']['patterns'] }}</pre>
-                {% if result.get('pattern_chart') %}
-                <div class="chart-container">
-                    <img src="data:image/png;base64,{{ result['pattern_chart'] }}" alt="模式识别可视化">
-                    <div style="text-align: center; color: var(--text-secondary); font-size: 0.9em;">模式识别可视化图表</div>
-                </div>
+        <!-- Decision Panel -->
+        <section class="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
+            <div class="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-slate-800 flex items-center">
+                    <i class="fas fa-bullseye text-primary mr-2"></i> 最终交易决策
+                </h2>
+                
+                {% if result.get('agent_version_name') %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    <i class="fas fa-robot mr-1"></i> {{ result.get('agent_version_name') }}
+                </span>
                 {% endif %}
             </div>
+            
+            <div class="p-6 md:p-8">
+                {% if result.get('decision') %}
+                    {% set decision = result['decision'] %}
+                    {% set action = decision.get('action') or decision.get('decision') or 'HOLD' %}
+                    {% set action_lower = action|lower %}
+                    
+                    <div class="flex flex-col md:flex-row gap-8">
+                        <!-- Left: Big Decision & Metrics -->
+                        <div class="flex-1 space-y-6">
+                            <div class="text-center p-6 rounded-2xl 
+                                {% if 'buy' in action_lower or 'long' in action_lower or '做多' in action_lower %}bg-green-50 border-2 border-green-100
+                                {% elif 'sell' in action_lower or 'short' in action_lower or '做空' in action_lower %}bg-red-50 border-2 border-red-100
+                                {% else %}bg-slate-50 border-2 border-slate-100{% endif %}">
+                                
+                                <div class="text-4xl md:text-5xl font-black tracking-tight mb-2
+                                    {% if 'buy' in action_lower or 'long' in action_lower or '做多' in action_lower %}text-green-600
+                                    {% elif 'sell' in action_lower or 'short' in action_lower or '做空' in action_lower %}text-red-600
+                                    {% else %}text-slate-600{% endif %}">
+                                    {{ action }}
+                                </div>
+                                <div class="text-sm font-medium text-slate-500 uppercase tracking-widest">建议操作</div>
+                            </div>
 
-            <!-- 趋势分析 (文本 + 图表) -->
-            <div class="report-section">
-                <h3>趋势分析</h3>
-                <pre>{{ result['market_data']['analysis']['trend'] }}</pre>
-                {% if result.get('trend_chart') %}
-                <div class="chart-container">
-                    <img src="data:image/png;base64,{{ result['trend_chart'] }}" alt="趋势分析可视化">
-                    <div style="text-align: center; color: var(--text-secondary); font-size: 0.9em;">趋势分析与支撑阻力线</div>
-                </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="p-3 bg-slate-50 rounded-lg">
+                                    <div class="text-xs text-slate-500 mb-1">最新价格</div>
+                                    <div class="font-mono font-bold text-lg text-primary">{{ result.get('latest_price', 'N/A') }}</div>
+                                </div>
+                                <div class="p-3 bg-slate-50 rounded-lg">
+                                    <div class="text-xs text-slate-500 mb-1">预测周期</div>
+                                    <div class="font-semibold text-slate-700">{{ decision.get('forecast_horizon') or decision.get('time_horizon', 'N/A') }}</div>
+                                </div>
+                                <div class="p-3 bg-slate-50 rounded-lg">
+                                    <div class="text-xs text-slate-500 mb-1">止损价格</div>
+                                    <div class="font-mono font-bold text-danger">{{ decision.get('stop_loss', 'N/A') }}</div>
+                                </div>
+                                <div class="p-3 bg-slate-50 rounded-lg">
+                                    <div class="text-xs text-slate-500 mb-1">止盈价格</div>
+                                    <div class="font-mono font-bold text-success">{{ decision.get('take_profit', 'N/A') }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Confidence & Reasoning -->
+                        <div class="flex-1 space-y-6">
+                            <!-- Confidence Bar -->
+                            {% set confidence = decision.get('confidence_level') or decision.get('confidence', 'N/A') %}
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <div class="flex justify-between items-end mb-2">
+                                    <span class="text-sm font-semibold text-slate-600">AI 置信度</span>
+                                    <span class="text-lg font-bold text-primary">{{ confidence }}</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                                    {% set width = '50%' %}
+                                    {% if confidence == '高' or confidence == 'High' %}{% set width = '85%' %}
+                                    {% elif confidence == '中' or confidence == 'Medium' %}{% set width = '60%' %}
+                                    {% elif confidence == '低' or confidence == 'Low' %}{% set width = '35%' %}
+                                    {% endif %}
+                                    <div class="h-full rounded-full transition-all duration-500 
+                                        {% if width == '85%' %}bg-green-500
+                                        {% elif width == '60%' %}bg-blue-500
+                                        {% else %}bg-yellow-500{% endif %}" 
+                                        style="width: {{ width }}"></div>
+                                </div>
+                            </div>
+
+                            <!-- Reasoning -->
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-600 mb-2">决策理由</h3>
+                                <div class="p-4 bg-blue-50 rounded-xl text-slate-700 text-sm leading-relaxed border border-blue-100">
+                                    {{ decision.get('justification') or decision.get('reasoning', '暂无详细依据') }}
+                                </div>
+                            </div>
+                            
+                            <!-- Market Env -->
+                            {% if decision.get('market_environment') %}
+                            <div class="flex items-center gap-2 text-sm text-slate-600">
+                                <i class="fas fa-globe-americas text-slate-400"></i>
+                                <span>市场环境:</span>
+                                <span class="font-medium bg-slate-100 px-2 py-0.5 rounded text-slate-800">{{ decision.get('market_environment') }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="text-center py-12 text-slate-400">
+                        <i class="fas fa-exclamation-circle text-4xl mb-4 text-slate-300"></i>
+                        <p>未生成决策数据</p>
+                        {% if result.get('error') %}
+                        <p class="text-red-500 text-sm mt-2">{{ result.get('error') }}</p>
+                        {% endif %}
+                    </div>
                 {% endif %}
             </div>
+        </section>
 
-            {% else %}
-            <p>无详细分析数据。</p>
-            {% endif %}
+        <!-- Future Verification Panel -->
+        {% if result.get('future_kline_data') %}
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-slate-800">
+                    <i class="fas fa-history text-purple-600 mr-2"></i> 未来走势回测验证
+                </h2>
+                <span class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded font-medium">Backtest</span>
+            </div>
+            <div class="p-6 space-y-6">
+                
+                <!-- Chart -->
+                {% if result.get('future_kline_chart_base64') %}
+                <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                    <img src="data:image/png;base64,{{ result['future_kline_chart_base64'] }}" alt="Future Verification Chart" class="w-full h-auto">
+                    <div class="bg-slate-50 p-2 text-center text-xs text-slate-500 border-t border-slate-200">
+                        分析时间点后的实际K线走势
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Data Table -->
+                <div class="overflow-x-auto rounded-lg border border-slate-200">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="px-4 py-3 font-medium">时间</th>
+                                <th class="px-4 py-3 font-medium">开盘</th>
+                                <th class="px-4 py-3 font-medium text-green-600">最高</th>
+                                <th class="px-4 py-3 font-medium text-red-600">最低</th>
+                                <th class="px-4 py-3 font-medium">收盘</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for row in result.get('future_kline_data', []) %}
+                            <tr class="hover:bg-slate-50/50">
+                                <td class="px-4 py-3 font-mono text-slate-600">{{ row.datetime or row.date }}</td>
+                                <td class="px-4 py-3 font-mono">{{ "%.2f"|format(row.open|float) }}</td>
+                                <td class="px-4 py-3 font-mono text-green-600">{{ "%.2f"|format(row.high|float) }}</td>
+                                <td class="px-4 py-3 font-mono text-red-600">{{ "%.2f"|format(row.low|float) }}</td>
+                                <td class="px-4 py-3 font-mono font-medium">{{ "%.2f"|format(row.close|float) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- Detailed Reports Grid -->
+        <div class="space-y-6">
+            
+            <!-- Technical Indicators -->
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-6 border-b border-slate-100 bg-slate-50/50">
+                    <h2 class="text-lg font-bold text-slate-800">
+                        <i class="fas fa-chart-bar text-indigo-500 mr-2"></i> 技术指标分析
+                    </h2>
+                </div>
+                <div class="p-6">
+                    {% set indicators_content = result.get('technical_indicators') or result.get('indicator_report') %}
+                    {% if indicators_content %}
+                    <div class="prose max-w-none prose-sm text-slate-600 bg-slate-50 p-6 rounded-xl border border-slate-100 font-mono whitespace-pre-wrap leading-relaxed">
+                        {{ indicators_content }}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-slate-400 py-8">暂无数据</div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <!-- Pattern Analysis -->
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-6 border-b border-slate-100 bg-slate-50/50">
+                    <h2 class="text-lg font-bold text-slate-800">
+                        <i class="fas fa-brain text-pink-500 mr-2"></i> 模式识别分析
+                    </h2>
+                </div>
+                <div class="p-6 space-y-6">
+                    {% set pattern_content = result.get('pattern_analysis') or result.get('pattern_report') %}
+                    {% if pattern_content %}
+                    <div class="prose max-w-none prose-sm text-slate-600 bg-slate-50 p-6 rounded-xl border border-slate-100 font-mono whitespace-pre-wrap leading-relaxed">
+                        {{ pattern_content }}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-slate-400 py-8">暂无数据</div>
+                    {% endif %}
+
+                    {% if result.get('pattern_chart') %}
+                    <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                        <img src="data:image/png;base64,{{ result['pattern_chart'] }}" alt="Pattern Chart" class="w-full h-auto">
+                        <div class="bg-slate-50 p-2 text-center text-xs text-slate-500 border-t border-slate-200">
+                            模式识别可视化
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <!-- Trend Analysis -->
+            <section class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="p-6 border-b border-slate-100 bg-slate-50/50">
+                    <h2 class="text-lg font-bold text-slate-800">
+                        <i class="fas fa-chart-line text-cyan-500 mr-2"></i> 趋势分析
+                    </h2>
+                </div>
+                <div class="p-6 space-y-6">
+                    {% set trend_content = result.get('trend_analysis') or result.get('trend_report') %}
+                    {% if trend_content %}
+                    <div class="prose max-w-none prose-sm text-slate-600 bg-slate-50 p-6 rounded-xl border border-slate-100 font-mono whitespace-pre-wrap leading-relaxed">
+                        {{ trend_content }}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-slate-400 py-8">暂无数据</div>
+                    {% endif %}
+
+                    {% if result.get('trend_chart') %}
+                    <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                        <img src="data:image/png;base64,{{ result['trend_chart'] }}" alt="Trend Chart" class="w-full h-auto">
+                        <div class="bg-slate-50 p-2 text-center text-xs text-slate-500 border-t border-slate-200">
+                            趋势分析与支撑阻力线
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </section>
+
         </div>
 
-        <div class="footer">
+        <!-- Footer -->
+        <footer class="text-center text-slate-400 text-sm py-8">
             <p>Generated by QuantAgent V2</p>
-        </div>
+            <p class="text-xs mt-1 opacity-70">&copy; {{ timestamp.split('-')[0] }} All Rights Reserved.</p>
+        </footer>
+
     </div>
 </body>
 </html>
