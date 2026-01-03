@@ -97,8 +97,9 @@ class HTMLExportService:
         # Create output directory if not exists
         out_path = Path(output_dir)
         if not out_path.is_absolute():
-            # Force resolve relative path against base_dir to ensure it's correct
-            out_path = (self.base_dir / output_dir).resolve()
+            # Force resolve relative path against base_dir.parent (project root) to ensure it's correct
+            # self.base_dir is '.../backend', so self.base_dir.parent is '.../refactor_v2-1-2'
+            out_path = (self.base_dir.parent / output_dir).resolve()
             
         try:
             out_path.mkdir(parents=True, exist_ok=True)
