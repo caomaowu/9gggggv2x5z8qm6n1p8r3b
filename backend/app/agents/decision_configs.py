@@ -133,25 +133,6 @@ def get_version_limitations(version: str) -> list:
     version_info = get_version_info(version)
     return version_info.get("limitations", [])
 
-# 版本对比功能
-def compare_versions(version1: str, version2: str) -> dict:
-    """对比两个版本的差异"""
-    v1_info = get_version_info(version1)
-    v2_info = get_version_info(version2)
-
-    return {
-        "version1": {
-            "name": v1_info.get("name", version1),
-            "features": v1_info.get("features", []),
-            "limitations": v1_info.get("limitations", [])
-        },
-        "version2": {
-            "name": v2_info.get("name", version2),
-            "features": v2_info.get("features", []),
-            "limitations": v2_info.get("limitations", [])
-        }
-    }
-
 # 推荐版本功能
 def recommend_version(market_complexity: str = "medium",
                      user_preference: str = "balanced") -> str:
