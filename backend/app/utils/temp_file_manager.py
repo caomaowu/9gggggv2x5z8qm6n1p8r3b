@@ -1,6 +1,7 @@
 import os
 import time
 import glob
+import shutil
 
 def cleanup_old_temp_files(temp_dir="temp_charts", max_age_hours=24):
     """清理超过指定时间的临时文件"""
@@ -76,4 +77,57 @@ def cleanup_all_temp_files():
         return cleaned_count
     except Exception as e:
         print(f"手动清理临时文件时出错: {e}")
+        return 0
+
+def cleanup_exports_files():
+    """
+    清理 exports 文件夹下的所有内容
+    """
+    try:
+        # 定位到 exports 文件夹 (假设后端运行在 backend/ 目录)
+        # 向上两级找到项目根目录 (app -> backend -> root) ? 不，是运行目录 backend/ 的上一级
+        # start_all.py 中 backend 的 cwd 是 project_root / "backend"
+        # 所以 exports 目录应该是 ../exports
+        
+        # 使用绝对路径更安全
+        backend_dir = os.getcwd()
+        project_root = os.path.dirname(backend_dir)
+        exports_dir = os.path.join(project_root, "exports")
+        
+        # 如果当前不是在 backend 目录下运行（比如在 app 目录下），可能需要调整
+        if not os.path.exists(exports_dir):
+            # 尝试另一种路径假设：假设当前是在项目根目录运行
+            if os.path.exists("exports"):
+                exports_dir = os.path.abspath("exports")
+            else:
+                # 尝试相对于此文件的路径
+                # 此文件在 backend/app/utils/temp_file_manager.py
+                # exports 在 backend/../../exports
+                current_file_dir = os.path.dirname(os.path.abspath(__file__))
+                exports_dir = os.path.abspath(os.path.join(current_file_dir, "..", "..", "..", "exports"))
+
+        if not os.path.exists(exports_dir):
+            print(f"未找到 exports 目录: {exports_dir}")
+            return 0
+            
+        cleaned_count = 0
+        print(f"准备清理 exports 目录: {exports_dir}")
+        
+        # 遍历删除所有文件和子目录
+        for item in os.listdir(exports_dir):
+            item_path = os.path.join(exports_dir, item)
+            try:
+                if os.path.isfile(item_path) or os.path.islink(item_path):
+                    os.unlink(item_path)
+                    cleaned_count += 1
+                elif os.path.isdir(item_path):
+                    shutil.rmtree(item_path)
+                    cleaned_count += 1
+                print(f"清理导出项: {item_path}")
+            except Exception as e:
+                print(f"删除导出项失败 {item_path}: {e}")
+                
+        return cleaned_count
+    except Exception as e:
+        print(f"清理导出目录时出错: {e}")
         return 0

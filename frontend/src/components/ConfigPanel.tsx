@@ -2,7 +2,7 @@ import { useAppStore } from '../store/useAppStore';
 import { AVAILABLE_MODELS } from '../types';
 import type { AnalyzeRequest } from '../types';
 import styles from './ConfigPanel.module.css';
-import { clearSystemCache } from '../api/system';
+import { clearSystemCache, clearExportsFiles } from '../api/system';
 import { useState } from 'react';
 
 export default function ConfigPanel() {
@@ -14,6 +14,7 @@ export default function ConfigPanel() {
   } = useAppStore();
 
   const [isCleaning, setIsCleaning] = useState(false);
+  const [isCleaningExports, setIsCleaningExports] = useState(false);
 
   type DataMethod = AnalyzeRequest['data_method'];
 
@@ -37,6 +38,27 @@ export default function ConfigPanel() {
           setIsCleaning(false);
       }
   };
+
+  const handleClearExports = async () => {
+      if (!confirm('警告：这将永久删除 exports 文件夹下的所有分析报告和文件！\n\n确定要继续吗？')) {
+          return;
+      }
+      
+      setIsCleaningExports(true);
+      try {
+          const res = await clearExportsFiles();
+          alert(`${res.message}`);
+      } catch (error) {
+          console.error("Failed to clear exports:", error);
+          alert("清理失败，请检查控制台");
+      } finally {
+          setIsCleaningExports(false);
+      }
+  };
+
+  // ------------------------------------------
+  // UI Render
+  // ------------------------------------------
 
   return (
     <>
@@ -292,9 +314,26 @@ export default function ConfigPanel() {
                         </>
                     )}
                 </button>
+
+                <button 
+                    type="button" 
+                    className={styles.cleanExportsBtn}
+                    onClick={handleClearExports}
+                    disabled={isCleaningExports}
+                >
+                    {isCleaningExports ? (
+                        <>
+                            <i className="fas fa-spinner fa-spin"></i> Cleaning...
+                        </>
+                    ) : (
+                        <>
+                            <i className="fas fa-folder-minus"></i> Clean Exports Files
+                        </>
+                    )}
+                </button>
             </div>
             <small className={styles.textMuted}>
-                清理缓存图表。
+                清理缓存图表和导出的报告文件。
             </small>
         </div>
     </div>
