@@ -2,6 +2,7 @@ import { useAppStore } from '../store/useAppStore';
 import { analyzeMarket } from '../api/analyze';
 import AssetAndTimeframePanel from './AssetAndTimeframePanel';
 import ConfigPanel from './ConfigPanel';
+import HistoryPanel from './HistoryPanel';
 import { useState, useEffect } from 'react';
 import type { AnalyzeRequest } from '../types';
 import styles from './AnalysisForm.module.css';
@@ -75,6 +76,9 @@ export default function AnalysisForm() {
             };
             
             setAnalysisResult(enrichedResult);
+            if (enrichedResult.result_id) {
+                setLatestResultId(enrichedResult.result_id);
+            }
             
             // Scroll to results
             setTimeout(() => {
@@ -144,6 +148,10 @@ export default function AnalysisForm() {
                         )}
                     </div>
                 </div>
+
+                {/* History Panel */}
+                <HistoryPanel />
+
             </div>
         </section>
     );

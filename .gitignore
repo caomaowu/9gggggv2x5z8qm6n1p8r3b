@@ -23,6 +23,7 @@ dist/
 # 临时生成的图表和数据
 backend/temp_charts/
 backend/*.png
+backend/data/history/
 exports/
 # Node / Frontend 忽略规则
 node_modules/

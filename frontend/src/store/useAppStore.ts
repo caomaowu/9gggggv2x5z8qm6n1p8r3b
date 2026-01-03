@@ -24,6 +24,7 @@ interface AppState {
   
   // Analysis Result
   analysisResult: AnalysisResult | null;
+  latestResultId: string | null;
 
   // Actions
   setAsset: (asset: string) => void;
@@ -36,6 +37,7 @@ interface AppState {
   setDateConfig: (config: Partial<AppState>) => void;
   setAiVersion: (version: string) => void;
   setAnalysisResult: (result: AnalysisResult | null) => void;
+  setLatestResultId: (id: string | null) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -58,6 +60,7 @@ export const useAppStore = create<AppState>()(
       aiVersion: 'constrained',
       
       analysisResult: null,
+      latestResultId: null,
       
       setAsset: (asset) => set({ selectedAsset: asset }),
       setTimeframe: (tf) => set({ selectedTimeframe: tf }),
@@ -77,13 +80,15 @@ export const useAppStore = create<AppState>()(
       
       setAiVersion: (version) => set({ aiVersion: version }),
       setAnalysisResult: (result) => set({ analysisResult: result }),
+      setLatestResultId: (id) => set({ latestResultId: id }),
     }),
     {
       name: 'quantagent-storage',
       partialize: (state) => ({ 
         customAssets: state.customAssets,
         selectedTimeframe: state.selectedTimeframe,
-        klineCount: state.klineCount
+        klineCount: state.klineCount,
+        latestResultId: state.latestResultId
       }),
     }
   )

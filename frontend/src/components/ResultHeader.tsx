@@ -2,7 +2,14 @@ import { useAppStore } from '../store/useAppStore';
 import styles from './ResultHeader.module.css';
 
 export default function ResultHeader() {
-    const { analysisResult } = useAppStore();
+    const { analysisResult, setAnalysisResult, setLatestResultId } = useAppStore();
+
+    const handleBack = (e: React.MouseEvent) => {
+        e.preventDefault();
+        // 清除状态，返回表单页
+        setAnalysisResult(null);
+        setLatestResultId(null);
+    };
 
     return (
         <header className={styles.header}>
@@ -21,11 +28,7 @@ export default function ResultHeader() {
                     </div>
                 )}
                 <div className={styles.backButton}>
-                    {/* 使用 window.location.reload() 模拟返回并重置状态，或者调用 store 方法重置 */}
-                    <a href="/" className={styles.backBtn} onClick={(e) => {
-                        e.preventDefault();
-                        window.location.reload();
-                    }}>
+                    <a href="/" className={styles.backBtn} onClick={handleBack}>
                         <i className="fas fa-arrow-left"></i>&nbsp;&nbsp; 返回分析页面
                     </a>
                 </div>

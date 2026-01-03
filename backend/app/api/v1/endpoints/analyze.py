@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from app.models.schemas.analyze import AnalyzeRequest
 from app.services.market_data import MarketDataService
 from app.services.trading_engine import TradingEngine
+from app.services.history_service import history_service
 from app.core.progress import update_analysis_progress
 from app.utils.id_manager import get_result_id_manager
 from app.utils.analysis_log import get_analysis_logger
@@ -195,6 +196,12 @@ async def analyze_market(
             logger.error(f"[{result_id}] Failed to auto-save HTML report: {e}")
             # Do not block response, but log error
 
+        # 6. Save JSON History (For History Recall)
+        try:
+            history_service.save_result(result_id, result)
+        except Exception as e:
+             logger.error(f"[{result_id}] Failed to save JSON history: {e}")
+
         logger.info("Analysis completed successfully")
         update_analysis_progress("completed", 100, "Analysis completed")
         
@@ -206,3 +213,20 @@ async def analyze_market(
         logger.error(f"[{result_id}] Analysis error: {e}")
         update_analysis_progress("error", 0, f"Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/history/{result_id}")
+async def get_analysis_history(result_id: str):
+    """
+    Get historical analysis result by ID.
+    """
+    result = history_service.get_result(result_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Analysis result not found")
+    return result
+
+@router.get("/history")
+async def list_analysis_history(limit: int = 20):
+    """
+    List recent analysis history.
+    """
+    return history_service.get_history_list(limit)

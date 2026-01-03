@@ -1,0 +1,88 @@
+.historyPanel {
+    background: var(--white);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--gray-200);
+    margin-top: 2rem;
+}
+
+.historyTitle {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: space-between;
+}
+
+.refreshBtn {
+    background: none;
+    border: none;
+    color: var(--etrade-purple);
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+
+.refreshBtn:hover {
+    background: var(--gray-100);
+}
+
+.historyList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.historyItem {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.historyItem:hover {
+    border-color: var(--etrade-purple);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.itemHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--gray-500);
+}
+
+.itemId {
+    font-family: monospace;
+    font-weight: 600;
+    color: var(--etrade-purple);
+    font-size: 0.95rem;
+}
+
+.itemDate {
+    font-size: 0.8rem;
+    color: var(--gray-400);
+}
+
+.emptyState {
+    text-align: center;
+    padding: 2rem;
+    color: var(--gray-500);
+    font-size: 0.9rem;
+}
