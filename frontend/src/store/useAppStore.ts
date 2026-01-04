@@ -29,6 +29,9 @@ interface AppState {
   // Continuous Analysis Mode
   continuousMode: boolean;
   historyRefreshTrigger: number;
+  
+  // History Result Behavior
+  autoFocusResult: boolean;
 
   // Actions
   setAsset: (asset: string) => void;
@@ -44,6 +47,7 @@ interface AppState {
   setLatestResultId: (id: string | null) => void;
   setContinuousMode: (mode: boolean) => void;
   triggerHistoryRefresh: () => void;
+  setAutoFocusResult: (autoFocus: boolean) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -70,6 +74,7 @@ export const useAppStore = create<AppState>()(
 
       continuousMode: false,
       historyRefreshTrigger: 0,
+      autoFocusResult: true, // Default to jumping to new tab
       
       setAsset: (asset) => set({ selectedAsset: asset }),
       setTimeframe: (tf) => set({ selectedTimeframe: tf }),
@@ -92,6 +97,7 @@ export const useAppStore = create<AppState>()(
       setLatestResultId: (id) => set({ latestResultId: id }),
       setContinuousMode: (mode) => set({ continuousMode: mode }),
       triggerHistoryRefresh: () => set((state) => ({ historyRefreshTrigger: state.historyRefreshTrigger + 1 })),
+      setAutoFocusResult: (autoFocus) => set({ autoFocusResult: autoFocus }),
     }),
     {
       name: 'quantagent-storage',
@@ -100,7 +106,8 @@ export const useAppStore = create<AppState>()(
         selectedTimeframe: state.selectedTimeframe,
         klineCount: state.klineCount,
         latestResultId: state.latestResultId,
-        continuousMode: state.continuousMode // Persist user preference
+        continuousMode: state.continuousMode, // Persist user preference
+        autoFocusResult: state.autoFocusResult
       }),
     }
   )
