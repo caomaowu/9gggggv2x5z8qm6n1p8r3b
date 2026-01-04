@@ -26,6 +26,10 @@ interface AppState {
   analysisResult: AnalysisResult | null;
   latestResultId: string | null;
 
+  // Continuous Analysis Mode
+  continuousMode: boolean;
+  historyRefreshTrigger: number;
+
   // Actions
   setAsset: (asset: string) => void;
   setTimeframe: (tf: string) => void;
@@ -38,6 +42,8 @@ interface AppState {
   setAiVersion: (version: string) => void;
   setAnalysisResult: (result: AnalysisResult | null) => void;
   setLatestResultId: (id: string | null) => void;
+  setContinuousMode: (mode: boolean) => void;
+  triggerHistoryRefresh: () => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -61,6 +67,9 @@ export const useAppStore = create<AppState>()(
       
       analysisResult: null,
       latestResultId: null,
+
+      continuousMode: false,
+      historyRefreshTrigger: 0,
       
       setAsset: (asset) => set({ selectedAsset: asset }),
       setTimeframe: (tf) => set({ selectedTimeframe: tf }),
@@ -81,6 +90,8 @@ export const useAppStore = create<AppState>()(
       setAiVersion: (version) => set({ aiVersion: version }),
       setAnalysisResult: (result) => set({ analysisResult: result }),
       setLatestResultId: (id) => set({ latestResultId: id }),
+      setContinuousMode: (mode) => set({ continuousMode: mode }),
+      triggerHistoryRefresh: () => set((state) => ({ historyRefreshTrigger: state.historyRefreshTrigger + 1 })),
     }),
     {
       name: 'quantagent-storage',
@@ -88,7 +99,8 @@ export const useAppStore = create<AppState>()(
         customAssets: state.customAssets,
         selectedTimeframe: state.selectedTimeframe,
         klineCount: state.klineCount,
-        latestResultId: state.latestResultId
+        latestResultId: state.latestResultId,
+        continuousMode: state.continuousMode // Persist user preference
       }),
     }
   )

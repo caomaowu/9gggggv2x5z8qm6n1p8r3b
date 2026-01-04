@@ -13,11 +13,14 @@ export default function AnalysisForm() {
         dataMethod, klineCount, futureKlineCount,
         startDate, startTime, endDate, endTime, useCurrentTime,
         aiVersion,
-        setAnalysisResult
+        setAnalysisResult,
+        setLatestResultId,
+        continuousMode, setContinuousMode, triggerHistoryRefresh
     } = useAppStore();
     
     const [isLoading, setIsLoading] = useState(false);
     const [progress, setProgress] = useState(0);
+    const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
     useEffect(() => {
         let interval: any;
@@ -42,8 +45,8 @@ export default function AnalysisForm() {
             alert('Please select an asset first.');
             return;
         }
-        setIsLoading(true);
-        setAnalysisResult(null); // Clear previous result
+        
+        setStatusMessage(null);
         
         const request: AnalyzeRequest = {
             asset: selectedAsset,
@@ -60,6 +63,38 @@ export default function AnalysisForm() {
             end_time: endTime || undefined
         };
 
+        if (continuousMode) {
+            // Continuous Mode: Non-blocking
+            setIsLoading(true); // Short loading for feedback
+            
+            // Fire and forget (from UI perspective)
+            analyzeMarket(request).then(result => {
+                console.log(`[Continuous] Analysis for ${request.asset} finished.`);
+                triggerHistoryRefresh();
+                setStatusMessage(`✅ ${request.asset} 分析完成! 请查看历史记录。`);
+                
+                // Optional: Auto-clear success message after 5 seconds
+                setTimeout(() => {
+                    setStatusMessage(prev => (prev && prev.includes('分析完成') ? null : prev));
+                }, 5000);
+            }).catch(error => {
+                console.error(`[Continuous] Analysis for ${request.asset} failed:`, error);
+                setStatusMessage(`❌ ${request.asset} 分析失败。请检查控制台。`);
+            });
+
+            // Release UI immediately after a short delay
+            setTimeout(() => {
+                setIsLoading(false);
+                setStatusMessage(`⏳ ${request.asset} 正在后台分析中... 您可以继续操作。`);
+            }, 500);
+
+            return; // Exit function, do not execute blocking logic
+        }
+
+        // Normal Mode: Blocking & Redirect
+        setIsLoading(true);
+        setAnalysisResult(null); // Clear previous result
+        
         try {
             console.log("Sending analysis request:", request);
             const result = await analyzeMarket(request);
@@ -111,6 +146,29 @@ export default function AnalysisForm() {
                     </div>
 
                     <div className={styles.runControlsContainer}>
+                        {/* Continuous Mode Toggle */}
+                        <div style={{ 
+                            marginBottom: '1rem', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            gap: '10px',
+                            padding: '10px',
+                            backgroundColor: 'var(--gray-50)',
+                            borderRadius: '8px'
+                        }}>
+                            <input 
+                                type="checkbox" 
+                                id="continuousMode"
+                                checked={continuousMode}
+                                onChange={(e) => setContinuousMode(e.target.checked)}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--etrade-purple)' }}
+                            />
+                            <label htmlFor="continuousMode" style={{ cursor: 'pointer', fontWeight: 500, userSelect: 'none', color: 'var(--gray-700)' }}>
+                                连续分析模式 (后台运行，不跳转)
+                            </label>
+                        </div>
+
                          <button 
                             className={styles.startAnalysisBtn}
                             onClick={handleStartAnalysis}
@@ -127,7 +185,14 @@ export default function AnalysisForm() {
                             )}
                         </button>
 
-                        {isLoading && (
+                        {/* Status Message for Continuous Mode */}
+                        {statusMessage && (
+                             <div style={{ marginTop: '1rem', textAlign: 'center', color: statusMessage.includes('❌') ? '#dc2626' : '#2563eb', fontWeight: 600 }}>
+                                 {statusMessage}
+                             </div>
+                        )}
+
+                        {isLoading && !continuousMode && (
                             <div className={styles.progressContainer}>
                                 <div className={styles.progressLabel}>
                                     <span className={styles.progressText}>Analysis Progress</span>

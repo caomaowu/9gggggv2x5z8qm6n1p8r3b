@@ -24,3 +24,15 @@ async def clear_exports():
         return {"status": "success", "message": f"成功清理 {count} 个导出项目", "cleaned_count": count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/clear-history")
+async def clear_history():
+    """
+    清除 data/history 下的所有历史记录数据
+    """
+    try:
+        from app.services.history_service import history_service
+        count = history_service.clear_all_history()
+        return {"status": "success", "message": f"成功清理 {count} 条历史记录数据", "cleaned_count": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

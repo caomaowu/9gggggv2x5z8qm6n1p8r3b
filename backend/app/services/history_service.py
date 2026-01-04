@@ -132,4 +132,35 @@ class HistoryService:
             logger.error(f"Failed to list history: {e}")
             return []
 
+    def clear_all_history(self) -> int:
+        """
+        Clear all history JSON files and directories.
+        Returns the number of deleted files.
+        """
+        count = 0
+        try:
+            if not self.base_dir.exists():
+                return 0
+                
+            for item in self.base_dir.iterdir():
+                if item.is_dir():
+                    try:
+                        import shutil
+                        shutil.rmtree(item)
+                        count += 1
+                    except Exception as e:
+                        logger.error(f"Failed to remove history dir {item}: {e}")
+                elif item.is_file():
+                    try:
+                        item.unlink()
+                        count += 1
+                    except Exception as e:
+                        logger.error(f"Failed to remove history file {item}: {e}")
+            
+            logger.info(f"Cleared {count} history items")
+            return count
+        except Exception as e:
+            logger.error(f"Failed to clear all history: {e}")
+            return 0
+
 history_service = HistoryService()

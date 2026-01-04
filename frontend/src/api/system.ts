@@ -15,3 +15,8 @@ export const clearExportsFiles = async (): Promise<SystemCleanResponse> => {
     const response = await apiClient.post<SystemCleanResponse>('/system/clear-exports');
     return response.data;
 };
+
+export const clearHistoryData = async (): Promise<SystemCleanResponse> => {
+    const response = await apiClient.post<SystemCleanResponse>('/system/clear-history');
+    return response.data;
+};

@@ -11,12 +11,29 @@ function App() {
 
   useEffect(() => {
     const restoreHistory = async () => {
-      // Only restore if we have an ID but no result (e.g. after refresh)
-      if (latestResultId && !analysisResult && !isRestoring) {
+      // 1. Check for URL parameter (Priority)
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlId = urlParams.get('id');
+
+      // 2. Determine which ID to use
+      // If URL ID exists, use it. Otherwise, use stored latestResultId (only if not currently displaying a result)
+      const targetId = urlId || (latestResultId && !analysisResult ? latestResultId : null);
+
+      // Only restore if we have a target ID and no result is currently loaded (or if we are forcing a load via URL)
+      // Note: If urlId is present, we always want to load it, even if analysisResult is already set?
+      // Actually, if analysisResult is set, it might be from a previous effect run.
+      // But for a fresh page load with ?id=..., analysisResult starts as null.
+      
+      if (targetId && !isRestoring) {
+        // Optimization: If the current result is already the target result, skip.
+        if (analysisResult && analysisResult.result_id === targetId) {
+            return;
+        }
+
         setIsRestoring(true);
         try {
-            console.log("Attempting to restore analysis history:", latestResultId);
-            const result = await getAnalysisHistory(latestResultId);
+            console.log("Attempting to restore analysis history:", targetId);
+            const result = await getAnalysisHistory(targetId);
             if (result) {
                 // Map backend fields to frontend expected fields
                 // Ensure compatibility with AnalysisResult components

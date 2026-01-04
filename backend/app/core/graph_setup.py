@@ -4,6 +4,10 @@ import threading
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
+import sys
+import io
+# 在文件开头添加
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
