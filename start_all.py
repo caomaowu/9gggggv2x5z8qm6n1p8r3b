@@ -29,6 +29,7 @@ def run_service(command_str, cwd, prefix, color_code):
     # 环境变量，强制 Python 不缓存输出，保证日志实时性
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
     
     try:
         # 启动进程
