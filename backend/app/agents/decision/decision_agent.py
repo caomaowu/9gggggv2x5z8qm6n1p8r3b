@@ -3,91 +3,22 @@ Agent for making final trade decisions in high-frequency trading (HFT) context.
 Combines indicator, pattern, and trend reports to issue a LONG or SHORT order.
 """
 
-# 哈雷酱的模块化导入！
-import sys
-from pathlib import Path
-# sys.path hack removed
+from .core_decision import create_generic_decision_agent
 
-try:
-    from app.core.progress import update_agent_progress
-except ImportError:
-    # 如果导入失败，使用空函数避免破坏
-    def update_agent_progress(agent_name, progress_within_agent=0, status=""):
-        pass
-
-# 哈雷酱的性能监控系统！
-try:
-    from app.utils.performance import performance_monitor, monitor_llm_call
-except ImportError:
-    # 如果导入失败，使用空装饰器
-    def performance_monitor(stage_name=None):
-        def decorator(func):
-            return func
-        return decorator
-    def monitor_llm_call(model_name=None):
-        return performance_monitor(f"LLM调用: {model_name}" if model_name else "LLM调用")
-
-
-@performance_monitor("最终决策智能体")
-def create_final_trade_decider(llm):
-    """
-    Create a trade decision agent node. The agent uses LLM to synthesize indicator, pattern, and trend reports
-    and outputs a final trade decision (LONG or SHORT) with justification and risk-reward ratio.
-    现在从新的状态结构中获取分析结果。
-    """
-
-    @performance_monitor("最终决策智能体执行")
-    def trade_decision_node(state) -> dict:
-        # 哈雷酱的进度跟踪！
-        update_agent_progress("decision", 10, "正在启动最终决策智能体...")
-
-        # 从状态结构中获取分析结果
-        indicator_report = state.get("indicator_report", "技术指标分析不可用")
-        pattern_report = state.get("pattern_report", "形态分析不可用")
-        trend_report = state.get("trend_report", "趋势分析不可用")
-        time_frame = state.get("time_frame", "未知")
-        stock_name = state.get("stock_name", "未知交易对")  # 修复：统一使用 stock_name，避免币种名称不一致
-
-        # 哈雷酱添加：获取当前价格信息
-        latest_price = state.get("latest_price", None)
-        price_info = state.get("price_info", "")
-
-        if latest_price is not None:
-            price_summary = f"当前{stock_name}最新价格: {latest_price}"
-        else:
-            price_summary = f"警告：无法获取{stock_name}的当前价格信息"
-
-        # 检查是否有分析错误
-        analysis_errors = []
-        if "error" in indicator_report and isinstance(indicator_report, dict):
-            analysis_errors.append(f"技术指标分析失败: {indicator_report['error']}")
-            indicator_report = "技术指标分析失败"
-
-        if "error" in pattern_report and isinstance(pattern_report, dict):
-            analysis_errors.append(f"形态分析失败: {pattern_report['error']}")
-            pattern_report = "形态分析失败"
-
-        if "error" in trend_report and isinstance(trend_report, dict):
-            analysis_errors.append(f"趋势分析失败: {trend_report['error']}")
-            trend_report = "趋势分析失败"
-
-        print(f"🎯 决策智能体收到分析结果，正在为 {stock_name} ({time_frame}) 做出最终决策...")
-        print(f"💰 当前价格信息: {price_summary}")
-
-        # --- System prompt for LLM ---
-        prompt = f"""你是一名专业的量化交易分析师，正在分析{stock_name}的{time_frame}K线图。你的任务是发布**立即执行指令**：**做多**或**做空**。在输出最终JSON之前，必须进行严谨的深度思考与内部推理，最终只输出JSON结果。
+# 约束版 Prompt 模板
+CONSTRAINED_PROMPT_TEMPLATE = """你是一名专业的量化交易分析师，正在分析{stock_name}的{time_frame}K线图。你的任务是发布**立即执行指令**：**做多**或**做空**。在输出最终JSON之前，必须进行严谨的深度思考与内部推理，最终只输出JSON结果。
 
             **当前价格信息：**
             {price_summary}
-            {price_info if price_info else ""}
+            {price_info_str}
+
+            {custom_instructions}
 
             你的决策应该预测未来N根K线的市场走势，其中：
             - 例如：时间框架=15分钟，N=1 → 预测未来15分钟级别
             - 时间框架=4小时， → 预测未来4小时级别
 
-            **重要：你必须基于当前价格 {latest_price if latest_price is not None else '未知'} 来计算具体的止损止盈点位！**
-
-
+            **重要：你必须基于当前价格 {latest_price_str} 来计算具体的止损止盈点位！**
 
             ---
 
@@ -259,20 +190,12 @@ def create_final_trade_decider(llm):
 
             **趋势报告**
             {trend_report}
+"""
 
-        """
-
-        # --- LLM call for decision ---
-        update_agent_progress("decision", 80, "正在生成最终交易决策...")
-        response = llm.invoke(prompt)
-
-        update_agent_progress("decision", 100, "最终决策生成完成")
-        return {
-            "final_trade_decision": response.content,
-            "messages": [response],
-            "decision_prompt": prompt,
-        }
-
-    return trade_decision_node
-
-
+def create_final_trade_decider(llm):
+    return create_generic_decision_agent(
+        llm=llm,
+        prompt_template=CONSTRAINED_PROMPT_TEMPLATE,
+        agent_name="最终决策智能体",
+        agent_version="constrained"
+    )

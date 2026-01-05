@@ -30,6 +30,10 @@ interface AppState {
   continuousMode: boolean;
   historyRefreshTrigger: number;
   
+  // Custom Prompt Injection
+  customPromptEnabled: boolean;
+  customPrompt: string;
+  
   // History Result Behavior
   autoFocusResult: boolean;
 
@@ -48,6 +52,8 @@ interface AppState {
   setContinuousMode: (mode: boolean) => void;
   triggerHistoryRefresh: () => void;
   setAutoFocusResult: (autoFocus: boolean) => void;
+  setCustomPromptEnabled: (enabled: boolean) => void;
+  setCustomPrompt: (prompt: string) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -74,6 +80,10 @@ export const useAppStore = create<AppState>()(
 
       continuousMode: false,
       historyRefreshTrigger: 0,
+      
+      customPromptEnabled: false,
+      customPrompt: '',
+      
       autoFocusResult: true, // Default to jumping to new tab
       
       setAsset: (asset) => set({ selectedAsset: asset }),
@@ -97,6 +107,8 @@ export const useAppStore = create<AppState>()(
       setLatestResultId: (id) => set({ latestResultId: id }),
       setContinuousMode: (mode) => set({ continuousMode: mode }),
       triggerHistoryRefresh: () => set((state) => ({ historyRefreshTrigger: state.historyRefreshTrigger + 1 })),
+      setCustomPromptEnabled: (enabled) => set({ customPromptEnabled: enabled }),
+      setCustomPrompt: (prompt) => set({ customPrompt: prompt }),
       setAutoFocusResult: (autoFocus) => set({ autoFocusResult: autoFocus }),
     }),
     {
@@ -107,7 +119,9 @@ export const useAppStore = create<AppState>()(
         klineCount: state.klineCount,
         latestResultId: state.latestResultId,
         continuousMode: state.continuousMode, // Persist user preference
-        autoFocusResult: state.autoFocusResult
+        autoFocusResult: state.autoFocusResult,
+        customPromptEnabled: state.customPromptEnabled,
+        customPrompt: state.customPrompt
       }),
     }
   )

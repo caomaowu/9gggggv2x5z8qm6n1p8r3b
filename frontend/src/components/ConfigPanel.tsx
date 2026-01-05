@@ -9,7 +9,8 @@ export default function ConfigPanel() {
       dataMethod, setDataMethod,
       startDate, startTime, endDate, endTime, useCurrentTime, setDateConfig,
       aiVersion, setAiVersion,
-      klineCount, setKlineCount, futureKlineCount, setFutureKlineCount
+      klineCount, setKlineCount, futureKlineCount, setFutureKlineCount,
+      customPromptEnabled, setCustomPromptEnabled, customPrompt, setCustomPrompt
   } = useAppStore();
 
   const [isCleaning, setIsCleaning] = useState(false);
@@ -211,6 +212,44 @@ export default function ConfigPanel() {
                 </div>
             </div>
         )}
+
+        {/* Custom Prompt Injection */}
+        <div className={`${styles.formGroup} mt-4`}>
+             <div className="flex items-center justify-between mb-2">
+                <label className={styles.formLabel} style={{ marginBottom: 0 }}>
+                    <i className="fas fa-comment-medical"></i> 决策提示词注入
+                </label>
+                <div className="flex items-center gap-2">
+                    <input 
+                        className={styles.formCheckInput} 
+                        type="checkbox" 
+                        id="customPromptEnabled"
+                        checked={customPromptEnabled}
+                        onChange={e => setCustomPromptEnabled(e.target.checked)}
+                    />
+                    <label className="text-sm text-gray-600 cursor-pointer select-none" htmlFor="customPromptEnabled">
+                        启用
+                    </label>
+                </div>
+            </div>
+            
+            {customPromptEnabled && (
+                <div className="mt-2">
+                    <textarea 
+                        className={`${styles.formControl} w-full`}
+                        rows={4}
+                        placeholder="在此输入您的持仓情况或特殊指令。例如：目前持有BTC多单，入场价95000，请根据当前行情判断是否应该止盈或继续持有。"
+                        value={customPrompt}
+                        onChange={(e) => setCustomPrompt(e.target.value)}
+                        style={{ resize: 'vertical', minHeight: '80px', fontSize: '0.9rem' }}
+                    />
+                    <small className={styles.textMuted}>
+                        <i className="fas fa-info-circle me-1"></i>
+                        这些提示词将直接注入到决策智能体中，辅助其进行更个性化的判断。
+                    </small>
+                </div>
+            )}
+        </div>
     </div>
 
     {/* AI Agent Configuration */}
@@ -231,7 +270,8 @@ export default function ConfigPanel() {
                     onChange={e => setAiVersion(e.target.value)}
                 >
                     <option value="constrained">Constrained (Conservative)</option>
-                    <option value="liberal">Liberal (Aggressive)</option>
+                    <option value="relaxed">Relaxed (Flexible)</option>
+                    <option value="comprehensive">Comprehensive (No Risk Ratio)</option>
                 </select>
                 <small className={styles.textMuted}>
                     Select the risk appetite for the decision agent.

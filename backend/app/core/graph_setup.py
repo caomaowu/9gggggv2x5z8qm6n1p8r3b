@@ -18,7 +18,7 @@ from pathlib import Path
 # sys.path hack removed
 
 from app.agents.agent_state import IndicatorAgentState
-from app.agents.decision_agent import create_final_trade_decider
+from app.agents.decision.decision_agent import create_final_trade_decider
 from app.utils.graph_util import TechnicalTools
 from app.agents.indicator_agent import create_indicator_agent
 from app.agents.pattern_agent import create_pattern_agent
@@ -65,7 +65,7 @@ class SetGraph:
 
         # create nodes for decision agent - 哈雷酱的AI版本功能！
         try:
-            from app.agents.decision_agent_factory import get_decision_agent_factory
+            from app.agents.decision.decision_agent_factory import get_decision_agent_factory
             factory = get_decision_agent_factory()
             decision_agent_node = factory.create_agent(self.decision_agent_version, self.agent_llm)
             print(f"[AI版本] 图形设置使用决策智能体版本: {self.decision_agent_version}")

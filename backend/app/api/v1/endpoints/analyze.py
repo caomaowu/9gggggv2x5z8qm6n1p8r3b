@@ -168,7 +168,12 @@ async def analyze_market(
         # 3. Run Analysis
         logger.info(f"[{result_id}] Starting AI analysis with engine config: {engine_config}")
         update_analysis_progress("analyzing", 30, "Running AI analysis...")
-        result = await trading_engine.run_analysis(df, request.asset, request.timeframe)
+        result = await trading_engine.run_analysis(
+            df, 
+            request.asset, 
+            request.timeframe,
+            custom_prompt=request.custom_prompt
+        )
         
         # Inject Result ID and Request Metadata
         result['result_id'] = result_id

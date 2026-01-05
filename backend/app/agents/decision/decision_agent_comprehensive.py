@@ -1,44 +1,17 @@
-from pathlib import Path
-import sys
-# sys.path hack removed
+"""
+综合分析版决策智能体
+融合三报告与结构位/波动性依据，直接给出止损止盈，不使用风险回报比
+"""
 
-try:
-    from app.core.progress import update_agent_progress
-except Exception:
-    def update_agent_progress(agent_name, progress_within_agent=0, status=""):
-        return None
+from .core_decision import create_generic_decision_agent
 
-try:
-    from app.utils.performance import performance_monitor
-except Exception:
-    def performance_monitor(stage_name=None):
-        def decorator(func):
-            return func
-        return decorator
-
-
-@performance_monitor("综合分析版决策智能体")
-def create_final_trade_decider_comprehensive(llm):
-    @performance_monitor("综合分析版决策智能体执行")
-    def trade_decision_node(state) -> dict:
-        update_agent_progress("decision", 10, "正在启动综合分析版决策智能体...")
-
-        indicator_report = state.get("indicator_report", "技术指标分析不可用")
-        pattern_report = state.get("pattern_report", "形态分析不可用")
-        trend_report = state.get("trend_report", "趋势分析不可用")
-        time_frame = state.get("time_frame", "未知")
-        stock_name = state.get("stock_name", "未知交易对")
-        latest_price = state.get("latest_price")
-        price_info = state.get("price_info", "")
-
-        price_summary = f"当前{stock_name}最新价格: {latest_price}" if latest_price is not None else f"无法获取{stock_name}的当前价格信息"
-
-        prompt = f"""
-你是一名专业的量化交易分析师，正在分析{stock_name}的{time_frame}K线图。请综合技术指标、形态与趋势，直接给出数值型止损与止盈，不得使用或推导任何风险回报比。
+COMPREHENSIVE_PROMPT_TEMPLATE = """你是一名专业的量化交易分析师，正在分析{stock_name}的{time_frame}K线图。请综合技术指标、形态与趋势，直接给出数值型止损与止盈，不得使用或推导任何风险回报比。
 
 当前价格信息：
 {price_summary}
-{price_info if price_info else ""}
+{price_info_str}
+
+{custom_instructions}
 
 预测范围说明：
 - 例如 TIME_FRAME = 15分钟 → 预测接下来的15分钟
@@ -96,14 +69,10 @@ def create_final_trade_decider_comprehensive(llm):
 {trend_report}
 """
 
-        update_agent_progress("decision", 80, "正在生成综合分析版最终交易决策...")
-        response = llm.invoke(prompt)
-        update_agent_progress("decision", 100, "综合分析版决策生成完成")
-
-        return {
-            "final_trade_decision": response.content,
-            "messages": [response],
-            "decision_prompt": prompt,
-        }
-
-    return trade_decision_node
+def create_final_trade_decider_comprehensive(llm):
+    return create_generic_decision_agent(
+        llm=llm,
+        prompt_template=COMPREHENSIVE_PROMPT_TEMPLATE,
+        agent_name="综合分析版决策智能体",
+        agent_version="comprehensive"
+    )

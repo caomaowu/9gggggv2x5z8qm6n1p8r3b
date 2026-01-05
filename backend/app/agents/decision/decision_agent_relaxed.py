@@ -4,86 +4,15 @@ Combines indicator, pattern, and trend reports to issue a LONG, SHORT, or HOLD o
 相比约束版本，提供了更自由的思维空间和决策选项。
 """
 
-# 哈雷酱的模块化导入！
-import sys
-from pathlib import Path
-# sys.path hack removed
+from .core_decision import create_generic_decision_agent
 
-try:
-    from app.core.progress import update_agent_progress
-except ImportError:
-    # 如果导入失败，使用空函数避免破坏
-    def update_agent_progress(agent_name, progress_within_agent=0, status=""):
-        pass
-
-# 哈雷酱的性能监控系统！
-try:
-    from app.utils.performance import performance_monitor, monitor_llm_call
-except ImportError:
-    # 如果导入失败，使用空装饰器
-    def performance_monitor(stage_name=None):
-        def decorator(func):
-            return func
-        return decorator
-    def monitor_llm_call(model_name=None):
-        return performance_monitor(f"LLM调用: {model_name}" if model_name else "LLM调用")
-
-
-@performance_monitor("宽松版决策智能体")
-def create_final_trade_decider_relaxed(llm):
-    """
-    Create a relaxed trade decision agent node.
-    相比约束版本的主要改进：
-    1. 增加"观望"选项
-    2. 扩大风险回报比范围 (1.1-5.0)
-    3. 细化市场环境分类
-    4. 减少决策导向性约束，鼓励自由分析
-    """
-
-    @performance_monitor("宽松版决策智能体执行")
-    def trade_decision_node_relaxed(state) -> dict:
-        # 哈雷酱的进度跟踪！
-        update_agent_progress("decision", 10, "正在启动宽松版决策智能体...")
-
-        # 从状态结构中获取分析结果
-        indicator_report = state.get("indicator_report", "技术指标分析不可用")
-        pattern_report = state.get("pattern_report", "形态分析不可用")
-        trend_report = state.get("trend_report", "趋势分析不可用")
-        time_frame = state.get("time_frame", "未知")
-        stock_name = state.get("stock_name", "未知交易对")
-
-        # 哈雷酱添加：获取当前价格信息
-        latest_price = state.get("latest_price", None)
-        price_info = state.get("price_info", "")
-
-        if latest_price is not None:
-            price_summary = f"当前{stock_name}最新价格: {latest_price}"
-        else:
-            price_summary = f"警告：无法获取{stock_name}的当前价格信息"
-
-        # 检查是否有分析错误
-        analysis_errors = []
-        if "error" in indicator_report and isinstance(indicator_report, dict):
-            analysis_errors.append(f"技术指标分析失败: {indicator_report['error']}")
-            indicator_report = "技术指标分析失败"
-
-        if "error" in pattern_report and isinstance(pattern_report, dict):
-            analysis_errors.append(f"形态分析失败: {pattern_report['error']}")
-            pattern_report = "形态分析失败"
-
-        if "error" in trend_report and isinstance(trend_report, dict):
-            analysis_errors.append(f"趋势分析失败: {trend_report['error']}")
-            trend_report = "趋势分析失败"
-
-        print(f"🧠 宽松版决策智能体收到分析结果，正在为 {stock_name} ({time_frame}) 进行自由思维分析...")
-        print(f"💰 当前价格信息: {price_summary}")
-
-        # --- 宽松版 System prompt for LLM ---
-        prompt = f"""你是一名具有创新思维的量化交易分析师，正在分析{stock_name}的{time_frame}K线图。与传统的约束性分析不同，你拥有更自由的思维空间和决策选项。
+RELAXED_PROMPT_TEMPLATE = """你是一名具有创新思维的量化交易分析师，正在分析{stock_name}的{time_frame}K线图。与传统的约束性分析不同，你拥有更自由的思维空间和决策选项。
 
         **当前价格信息：**
         {price_summary}
-        {price_info if price_info else ""}
+        {price_info_str}
+
+        {custom_instructions}
 
         **🆕 宽松决策选项：**
         你的任务是基于深度分析，发布最适合的交易指令：**做多**、**做空**或**观望**。
@@ -96,7 +25,7 @@ def create_final_trade_decider_relaxed(llm):
         - 例如：时间框架=15分钟，N=1 → 预测未来15分钟级别
         - 时间框架=4小时， → 预测未来4小时级别
 
-        **重要：你必须基于当前价格 {latest_price if latest_price is not None else '未知'} 来计算具体的止损止盈点位！**
+        **重要：你必须基于当前价格 {latest_price_str} 来计算具体的止损止盈点位！**
 
         ---
 
@@ -283,17 +212,10 @@ def create_final_trade_decider_relaxed(llm):
 
         """
 
-        # --- LLM call for decision ---
-        update_agent_progress("decision", 80, "正在生成宽松版最终交易决策...")
-        response = llm.invoke(prompt)
-
-        update_agent_progress("decision", 100, "宽松版决策生成完成")
-        return {
-            "final_trade_decision": response.content,
-            "messages": [response],
-            "decision_prompt": prompt,
-            "agent_version": "relaxed"  # 标识使用的版本
-        }
-
-    return trade_decision_node_relaxed
-
+def create_final_trade_decider_relaxed(llm):
+    return create_generic_decision_agent(
+        llm=llm,
+        prompt_template=RELAXED_PROMPT_TEMPLATE,
+        agent_name="宽松版决策智能体",
+        agent_version="relaxed"
+    )

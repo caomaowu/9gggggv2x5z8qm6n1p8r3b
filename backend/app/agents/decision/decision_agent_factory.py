@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 # sys.path hack removed
 
-from app.agents.decision_configs import (
+from .decision_configs import (
     DECISION_AGENT_VERSIONS,
     DEFAULT_DECISION_VERSION,
     USAGE_TRACKING_CONFIG,
@@ -24,9 +24,9 @@ from app.agents.decision_configs import (
 
 # 导入不同版本的决策智能体
 try:
-    from app.agents.decision_agent import create_final_trade_decider
-    from app.agents.decision_agent_relaxed import create_final_trade_decider_relaxed
-    from app.agents.decision_agent_comprehensive import create_final_trade_decider_comprehensive
+    from .decision_agent import create_final_trade_decider
+    from .decision_agent_relaxed import create_final_trade_decider_relaxed
+    from .decision_agent_comprehensive import create_final_trade_decider_comprehensive
 except ImportError as e:
     print(f"导入决策智能体模块失败: {e}")
     # 提供空函数避免破坏

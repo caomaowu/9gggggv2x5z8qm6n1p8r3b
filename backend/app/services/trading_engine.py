@@ -5,7 +5,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import ToolNode
 
 from app.core.config import settings, LLMConfig, APIConfig
-from app.agents.decision_configs import DECISION_AGENT_VERSIONS
+from app.agents.decision.decision_configs import DECISION_AGENT_VERSIONS
 from app.core.graph_setup import SetGraph
 from app.utils.graph_util import TechnicalTools
 
@@ -67,7 +67,7 @@ class TradingEngine:
             "trend": ToolNode([]),
         }
 
-    async def run_analysis(self, data: Any, symbol: str, timeframe: str) -> Dict[str, Any]:
+    async def run_analysis(self, data: Any, symbol: str, timeframe: str, custom_prompt: Optional[str] = None) -> Dict[str, Any]:
         """
         Run the analysis graph.
         """
@@ -104,7 +104,8 @@ class TradingEngine:
             "time_frame": timeframe,
             "stock_name": symbol,
             "messages": [],
-            "latest_price": latest_price
+            "latest_price": latest_price,
+            "custom_prompt": custom_prompt
         }
 
         try:

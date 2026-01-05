@@ -15,7 +15,8 @@ export default function AnalysisForm() {
         aiVersion,
         setAnalysisResult,
         setLatestResultId,
-        continuousMode, setContinuousMode, triggerHistoryRefresh
+        continuousMode, setContinuousMode, triggerHistoryRefresh,
+        customPromptEnabled, customPrompt
     } = useAppStore();
     
     const [isLoading, setIsLoading] = useState(false);
@@ -60,7 +61,8 @@ export default function AnalysisForm() {
             start_date: startDate || undefined,
             start_time: startTime || undefined,
             end_date: endDate || undefined,
-            end_time: endTime || undefined
+            end_time: endTime || undefined,
+            custom_prompt: customPromptEnabled ? customPrompt : undefined
         };
 
         if (continuousMode) {

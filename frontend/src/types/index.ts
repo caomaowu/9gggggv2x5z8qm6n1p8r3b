@@ -16,6 +16,7 @@ export interface AnalyzeRequest {
   end_time?: string;
   use_current_time: boolean;
   ai_version: string;
+  custom_prompt?: string;
 }
 
 export interface DecisionResult {
