@@ -6,7 +6,7 @@ import type { HistoryItem } from '../api/analyze';
 import styles from './HistoryPanel.module.css';
 
 export default function HistoryPanel() {
-    const { setLatestResultId, historyRefreshTrigger, autoFocusResult, setAutoFocusResult } = useAppStore();
+    const { historyRefreshTrigger, autoFocusResult, setAutoFocusResult } = useAppStore();
     const [history, setHistory] = useState<HistoryItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isCleaning, setIsCleaning] = useState(false);

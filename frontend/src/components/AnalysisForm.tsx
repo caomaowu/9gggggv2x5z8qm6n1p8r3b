@@ -15,8 +15,7 @@ export default function AnalysisForm() {
         aiVersion,
         setAnalysisResult,
         setLatestResultId,
-        continuousMode, setContinuousMode, triggerHistoryRefresh,
-        customPromptEnabled, customPrompt
+        continuousMode, setContinuousMode, triggerHistoryRefresh
     } = useAppStore();
     
     const [isLoading, setIsLoading] = useState(false);
@@ -61,8 +60,7 @@ export default function AnalysisForm() {
             start_date: startDate || undefined,
             start_time: startTime || undefined,
             end_date: endDate || undefined,
-            end_time: endTime || undefined,
-            custom_prompt: customPromptEnabled ? customPrompt : undefined
+            end_time: endTime || undefined
         };
 
         if (continuousMode) {
@@ -70,7 +68,7 @@ export default function AnalysisForm() {
             setIsLoading(true); // Short loading for feedback
             
             // Fire and forget (from UI perspective)
-            analyzeMarket(request).then(result => {
+            analyzeMarket(request).then(() => {
                 console.log(`[Continuous] Analysis for ${request.asset} finished.`);
                 triggerHistoryRefresh();
                 setStatusMessage(`✅ ${request.asset} 分析完成! 请查看历史记录。`);

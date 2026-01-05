@@ -11,8 +11,6 @@ COMPREHENSIVE_PROMPT_TEMPLATE = """你是一名专业的量化交易分析师，
 {price_summary}
 {price_info_str}
 
-{custom_instructions}
-
 预测范围说明：
 - 例如 TIME_FRAME = 15分钟 → 预测接下来的15分钟
 - 例如 TIME_FRAME = 4小时 → 预测接下来的4小时

@@ -67,6 +67,17 @@
     gap: 0.5rem;
     font-weight: 500;
     color: var(--gray-700);
+    cursor: pointer;
+}
+
+.checkboxWrapper input {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+.checkboxWrapper label {
+    cursor: pointer;
 }
 
 .formGroup {
@@ -146,6 +157,18 @@
     box-shadow: 0 8px 20px rgba(86, 39, 216, 0.3);
 }
 
+.assetBtn.deleteActive {
+    background: #FEF2F2;
+    border-color: #EF4444;
+    color: #DC2626;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+}
+
+.assetBtn.deleteActive:hover {
+    background: #FEE2E2;
+}
+
 .assetBtn i {
     font-size: 1.5rem;
     margin-bottom: 0.25rem;
@@ -211,6 +234,7 @@
         scrollbar-width: none;
         -ms-overflow-style: none;
     }
+
     .timeframeSelector::-webkit-scrollbar {
         display: none;
     }
@@ -218,72 +242,63 @@
 
 .timeframeBtn {
     flex: 1;
-    background: transparent;
+    padding: 0.5rem;
     border: none;
+    background: transparent;
     border-radius: 8px;
-    padding: 12px 16px;
-    font-weight: 600;
-    font-size: 0.9rem;
     color: var(--gray-600);
+    font-weight: 500;
+    font-size: 0.9rem;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    min-width: 0;
-    text-align: center;
-}
-
-@media (max-width: 768px) {
-    .timeframeBtn {
-        flex-shrink: 0;
-        min-width: 60px;
-        padding: 10px 12px;
-        font-size: 0.8rem;
-    }
+    transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
 .timeframeBtn:hover {
-    background: rgba(86, 39, 216, 0.1);
-    color: var(--etrade-purple);
-    transform: translateY(-1px);
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--gray-800);
 }
 
 .timeframeBtn.active {
-    background: var(--etrade-purple-light);
-    color: var(--white);
-    box-shadow: 0 4px 12px rgba(86, 39, 216, 0.3);
-    transform: translateY(-1px);
+    background: var(--white);
+    color: var(--etrade-purple);
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Custom Input */
+/* Input Group */
 .inputGroup {
     display: flex;
-    gap: 0.75rem;
-    align-items: stretch;
+    gap: 0.5rem;
+    width: 100%;
+    align-items: center;
 }
 
 .formControl {
-    flex: 1;
-    border-radius: 12px;
-    border: 2px solid var(--gray-200);
-    padding: 0.75rem 1rem;
-    font-size: 0.95rem;
-    transition: all 0.3s ease;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.2s;
 }
 
 .formControl:focus {
-    border-color: var(--etrade-purple);
-    box-shadow: 0 0 0 3px rgba(36, 16, 86, 0.1);
     outline: none;
+    border-color: var(--etrade-purple-light);
+    box-shadow: 0 0 0 3px rgba(86, 39, 216, 0.1);
 }
 
 .btn {
-    border-radius: 12px;
-    white-space: nowrap;
-    min-width: 100px;
-    padding: 0.75rem 1.5rem;
-    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.9rem;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btnPrimary {
@@ -305,4 +320,16 @@
 .btnOutlineSecondary:hover {
     background: var(--gray-100);
     color: var(--gray-800);
+}
+
+.btnDanger {
+    background: #EF4444;
+    color: white;
+    border: none;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.85rem;
+}
+
+.btnDanger:hover {
+    background: #DC2626;
 }

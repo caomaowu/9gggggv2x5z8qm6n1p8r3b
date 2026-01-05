@@ -67,7 +67,7 @@ class TradingEngine:
             "trend": ToolNode([]),
         }
 
-    async def run_analysis(self, data: Any, symbol: str, timeframe: str, custom_prompt: Optional[str] = None) -> Dict[str, Any]:
+    async def run_analysis(self, data: Any, symbol: str, timeframe: str) -> Dict[str, Any]:
         """
         Run the analysis graph.
         """
@@ -104,8 +104,7 @@ class TradingEngine:
             "time_frame": timeframe,
             "stock_name": symbol,
             "messages": [],
-            "latest_price": latest_price,
-            "custom_prompt": custom_prompt
+            "latest_price": latest_price
         }
 
         try:

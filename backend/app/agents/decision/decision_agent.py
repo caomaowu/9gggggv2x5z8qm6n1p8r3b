@@ -12,8 +12,6 @@ CONSTRAINED_PROMPT_TEMPLATE = """你是一名专业的量化交易分析师，�
             {price_summary}
             {price_info_str}
 
-            {custom_instructions}
-
             你的决策应该预测未来N根K线的市场走势，其中：
             - 例如：时间框架=15分钟，N=1 → 预测未来15分钟级别
             - 时间框架=4小时， → 预测未来4小时级别

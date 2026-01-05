@@ -12,8 +12,6 @@ RELAXED_PROMPT_TEMPLATE = """你是一名具有创新思维的量化交易分析
         {price_summary}
         {price_info_str}
 
-        {custom_instructions}
-
         **🆕 宽松决策选项：**
         你的任务是基于深度分析，发布最适合的交易指令：**做多**、**做空**或**观望**。
 

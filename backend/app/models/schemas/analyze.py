@@ -16,4 +16,3 @@ class AnalyzeRequest(BaseModel):
     use_current_time: bool = False
     
     ai_version: str = "constrained"
-    custom_prompt: Optional[str] = None

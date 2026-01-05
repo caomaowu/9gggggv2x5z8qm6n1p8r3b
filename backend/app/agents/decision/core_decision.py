@@ -13,7 +13,7 @@ except ImportError:
     def update_agent_progress(agent_name, progress_within_agent=0, status=""):
         pass
 
-# 哈雷酱的性能监控系统！
+# 性能监控系统！
 try:
     from app.utils.performance import performance_monitor, monitor_llm_call
 except ImportError:
@@ -33,7 +33,7 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
         llm: LLM 实例
         prompt_template: Prompt 模板字符串，需要包含以下占位符：
             {stock_name}, {time_frame}, {price_summary}, {price_info_str}, 
-            {custom_instructions}, {latest_price_str},
+            {latest_price_str},
             {indicator_report}, {pattern_report}, {trend_report}
         agent_name: 智能体名称（用于日志和监控）
         agent_version: 版本标识（可选）
@@ -56,7 +56,6 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
         
         latest_price = state.get("latest_price", None)
         price_info = state.get("price_info", "")
-        custom_prompt = state.get("custom_prompt", None)
         
         # 3. 数据预处理
         if latest_price is not None:
@@ -67,12 +66,6 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
             latest_price_str = "未知"
             
         price_info_str = price_info if price_info else ""
-        
-        custom_instructions = ""
-        if custom_prompt:
-            custom_instructions = f"**User Custom Instructions / Position Context:**\n{custom_prompt}\n"
-            # 兼容中文提示
-            custom_instructions = custom_instructions.replace("User Custom Instructions", "用户特别指令")
             
         # 4. 错误处理与日志
         analysis_errors = []
@@ -100,7 +93,6 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
                 time_frame=time_frame,
                 price_summary=price_summary,
                 price_info_str=price_info_str,
-                custom_instructions=custom_instructions,
                 latest_price_str=latest_price_str,
                 indicator_report=indicator_report,
                 pattern_report=pattern_report,

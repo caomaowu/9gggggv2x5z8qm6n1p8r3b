@@ -171,8 +171,7 @@ async def analyze_market(
         result = await trading_engine.run_analysis(
             df, 
             request.asset, 
-            request.timeframe,
-            custom_prompt=request.custom_prompt
+            request.timeframe
         )
         
         # Inject Result ID and Request Metadata
