@@ -160,3 +160,67 @@
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+/* Multi-Timeframe Grid Layout */
+.multiChartGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+    width: 100%;
+    padding: 0.5rem;
+}
+
+.chartGridItem {
+    position: relative;
+    background: var(--gray-50);
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.chartGridItem:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+.timeframeLabel {
+    position: absolute;
+    top: 1.2rem;
+    left: 1.2rem;
+    background: linear-gradient(135deg, var(--etrade-purple) 0%, var(--etrade-purple-light) 100%);
+    color: var(--white);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(36, 16, 86, 0.3);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* 响应式设计 */
+@media (min-width: 1200px) {
+    .multiChartGrid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+    .multiChartGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 767px) {
+    .multiChartGrid {
+        grid-template-columns: 1fr;
+    }
+    
+    .timeframeLabel {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.8rem;
+    }
+}

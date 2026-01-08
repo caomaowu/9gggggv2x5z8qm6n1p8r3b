@@ -13,6 +13,7 @@ export default function AnalysisForm() {
         dataMethod, klineCount, futureKlineCount,
         startDate, startTime, endDate, endTime, useCurrentTime,
         aiVersion,
+        multiTimeframeMode, selectedTimeframes,
         setAnalysisResult,
         setLatestResultId,
         continuousMode, setContinuousMode, triggerHistoryRefresh
@@ -46,11 +47,17 @@ export default function AnalysisForm() {
             return;
         }
         
+        // 检查多时间框架模式是否有选择时间框架
+        if (multiTimeframeMode && selectedTimeframes.length === 0) {
+            alert('请至少选择一个时间框架。');
+            return;
+        }
+        
         setStatusMessage(null);
         
         const request: AnalyzeRequest = {
             asset: selectedAsset,
-            timeframe: selectedTimeframe,
+            timeframe: multiTimeframeMode ? selectedTimeframes[0] : selectedTimeframe,
             data_source: 'quant_api', // Default
             data_method: dataMethod,
             kline_count: klineCount,
@@ -60,7 +67,9 @@ export default function AnalysisForm() {
             start_date: startDate || undefined,
             start_time: startTime || undefined,
             end_date: endDate || undefined,
-            end_time: endTime || undefined
+            end_time: endTime || undefined,
+            multi_timeframe_mode: multiTimeframeMode,
+            timeframes: multiTimeframeMode ? selectedTimeframes : undefined
         };
 
         if (continuousMode) {

@@ -1,10 +1,12 @@
 """
 Agent for technical indicator analysis in high-frequency trading (HFT) context.
 现在直接系统调用计算技术指标，然后让LLM分析结果，避免昂贵的LLM工具调用。
+支持多时间框架分析。
 """
 
 import copy
 import json
+import pandas as pd
 
 from langchain_core.messages import ToolMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -33,6 +35,41 @@ except ImportError:
         return performance_monitor(f"LLM调用: {model_name}" if model_name else "LLM调用")
 
 
+# 辅助函数：将 DataFrame 或其他格式转换为 list[dict]
+def convert_to_list_of_dicts(data):
+    """
+    将各种格式的数据转换为 list[dict] 格式供工具调用
+    """
+    if isinstance(data, pd.DataFrame):
+        # DataFrame -> list of dicts
+        df_reset = data.reset_index()
+        if 'Date' in df_reset.columns:
+            df_reset['Date'] = df_reset['Date'].dt.strftime('%Y-%m-%d %H:%M:%S')
+            df_reset.rename(columns={'Date': 'Datetime'}, inplace=True)
+        return df_reset.to_dict(orient='records')
+    elif isinstance(data, list):
+        # 已经是 list 格式
+        return data
+    elif isinstance(data, dict):
+        # dict 格式，尝试转换
+        return data
+    else:
+        return data
+
+
+def extract_latest_price(data):
+    """
+    提取最新价格，兼容多种数据格式
+    """
+    if isinstance(data, pd.DataFrame):
+        return float(data['Close'].iloc[-1])
+    elif isinstance(data, list) and len(data) > 0:
+        return data[-1].get("Close")
+    elif isinstance(data, dict) and "Close" in data and len(data["Close"]) > 0:
+        return data["Close"][-1]
+    return None
+
+
 @performance_monitor("技术指标智能体")
 def create_indicator_agent(llm, toolkit):
     """
@@ -48,52 +85,118 @@ def create_indicator_agent(llm, toolkit):
         kline_data = state["kline_data"]
         time_frame = state["time_frame"]
 
+        # 检测是否为多时间框架模式
+        is_multi_tf = isinstance(kline_data, dict) and not any(
+            key in ['Open', 'High', 'Low', 'Close', 'Volume', 'Datetime'] 
+            for key in kline_data.keys()
+        )
+        
+        if is_multi_tf:
+            print(f"⚡ 多时间框架模式：检测到 {len(kline_data)} 个时间框架 - {list(kline_data.keys())}")
+        else:
+            print(f"🔹 单一时间框架模式：{time_frame}")
+
         # --- 直接系统调用计算所有技术指标 ---
         update_agent_progress("indicator", 30, "正在计算技术指标数据...")
 
         try:
-            # 直接调用工具计算技术指标，避免LLM工具调用
-            indicator_results = {}
+            if is_multi_tf:
+                # 多时间框架模式：循环计算每个时间框架
+                multi_tf_indicators = {}
+                
+                for tf_name, tf_data in kline_data.items():
+                    print(f"📊 正在计算 {tf_name} 时间框架的指标...")
+                    indicator_results = {}
+                    
+                    # 转换为工具所需的格式
+                    tf_data_list = convert_to_list_of_dicts(tf_data)
+                    
+                    # 计算MACD
+                    try:
+                        macd_result = toolkit.compute_macd.invoke({"kline_data": copy.deepcopy(tf_data_list)})
+                        indicator_results["MACD"] = macd_result
+                    except Exception as e:
+                        print(f"MACD计算失败 ({tf_name}): {e}")
+                        indicator_results["MACD"] = {"error": str(e)}
 
-            # 计算MACD
-            try:
-                macd_result = toolkit.compute_macd.invoke({"kline_data": copy.deepcopy(kline_data)})
-                indicator_results["MACD"] = macd_result
-            except Exception as e:
-                print(f"MACD计算失败: {e}")
-                indicator_results["MACD"] = {"error": str(e)}
+                    # 计算RSI
+                    try:
+                        rsi_result = toolkit.compute_rsi.invoke({"kline_data": copy.deepcopy(tf_data_list)})
+                        indicator_results["RSI"] = rsi_result
+                    except Exception as e:
+                        print(f"RSI计算失败 ({tf_name}): {e}")
+                        indicator_results["RSI"] = {"error": str(e)}
 
-            # 计算RSI
-            try:
-                rsi_result = toolkit.compute_rsi.invoke({"kline_data": copy.deepcopy(kline_data)})
-                indicator_results["RSI"] = rsi_result
-            except Exception as e:
-                print(f"RSI计算失败: {e}")
-                indicator_results["RSI"] = {"error": str(e)}
+                    # 计算ROC
+                    try:
+                        roc_result = toolkit.compute_roc.invoke({"kline_data": copy.deepcopy(tf_data_list)})
+                        indicator_results["ROC"] = roc_result
+                    except Exception as e:
+                        print(f"ROC计算失败 ({tf_name}): {e}")
+                        indicator_results["ROC"] = {"error": str(e)}
 
-            # 计算ROC
-            try:
-                roc_result = toolkit.compute_roc.invoke({"kline_data": copy.deepcopy(kline_data)})
-                indicator_results["ROC"] = roc_result
-            except Exception as e:
-                print(f"ROC计算失败: {e}")
-                indicator_results["ROC"] = {"error": str(e)}
+                    # 计算Stochastic
+                    try:
+                        stoch_result = toolkit.compute_stoch.invoke({"kline_data": copy.deepcopy(tf_data_list)})
+                        indicator_results["Stochastic"] = stoch_result
+                    except Exception as e:
+                        print(f"Stochastic计算失败 ({tf_name}): {e}")
+                        indicator_results["Stochastic"] = {"error": str(e)}
 
-            # 计算Stochastic
-            try:
-                stoch_result = toolkit.compute_stoch.invoke({"kline_data": copy.deepcopy(kline_data)})
-                indicator_results["Stochastic"] = stoch_result
-            except Exception as e:
-                print(f"Stochastic计算失败: {e}")
-                indicator_results["Stochastic"] = {"error": str(e)}
+                    # 计算Williams %R
+                    try:
+                        willr_result = toolkit.compute_willr.invoke({"kline_data": copy.deepcopy(tf_data_list)})
+                        indicator_results["Williams_R"] = willr_result
+                    except Exception as e:
+                        print(f"Williams %R计算失败 ({tf_name}): {e}")
+                        indicator_results["Williams_R"] = {"error": str(e)}
+                    
+                    multi_tf_indicators[tf_name] = indicator_results
+                    
+            else:
+                # 单一时间框架模式：保持原有逻辑
+                # 直接调用工具计算技术指标，避免LLM工具调用
+                indicator_results = {}
 
-            # 计算Williams %R
-            try:
-                willr_result = toolkit.compute_willr.invoke({"kline_data": copy.deepcopy(kline_data)})
-                indicator_results["Williams_R"] = willr_result
-            except Exception as e:
-                print(f"Williams %R计算失败: {e}")
-                indicator_results["Williams_R"] = {"error": str(e)}
+                # 计算MACD
+                try:
+                    macd_result = toolkit.compute_macd.invoke({"kline_data": copy.deepcopy(kline_data)})
+                    indicator_results["MACD"] = macd_result
+                except Exception as e:
+                    print(f"MACD计算失败: {e}")
+                    indicator_results["MACD"] = {"error": str(e)}
+
+                # 计算RSI
+                try:
+                    rsi_result = toolkit.compute_rsi.invoke({"kline_data": copy.deepcopy(kline_data)})
+                    indicator_results["RSI"] = rsi_result
+                except Exception as e:
+                    print(f"RSI计算失败: {e}")
+                    indicator_results["RSI"] = {"error": str(e)}
+
+                # 计算ROC
+                try:
+                    roc_result = toolkit.compute_roc.invoke({"kline_data": copy.deepcopy(kline_data)})
+                    indicator_results["ROC"] = roc_result
+                except Exception as e:
+                    print(f"ROC计算失败: {e}")
+                    indicator_results["ROC"] = {"error": str(e)}
+
+                # 计算Stochastic
+                try:
+                    stoch_result = toolkit.compute_stoch.invoke({"kline_data": copy.deepcopy(kline_data)})
+                    indicator_results["Stochastic"] = stoch_result
+                except Exception as e:
+                    print(f"Stochastic计算失败: {e}")
+                    indicator_results["Stochastic"] = {"error": str(e)}
+
+                # 计算Williams %R
+                try:
+                    willr_result = toolkit.compute_willr.invoke({"kline_data": copy.deepcopy(kline_data)})
+                    indicator_results["Williams_R"] = willr_result
+                except Exception as e:
+                    print(f"Williams %R计算失败: {e}")
+                    indicator_results["Williams_R"] = {"error": str(e)}
 
             update_agent_progress("indicator", 60, "正在生成技术指标分析报告...")
 
@@ -107,29 +210,82 @@ def create_indicator_agent(llm, toolkit):
 
         # --- 提取最新价格信息 ---
         latest_price = None
-        # 兼容 list of dicts (Record-oriented) 和 dict of lists (Column-oriented) 格式
-        if isinstance(kline_data, list) and len(kline_data) > 0:
-            # Record-oriented: [{'Close': 100}, ...]
-            latest_price = kline_data[-1].get("Close")
-        elif isinstance(kline_data, dict) and "Close" in kline_data and len(kline_data["Close"]) > 0:
-            # Column-oriented: {'Close': [100, ...]}
-            latest_price = kline_data["Close"][-1]
+        if is_multi_tf:
+            # 多时间框架：使用第一个时间框架的最新价格
+            first_tf = list(kline_data.keys())[0]
+            first_tf_data = kline_data[first_tf]
+            latest_price = extract_latest_price(first_tf_data)
+        else:
+            # 单一时间框架：原有逻辑
+            # 兼容 list of dicts (Record-oriented) 和 dict of lists (Column-oriented) 格式
+            if isinstance(kline_data, list) and len(kline_data) > 0:
+                # Record-oriented: [{'Close': 100}, ...]
+                latest_price = kline_data[-1].get("Close")
+            elif isinstance(kline_data, dict) and "Close" in kline_data and len(kline_data["Close"]) > 0:
+                # Column-oriented: {'Close': [100, ...]}
+                latest_price = kline_data["Close"][-1]
 
         # --- 将计算结果整理为结构化文本供LLM分析 ---
-        # 转义JSON花括号避免LangChain模板变量解析问题
-        macd_json = json.dumps(indicator_results.get("MACD", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
-        rsi_json = json.dumps(indicator_results.get("RSI", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
-        roc_json = json.dumps(indicator_results.get("ROC", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
-        stoch_json = json.dumps(indicator_results.get("Stochastic", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
-        willr_json = json.dumps(indicator_results.get("Williams_R", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
-
-        # 转义完整的OHLC数据
-        ohlc_data_json = json.dumps(kline_data, indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
-
         price_info = f"当前最新收盘价: {latest_price}\n\n" if latest_price else ""
+        
+        if is_multi_tf:
+            # 多时间框架模式：Prompt
+            indicators_text = f"""
+⚡ **华尔街交易室 - 多时间框架技术分析**
+交易对：{state.get('stock_name', '未知')} | 时间框架：{time_frame}
 
-        # 哈雷酱的灵魂增强！营造真实交易环境
-        indicators_text = f"""
+💰 **当前价位**：{latest_price if latest_price else '未知'}
+{price_info}
+
+🌐 **多周期分析模式**：正在分析 {len(multi_tf_indicators)} 个时间周期
+
+---
+
+"""
+            
+            # 为每个时间框架生成指标展示
+            for tf_name, indicators in multi_tf_indicators.items():
+                macd_json = json.dumps(indicators.get("MACD", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
+                rsi_json = json.dumps(indicators.get("RSI", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
+                roc_json = json.dumps(indicators.get("ROC", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
+                stoch_json = json.dumps(indicators.get("Stochastic", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
+                willr_json = json.dumps(indicators.get("Williams_R", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
+                
+                indicators_text += f"""
+## 📊 **{tf_name} 时间框架分析**
+
+### 🔥 MACD指标
+{macd_json}
+
+### ⚡ RSI指标
+{rsi_json}
+
+### 📈 ROC指标
+{roc_json}
+
+### 🌊 Stochastic指标
+{stoch_json}
+
+### 🎯 Williams %R指标
+{willr_json}
+
+---
+
+"""
+        else:
+            # 单一时间框架模式：保持原有Prompt
+            # 转义JSON花括号避免LangChain模板变量解析问题
+            macd_json = json.dumps(indicator_results.get("MACD", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
+            rsi_json = json.dumps(indicator_results.get("RSI", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
+            roc_json = json.dumps(indicator_results.get("ROC", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
+            stoch_json = json.dumps(indicator_results.get("Stochastic", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
+            willr_json = json.dumps(indicator_results.get("Williams_R", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
+
+            # 转义完整的OHLC数据
+            ohlc_data_json = json.dumps(kline_data, indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
+
+            # 哈雷酱的灵魂增强！营造真实交易环境
+            indicators_text = f"""
 ⚡ **华尔街交易室 - 实时技术分析**
 交易对：{state.get('stock_name', '未知')} | 时间框架：{time_frame}
 分析时间：{kline_data.get('Datetime', ['未知'])[-1] if 'Datetime' in kline_data and len(kline_data['Datetime']) > 0 else '实时'}
@@ -216,10 +372,7 @@ def create_indicator_agent(llm, toolkit):
 """
 
         # --- LLM分析预计算的指标结果 ---
-        analysis_prompt = ChatPromptTemplate.from_messages([
-            (
-                "system",
-                """你是量化交易公司的首席技术分析师，拥有10年加密货币市场经验。
+        system_prompt_text = """你是量化交易公司的首席技术分析师，拥有10年加密货币市场经验。
 
 🎯 **你的分析风格**：
 - 专业严谨，数据驱动分析
@@ -227,6 +380,20 @@ def create_indicator_agent(llm, toolkit):
 - 可以适当使用交易员术语（金叉、死叉、背离等）
 - 语言简洁有力，直击要点
 - 可以用表情符号增强表达（📈📉⚠️🎯💰）
+"""
+        
+        if is_multi_tf:
+            # 多时间框架模式：添加多周期分析指导
+            system_prompt_text += """
+
+🌐 **多时间框架分析能力**：
+- 识别不同时间周期的共振信号（高可靠度）
+- 分析周期间的分歧（需要谨慎）
+- 长周期定方向，短周期定入场点
+- 多周期确认 > 单周期信号
+"""
+        
+        system_prompt_text += """
 
 📊 **分析要求**：
 1. **核心判断**（1句话总结当前技术面状态）
@@ -242,7 +409,9 @@ def create_indicator_agent(llm, toolkit):
 - 避免死板的数据罗列，重点是专业判断和实战建议
 
 记住：这是真实的市场分析，每个判断都可能影响实际交易决策！"""
-            ),
+        
+        analysis_prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt_text),
             ("human", indicators_text)
         ])
 
@@ -253,9 +422,11 @@ def create_indicator_agent(llm, toolkit):
         return {
             "messages": state.get("messages", []) + [final_response],
             "indicator_report": final_response.content,
-            "indicator_data": indicator_results,  # 保存原始指标数据供后续使用
-            "latest_price": latest_price,        # 哈雷酱添加：保存最新价格到状态中
-            "price_info": price_info             # 哈雷酱添加：保存价格信息
+            "indicator_data": multi_tf_indicators if is_multi_tf else indicator_results,
+            "latest_price": latest_price,
+            "price_info": price_info,
+            "multi_timeframe_mode": is_multi_tf,
+            "timeframes": list(kline_data.keys()) if is_multi_tf else [time_frame]
         }
 
     return indicator_agent_node

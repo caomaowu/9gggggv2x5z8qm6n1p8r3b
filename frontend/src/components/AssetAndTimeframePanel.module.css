@@ -228,6 +228,15 @@
     overflow: hidden;
 }
 
+.multiTimeframeSelector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
 @media (max-width: 768px) {
     .timeframeSelector {
         overflow-x: auto;

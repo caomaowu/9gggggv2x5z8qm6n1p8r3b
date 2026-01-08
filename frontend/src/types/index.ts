@@ -5,7 +5,7 @@ export interface Asset {
 
 export interface AnalyzeRequest {
   asset: string;
-  timeframe: string;
+  timeframe: string | string[];
   data_source: string;
   data_method: "latest" | "date_range" | "to_end";
   kline_count: number;
@@ -16,6 +16,8 @@ export interface AnalyzeRequest {
   end_time?: string;
   use_current_time: boolean;
   ai_version: string;
+  multi_timeframe_mode?: boolean;
+  timeframes?: string[];
 }
 
 export interface DecisionResult {
@@ -53,5 +55,20 @@ export interface AnalysisResult {
   result_id?: string;
   data_method_short?: string;
   analysis_time_display?: string;
+  
+  // 多时间框架支持
+  multi_timeframe_mode?: boolean;
+  timeframes?: string[];
+  
+  // 模式识别图表
+  pattern_chart?: string;              // 单时间框架(向后兼容)
+  pattern_image?: string;              // 单时间框架(向后兼容别名)
+  pattern_images?: Record<string, string>; // 多时间框架
+  
+  // 趋势分析图表
+  trend_chart?: string;                // 单时间框架(向后兼容)
+  trend_image?: string;                // 单时间框架(向后兼容别名)
+  trend_images?: Record<string, string>;   // 多时间框架
+  
   [key: string]: any;
 }

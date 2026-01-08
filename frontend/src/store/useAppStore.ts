@@ -6,6 +6,10 @@ interface AppState {
   selectedAsset: string;
   selectedTimeframe: string;
   
+  // Multi-Timeframe Mode
+  multiTimeframeMode: boolean;
+  selectedTimeframes: string[];
+  
   // Unified Assets Management
   assets: string[];
   // Store custom assigned icons for assets
@@ -40,6 +44,10 @@ interface AppState {
   // Actions
   setAsset: (asset: string) => void;
   setTimeframe: (tf: string) => void;
+  setMultiTimeframeMode: (mode: boolean) => void;
+  toggleTimeframeSelection: (tf: string) => void;
+  clearTimeframeSelection: () => void;
+  setSelectedTimeframes: (tfs: string[]) => void;
   
   addAssets: (assets: string[]) => void;
   removeAssets: (assets: string[]) => void;
@@ -87,6 +95,10 @@ export const useAppStore = create<AppState>()(
       selectedAsset: '',
       selectedTimeframe: '1h',
       
+      // Multi-Timeframe Mode
+      multiTimeframeMode: false,
+      selectedTimeframes: [],
+      
       // Initialize with default assets
       assets: DEFAULT_ASSETS,
       assetIcons: {},
@@ -113,6 +125,21 @@ export const useAppStore = create<AppState>()(
       
       setAsset: (asset) => set({ selectedAsset: asset }),
       setTimeframe: (tf) => set({ selectedTimeframe: tf }),
+      setMultiTimeframeMode: (mode) => set({ multiTimeframeMode: mode }),
+      toggleTimeframeSelection: (tf) => set((state) => {
+        const current = new Set(state.selectedTimeframes);
+        if (current.has(tf)) {
+          current.delete(tf);
+        } else {
+          // 限制最多3个时间框架，防止性能问题
+          if (current.size < 3) {
+            current.add(tf);
+          }
+        }
+        return { selectedTimeframes: Array.from(current) };
+      }),
+      clearTimeframeSelection: () => set({ selectedTimeframes: [] }),
+      setSelectedTimeframes: (tfs) => set({ selectedTimeframes: tfs.slice(0, 3) }),
       
       addAssets: (newAssets) => set((state) => {
         // Filter out duplicates that already exist
@@ -159,6 +186,8 @@ export const useAppStore = create<AppState>()(
         assets: state.assets, 
         assetIcons: state.assetIcons, // Persist custom icons
         selectedTimeframe: state.selectedTimeframe,
+        multiTimeframeMode: state.multiTimeframeMode,
+        selectedTimeframes: state.selectedTimeframes,
         klineCount: state.klineCount,
         latestResultId: state.latestResultId,
         continuousMode: state.continuousMode,

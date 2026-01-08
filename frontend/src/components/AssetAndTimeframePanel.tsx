@@ -29,7 +29,9 @@ export default function AssetAndTimeframePanel() {
   const { 
       selectedAsset, setAsset, 
       assets, addAssets, removeAssets, assetIcons,
-      selectedTimeframe, setTimeframe
+      selectedTimeframe, setTimeframe,
+      multiTimeframeMode, setMultiTimeframeMode,
+      selectedTimeframes, toggleTimeframeSelection, clearTimeframeSelection
   } = useAppStore();
   
   const [isManagementMode, setManagementMode] = useState(false);
@@ -204,21 +206,89 @@ export default function AssetAndTimeframePanel() {
 
         {/* Timeframe Selection */}
         <div className={styles.formGroup}>
-            <label className={styles.formLabel}>
-                <i className="far fa-clock"></i> Timeframe
-            </label>
-            <div className={styles.timeframeSelector}>
-                {TIMEFRAMES.map(tf => (
-                    <button 
-                        key={tf.value}
-                        type="button" 
-                        className={`${styles.timeframeBtn} ${selectedTimeframe === tf.value ? styles.active : ''}`}
-                        onClick={() => setTimeframe(tf.value)}
-                    >
-                        {tf.label}
-                    </button>
-                ))}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <label className={styles.formLabel} style={{ margin: 0 }}>
+                    <i className="far fa-clock"></i> Timeframe
+                </label>
+                
+                {/* Multi-Timeframe Mode Toggle */}
+                <div className={styles.checkboxWrapper} style={{ marginBottom: 0, marginRight: '0.5rem' }}>
+                    <input 
+                        type="checkbox" 
+                        id="multiTimeframeMode" 
+                        checked={multiTimeframeMode}
+                        onChange={(e) => {
+                            setMultiTimeframeMode(e.target.checked);
+                            if (!e.target.checked) {
+                                clearTimeframeSelection();
+                            }
+                        }}
+                        style={{ width: '14px', height: '14px', cursor: 'pointer', accentColor: 'var(--etrade-purple)' }}
+                    />
+                    <label htmlFor="multiTimeframeMode" style={{ cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500, userSelect: 'none', color: 'var(--gray-700)', margin: 0 }}>
+                        多周期
+                    </label>
+                </div>
             </div>
+            
+            {multiTimeframeMode ? (
+                <>
+                    {/* Multi-Select Mode */}
+                    <div className={styles.multiTimeframeSelector}>
+                        {TIMEFRAMES.map(tf => {
+                            const isSelected = selectedTimeframes.includes(tf.value);
+                            const canSelect = isSelected || selectedTimeframes.length < 3;
+                            return (
+                                <button 
+                                    key={tf.value}
+                                    type="button" 
+                                    className={`${styles.timeframeBtn} ${isSelected ? styles.active : ''}`}
+                                    onClick={() => canSelect && toggleTimeframeSelection(tf.value)}
+                                    disabled={!canSelect}
+                                    title={!canSelect ? '最多只能选择3个时间框架' : ''}
+                                    style={{
+                                        opacity: !canSelect ? 0.5 : 1,
+                                        cursor: !canSelect ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    {tf.label}
+                                    {isSelected && (
+                                        <span style={{ display: 'inline-block', marginLeft: '0.25rem', fontSize: '0.75rem', verticalAlign: 'super' }}>✓</span>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {selectedTimeframes.length > 0 && (
+                        <div style={{ marginTop: '0.75rem', padding: '0.5rem', backgroundColor: 'var(--gray-100)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--gray-700)', fontWeight: 500 }}>
+                                📊 已选择 {selectedTimeframes.length} 个周期: <strong>{selectedTimeframes.join(', ')}</strong>
+                            </span>
+                            <button 
+                                className={`${styles.btn} ${styles.btnOutlineSecondary}`}
+                                onClick={clearTimeframeSelection}
+                                style={{ minWidth: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.8rem', marginBottom: 0 }}
+                            >
+                                清除
+                            </button>
+                        </div>
+                    )}
+                </>
+            ) : (
+                /* Single-Select Mode */
+                <div className={styles.timeframeSelector}>
+                    {TIMEFRAMES.map(tf => (
+                        <button 
+                            key={tf.value}
+                            type="button" 
+                            className={`${styles.timeframeBtn} ${selectedTimeframe === tf.value ? styles.active : ''}`}
+                            onClick={() => setTimeframe(tf.value)}
+                        >
+                            {tf.label}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     </div>
   );

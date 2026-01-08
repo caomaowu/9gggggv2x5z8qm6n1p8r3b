@@ -6,9 +6,23 @@ export default function PatternPanel() {
     const { analysisResult } = useAppStore();
     if (!analysisResult) return null;
 
-    const { pattern_analysis, pattern_report, pattern_chart } = analysisResult;
+    const { 
+        pattern_analysis, 
+        pattern_report, 
+        pattern_chart, 
+        pattern_image,
+        pattern_images,
+        multi_timeframe_mode,
+        timeframes
+    } = analysisResult;
+    
     const content = pattern_analysis || pattern_report;
     const hasContent = content && content.trim() !== 'None' && content.trim() !== '';
+    
+    // 判断是否为多时间框架模式
+    const isMultiTF = multi_timeframe_mode && pattern_images && Object.keys(pattern_images).length > 0;
+    // 单时间框架图表（兼容多个字段名）
+    const singleChart = pattern_chart || pattern_image;
 
     return (
         <div className={styles.largePanel}>
@@ -49,25 +63,43 @@ export default function PatternPanel() {
                         <i className="fas fa-chart-bar"></i> 模式可视化
                     </h4>
                     <div className={styles.chartContainer}>
-                        <div className={styles.chartWrapper}>
-                            {pattern_chart ? (
-                                <div className={styles.chartImageWrapper}>
-                                    <img 
-                                        src={`data:image/png;base64,${pattern_chart}`}
-                                        alt="模式分析图表"
-                                        className={styles.chartImage}
-                                        loading="lazy" 
-                                    />
-                                    <div className={styles.chartCaption}>模式识别可视化图表</div>
-                                </div>
-                            ) : (
-                                <div className={styles.chartPlaceholder}>
-                                    <div className={styles.loadingSpinner}></div>
-                                    <h5>加载模式图表中...</h5>
-                                    <p>正在生成K线图表和模式识别分析</p>
-                                </div>
-                            )}
-                        </div>
+                        {isMultiTF ? (
+                            // 多时间框架模式：网格布局同时展示多张图表
+                            <div className={styles.multiChartGrid}>
+                                {Object.entries(pattern_images).map(([tf, img]) => (
+                                    <div key={tf} className={styles.chartGridItem}>
+                                        <div className={styles.timeframeLabel}>{tf}</div>
+                                        <img 
+                                            src={`data:image/png;base64,${img}`}
+                                            alt={`${tf} K线图`}
+                                            className={styles.chartImage}
+                                            loading="lazy" 
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            // 单时间框架模式：保持原有布局
+                            <div className={styles.chartWrapper}>
+                                {singleChart ? (
+                                    <div className={styles.chartImageWrapper}>
+                                        <img 
+                                            src={`data:image/png;base64,${singleChart}`}
+                                            alt="模式分析图表"
+                                            className={styles.chartImage}
+                                            loading="lazy" 
+                                        />
+                                        <div className={styles.chartCaption}>模式识别可视化图表</div>
+                                    </div>
+                                ) : (
+                                    <div className={styles.chartPlaceholder}>
+                                        <div className={styles.loadingSpinner}></div>
+                                        <h5>加载模式图表中...</h5>
+                                        <p>正在生成K线图表和模式识别分析</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

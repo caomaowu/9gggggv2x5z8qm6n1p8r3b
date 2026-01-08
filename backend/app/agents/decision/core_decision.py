@@ -47,6 +47,15 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
         # 1. 进度更新
         update_agent_progress("decision", 10, f"正在启动{agent_name}...")
         
+        # ✅ 检测是否为多时间框架模式
+        is_multi_tf = state.get("multi_timeframe_mode", False)
+        timeframes = state.get("timeframes", [])
+        
+        if is_multi_tf and timeframes:
+            print(f"⚡ 多时间框架决策模式：{len(timeframes)} 个时间框架 - {timeframes}")
+        else:
+            print(f"🔹 单一时间框架决策模式")
+        
         # 2. 提取基础数据
         indicator_report = state.get("indicator_report", "技术指标分析不可用")
         pattern_report = state.get("pattern_report", "形态分析不可用")
@@ -66,6 +75,23 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
             latest_price_str = "未知"
             
         price_info_str = price_info if price_info else ""
+        
+        # ✅ 多时间框架模式下的数据增强
+        multi_tf_summary = ""
+        if is_multi_tf and timeframes:
+            # 构建多时间框架摘要信息
+            multi_tf_summary = f"""
+🌐 **多时间框架分析模式**
+分析周期：{', '.join(timeframes)}
+时间框架数量：{len(timeframes)}
+
+📊 **多周期分析要点**：
+1. 长周期（{timeframes[-1] if len(timeframes) > 0 else ''}）定主趋势方向
+2. 中周期判断趋势强度与持续性
+3. 短周期（{timeframes[0] if len(timeframes) > 0 else ''}）寻找具体入场点
+4. 关注多周期共振信号（高可靠度）
+5. 识别周期间分歧（需要谨慎）
+"""
             
         # 4. 错误处理与日志
         analysis_errors = []
@@ -96,7 +122,8 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
                 latest_price_str=latest_price_str,
                 indicator_report=indicator_report,
                 pattern_report=pattern_report,
-                trend_report=trend_report
+                trend_report=trend_report,
+                multi_tf_summary=multi_tf_summary  # ✅ 新增多时间框架摘要
             )
         except KeyError as e:
             print(f"❌ Prompt 格式化错误: 缺少键值 {e}")
@@ -129,6 +156,11 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
         
         if agent_version:
             result["agent_version"] = agent_version
+        
+        # ✅ 添加多时间框架标识
+        if is_multi_tf:
+            result["multi_timeframe_mode"] = True
+            result["timeframes"] = timeframes
             
         return result
 

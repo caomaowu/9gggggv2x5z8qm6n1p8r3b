@@ -53,17 +53,50 @@ async def analyze_market(
         elif request.data_method == "to_end" and request.end_date:
              end_dt_str = f"{request.end_date} {request.end_time}:00"
 
-        df = market_service.get_ohlcv_data_enhanced(
-            symbol=request.asset,
-            timeframe=request.timeframe,
-            limit=request.kline_count,
-            method=request.data_method,
-            start_date=start_dt_str,
-            end_date=end_dt_str
-        )
-        
-        if df is None or df.empty:
-            raise HTTPException(status_code=404, detail="No market data found")
+        # Multi-Timeframe Support
+        if request.multi_timeframe_mode and request.timeframes:
+            logger.info(f"[{result_id}] Multi-timeframe mode enabled with timeframes: {request.timeframes}")
+            
+            # 获取多个时间框架的数据
+            multi_df = {}
+            for tf in request.timeframes:
+                logger.info(f"[{result_id}] Fetching {tf} timeframe data...")
+                df_single = market_service.get_ohlcv_data_enhanced(
+                    symbol=request.asset,
+                    timeframe=tf,
+                    limit=request.kline_count,
+                    method=request.data_method,
+                    start_date=start_dt_str,
+                    end_date=end_dt_str
+                )
+                
+                if df_single is None or df_single.empty:
+                    logger.warning(f"[{result_id}] No data found for timeframe {tf}")
+                    continue
+                    
+                multi_df[tf] = df_single
+                
+            if not multi_df:
+                raise HTTPException(status_code=404, detail="No market data found for any timeframe")
+                
+            df = multi_df
+            timeframe_for_result = ",".join(request.timeframes)
+        else:
+            # Single Timeframe Mode (original logic)
+            timeframe = request.timeframe if isinstance(request.timeframe, str) else request.timeframe[0]
+            df = market_service.get_ohlcv_data_enhanced(
+                symbol=request.asset,
+                timeframe=timeframe,
+                limit=request.kline_count,
+                method=request.data_method,
+                start_date=start_dt_str,
+                end_date=end_dt_str
+            )
+            
+            if df is None or df.empty:
+                raise HTTPException(status_code=404, detail="No market data found")
+            
+            timeframe_for_result = timeframe
             
         # 哈雷酱添加：如果是在做回测（to_end 或 date_range），且请求了未来K线，则获取“未来”数据用于验证
         future_kline_list = []
@@ -78,7 +111,9 @@ async def analyze_market(
                 
                 # 如果因为某种原因 end_dt_str 为空（防御性编程），则回退到 last_dt
                 if not future_start_str:
-                     last_dt = df.index[-1]
+                     # 多时间框架模式下，使用第一个时间框架的数据
+                     reference_df = df[list(df.keys())[0]] if isinstance(df, dict) else df
+                     last_dt = reference_df.index[-1]
                      future_start_str = last_dt.strftime("%Y-%m-%d %H:%M:%S")
 
                 logger.info(f"Fetching future verification data starting from {future_start_str}...")
@@ -87,7 +122,8 @@ async def analyze_market(
                 # 假设 API 忽略 start_time，只看 end_time，且返回 end_time 之前的 limit 条
                 future_end_str = None
                 try:
-                    tf = request.timeframe
+                    # 多时间框架模式下，使用第一个时间框架
+                    tf = timeframe_for_result.split(",")[0] if "," in timeframe_for_result else timeframe_for_result
                     delta = None
                     if tf == '1mo':
                         delta = pd.Timedelta(days=31)
@@ -117,7 +153,7 @@ async def analyze_market(
                 # 如果 future_end_str 有值，就用它。否则用 None (默认到 Now)
                 future_df = market_service.get_ohlcv_data(
                     symbol=request.asset,
-                    timeframe=request.timeframe,
+                    timeframe=tf,
                     limit=request.future_kline_count + 50, # 大幅增加 limit 以防止不足
                     start_date=future_start_str,
                     end_date=future_end_str 
@@ -126,7 +162,8 @@ async def analyze_market(
                 if future_df is not None and not future_df.empty:
                     # 过滤掉已经包含在主分析数据中的时间点
                     # 这里的 last_dt 是主数据的最后一条时间
-                    last_dt = df.index[-1]
+                    reference_df = df[tf] if isinstance(df, dict) else df
+                    last_dt = reference_df.index[-1]
                     future_df = future_df[future_df.index > last_dt]
                     
                     # 截取用户请求的数量
@@ -171,13 +208,16 @@ async def analyze_market(
         result = await trading_engine.run_analysis(
             df, 
             request.asset, 
-            request.timeframe
+            timeframe_for_result
         )
         
         # Inject Result ID and Request Metadata
         result['result_id'] = result_id
         result['asset'] = request.asset
-        result['timeframe'] = request.timeframe
+        result['timeframe'] = timeframe_for_result
+        result['multi_timeframe_mode'] = request.multi_timeframe_mode
+        if request.multi_timeframe_mode:
+            result['timeframes'] = request.timeframes
         
         # 哈雷酱添加：注入未来验证数据
         if future_kline_list:

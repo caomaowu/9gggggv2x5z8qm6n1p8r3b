@@ -1,9 +1,9 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Union, List
 
 class AnalyzeRequest(BaseModel):
     asset: str
-    timeframe: str
+    timeframe: Union[str, List[str]]
     data_source: str = "quant_api"
     data_method: str = "latest"
     kline_count: int = 100
@@ -16,3 +16,7 @@ class AnalyzeRequest(BaseModel):
     use_current_time: bool = False
     
     ai_version: str = "constrained"
+    
+    # Multi-Timeframe Mode
+    multi_timeframe_mode: bool = False
+    timeframes: Optional[List[str]] = None

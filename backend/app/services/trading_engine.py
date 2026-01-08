@@ -70,41 +70,71 @@ class TradingEngine:
     async def run_analysis(self, data: Any, symbol: str, timeframe: str) -> Dict[str, Any]:
         """
         Run the analysis graph.
+        Supports both single timeframe (DataFrame) and multi-timeframe (Dict[str, DataFrame]) modes.
         """
         import json
         
+        # ✅ 检测是否为多时间框架模式
+        is_multi_tf = isinstance(data, dict) and not hasattr(data, 'to_dict')
+        
         # Prepare initial state
-        # Handle pandas DataFrame -> JSON conversion if needed
         kline_data = data
-        if hasattr(data, 'to_json'):
-             # Reset index to ensure Date/Datetime is included in the dictionary
-              # and rename 'Date' to 'Datetime' as expected by consumers
-              df_temp = data.copy()
-              if isinstance(data, pd.DataFrame):
-                  df_temp = data.reset_index()
-                  if 'Date' in df_temp.columns:
-                      # Convert to string to ensure JSON serialization and compatibility
-                      df_temp['Date'] = df_temp['Date'].dt.strftime('%Y-%m-%d %H:%M:%S')
-                      df_temp.rename(columns={'Date': 'Datetime'}, inplace=True)
-              
-              kline_data = df_temp.to_dict(orient='records')
-        elif hasattr(data, 'to_dict'):
-             kline_data = data.to_dict(orient='records')
-
-        # Extract latest price
-        latest_price = None
-        if kline_data and len(kline_data) > 0:
-             latest_price = kline_data[-1].get('Close')
-             
-             # Debug: Check keys
-             logger.info(f"Kline data keys check: {list(kline_data[0].keys())}")
+        
+        if is_multi_tf:
+            # ✅ 多时间框架模式：data 是字典 {timeframe: DataFrame}
+            logger.info(f"Processing multi-timeframe data: {list(data.keys())}")
+            
+            # 保持字典结构,但转换每个 DataFrame
+            converted_data = {}
+            for tf, df in data.items():
+                if isinstance(df, pd.DataFrame):
+                    df_temp = df.reset_index()
+                    if 'Date' in df_temp.columns:
+                        df_temp['Date'] = df_temp['Date'].dt.strftime('%Y-%m-%d %H:%M:%S')
+                        df_temp.rename(columns={'Date': 'Datetime'}, inplace=True)
+                    converted_data[tf] = df_temp
+                else:
+                    converted_data[tf] = df
+            
+            kline_data = converted_data
+            
+            # 提取最新价格(使用第一个时间框架)
+            first_tf = list(converted_data.keys())[0]
+            first_df = converted_data[first_tf]
+            if isinstance(first_df, pd.DataFrame) and not first_df.empty:
+                latest_price = first_df.iloc[-1]['Close']
+            else:
+                latest_price = None
+                
+        elif hasattr(data, 'to_json') or isinstance(data, pd.DataFrame):
+            # ✅ 单时间框架模式：data 是单个 DataFrame
+            df_temp = data.copy()
+            if isinstance(data, pd.DataFrame):
+                df_temp = data.reset_index()
+                if 'Date' in df_temp.columns:
+                    df_temp['Date'] = df_temp['Date'].dt.strftime('%Y-%m-%d %H:%M:%S')
+                    df_temp.rename(columns={'Date': 'Datetime'}, inplace=True)
+            
+            kline_data = df_temp.to_dict(orient='records') if hasattr(df_temp, 'to_dict') else df_temp
+            
+            # Extract latest price
+            latest_price = None
+            if isinstance(kline_data, list) and len(kline_data) > 0:
+                latest_price = kline_data[-1].get('Close')
+        else:
+            # 已经是处理好的数据
+            latest_price = None
+            if isinstance(kline_data, list) and len(kline_data) > 0:
+                latest_price = kline_data[-1].get('Close')
 
         initial_state = {
             "kline_data": kline_data,
             "time_frame": timeframe,
             "stock_name": symbol,
             "messages": [],
-            "latest_price": latest_price
+            "latest_price": latest_price,
+            "multi_timeframe_mode": is_multi_tf,
+            "timeframes": list(data.keys()) if is_multi_tf else None
         }
 
         try:
