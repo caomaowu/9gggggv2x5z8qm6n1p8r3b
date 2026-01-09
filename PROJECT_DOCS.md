@@ -73,12 +73,6 @@ python start_all.py
 # 1. 进入后端目录
 cd backend
 
-# 2. 创建并激活虚拟环境 (可选但推荐)
-python -m venv venv
-# Windows:
-.\venv\Scripts\activate
-# Linux/Mac:
-source venv/bin/activate
 
 # 3. 安装依赖
 pip install -r ../requirements.txt

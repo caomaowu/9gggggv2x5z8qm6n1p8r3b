@@ -17,3 +17,8 @@ jinja2
 
 # PDF Conversion Tools
 playwright
+
+# Visualization & Technical Analysis
+mplfinance
+matplotlib
+TA-Lib
