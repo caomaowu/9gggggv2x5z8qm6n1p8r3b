@@ -16,8 +16,9 @@ function App() {
       const urlId = urlParams.get('id');
 
       // 2. Determine which ID to use
-      // If URL ID exists, use it. Otherwise, use stored latestResultId (only if not currently displaying a result)
-      const targetId = urlId || (latestResultId && !analysisResult ? latestResultId : null);
+      // Modified: Only restore if explicit ID in URL (User request)
+      // We do NOT want to auto-restore latestResultId on fresh load/refresh anymore.
+      const targetId = urlId;
 
       // Only restore if we have a target ID and no result is currently loaded (or if we are forcing a load via URL)
       // Note: If urlId is present, we always want to load it, even if analysisResult is already set?
