@@ -37,3 +37,7 @@ frontend/*.local
 .vscode/
 *.swp
 *.swo
+
+
+# SSL 证书
+caomao.xyz-ssl-bundle/
