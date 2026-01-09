@@ -297,7 +297,21 @@
                     <div class="text-center text-slate-400 py-8">暂无数据</div>
                     {% endif %}
 
-                    {% if result.get('pattern_chart') %}
+                    {% if result.get('pattern_images') %}
+                    <div class="space-y-6">
+                        {% for tf, img_b64 in result['pattern_images'].items() %}
+                        <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm relative">
+                            <div class="absolute top-4 left-4 bg-pink-600 text-white text-xs font-bold px-3 py-1 rounded-lg shadow-md z-10">
+                                {{ tf }}
+                            </div>
+                            <img src="data:image/png;base64,{{ img_b64 }}" alt="Pattern Chart {{ tf }}" class="w-full h-auto">
+                            <div class="bg-slate-50 p-2 text-center text-xs text-slate-500 border-t border-slate-200">
+                                {{ tf }} 模式识别可视化
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% elif result.get('pattern_chart') %}
                     <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                         <img src="data:image/png;base64,{{ result['pattern_chart'] }}" alt="Pattern Chart" class="w-full h-auto">
                         <div class="bg-slate-50 p-2 text-center text-xs text-slate-500 border-t border-slate-200">
@@ -325,7 +339,21 @@
                     <div class="text-center text-slate-400 py-8">暂无数据</div>
                     {% endif %}
 
-                    {% if result.get('trend_chart') %}
+                    {% if result.get('trend_images') %}
+                    <div class="space-y-6">
+                        {% for tf, img_b64 in result['trend_images'].items() %}
+                        <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm relative">
+                            <div class="absolute top-4 left-4 bg-cyan-600 text-white text-xs font-bold px-3 py-1 rounded-lg shadow-md z-10">
+                                {{ tf }}
+                            </div>
+                            <img src="data:image/png;base64,{{ img_b64 }}" alt="Trend Chart {{ tf }}" class="w-full h-auto">
+                            <div class="bg-slate-50 p-2 text-center text-xs text-slate-500 border-t border-slate-200">
+                                {{ tf }} 趋势分析与支撑阻力线
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% elif result.get('trend_chart') %}
                     <div class="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                         <img src="data:image/png;base64,{{ result['trend_chart'] }}" alt="Trend Chart" class="w-full h-auto">
                         <div class="bg-slate-50 p-2 text-center text-xs text-slate-500 border-t border-slate-200">
