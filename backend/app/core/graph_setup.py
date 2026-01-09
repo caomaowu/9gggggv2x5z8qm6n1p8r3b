@@ -142,10 +142,22 @@ class SetGraph:
                 # 保存计算数据和图像
                 if "indicators_data" in result:
                     shared_state["indicators_data"] = result["indicators_data"]
+                
+                # 单周期图表
                 if "pattern_image" in result:
                     shared_state["pattern_image"] = result["pattern_image"]
                 if "trend_image" in result:
                     shared_state["trend_image"] = result["trend_image"]
+                
+                # 多周期图表 (哈雷酱修复：支持多周期数据传递)
+                if "pattern_images" in result:
+                    shared_state["pattern_images"] = result["pattern_images"]
+                if "trend_images" in result:
+                    shared_state["trend_images"] = result["trend_images"]
+                if "multi_timeframe_mode" in result:
+                    shared_state["multi_timeframe_mode"] = result["multi_timeframe_mode"]
+                if "timeframes" in result:
+                    shared_state["timeframes"] = result["timeframes"]
 
                 # 哈雷酱添加：保存价格信息和指标数据（从技术指标智能体获取）
                 if agent_name.lower() == "indicator":

@@ -38,6 +38,9 @@ class IndicatorAgentState(TypedDict):
     pattern_report: Annotated[
         str, "Final pattern agent summary report to be used by downstream agents"
     ]
+    pattern_images: Annotated[
+        dict, "Dictionary of base64-encoded K-line charts for multi-timeframe pattern recognition"
+    ]
 
     # Trend Agent
     trend_image: Annotated[
@@ -55,6 +58,9 @@ class IndicatorAgentState(TypedDict):
         str,
         "Final trend analysis summary, describing structure, directional bias, and technical observations for downstream agents",
     ]
+    trend_images: Annotated[
+        dict, "Dictionary of base64-encoded trend charts for multi-timeframe trend analysis"
+    ]
 
     # Price information (哈雷酱添加：确保价格信息在状态中传递)
     latest_price: Annotated[float, "Latest trading price from kline data"]
@@ -69,3 +75,7 @@ class IndicatorAgentState(TypedDict):
     final_trade_decision: Annotated[
         str, "Final BUY or SELL decision made after analyzing indicators"
     ]
+    
+    # Multi-timeframe support
+    multi_timeframe_mode: Annotated[bool, "Flag indicating if multi-timeframe analysis is active"]
+    timeframes: Annotated[List[str], "List of timeframes being analyzed"]

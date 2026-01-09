@@ -163,9 +163,9 @@
 
 /* Multi-Timeframe Grid Layout */
 .multiChartGrid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
     width: 100%;
     padding: 0.5rem;
 }
@@ -175,9 +175,10 @@
     background: var(--gray-50);
     border-radius: 12px;
     padding: 1rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     transition: all 0.3s ease;
     overflow: hidden;
+    width: 100%;
 }
 
 .chartGridItem:hover {
