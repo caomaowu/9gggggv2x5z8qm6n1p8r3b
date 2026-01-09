@@ -12,8 +12,7 @@ export default function TrendPanel() {
         trend_chart,
         trend_image,
         trend_images,
-        multi_timeframe_mode,
-        timeframes
+        multi_timeframe_mode
     } = analysisResult;
     
     const content = trend_analysis || trend_report;

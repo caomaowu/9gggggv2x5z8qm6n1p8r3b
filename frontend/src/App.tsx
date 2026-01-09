@@ -61,7 +61,7 @@ function App() {
     };
     
     restoreHistory();
-  }, [latestResultId, analysisResult, setAnalysisResult]);
+  }, [latestResultId, analysisResult, isRestoring, setAnalysisResult]);
 
   if (isRestoring) {
       return (

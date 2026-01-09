@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import styles from './AssetAndTimeframePanel.module.css';
 
@@ -38,13 +38,6 @@ export default function AssetAndTimeframePanel() {
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [customInputVal, setCustomInputVal] = useState('');
   const [selectedToDelete, setSelectedToDelete] = useState<Set<string>>(new Set());
-
-  // Reset selection when exiting management mode
-  useEffect(() => {
-    if (!isManagementMode) {
-        setSelectedToDelete(new Set());
-    }
-  }, [isManagementMode]);
 
   const handleCustomSubmit = () => {
     if (customInputVal.trim()) {
@@ -120,7 +113,13 @@ export default function AssetAndTimeframePanel() {
                             type="checkbox" 
                             id="managementMode" 
                             checked={isManagementMode}
-                            onChange={(e) => setManagementMode(e.target.checked)} 
+                            onChange={(e) => {
+                                const checked = e.target.checked;
+                                setManagementMode(checked);
+                                if (!checked) {
+                                    setSelectedToDelete(new Set());
+                                }
+                            }} 
                         />
                         <label htmlFor="managementMode">管理模式</label>
                     </div>

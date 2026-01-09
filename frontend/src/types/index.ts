@@ -3,6 +3,16 @@ export interface Asset {
   name?: string;
 }
 
+export type FutureKlineDataRow = {
+  datetime?: string;
+  date?: string;
+  open: string | number;
+  high: string | number;
+  low: string | number;
+  close: string | number;
+  [key: string]: unknown;
+};
+
 export interface AnalyzeRequest {
   asset: string;
   timeframe: string | string[];
@@ -38,17 +48,27 @@ export interface DecisionResult {
   confidence_level?: string;
   time_horizon?: string;
   model_name?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface AnalysisResult {
   decision?: DecisionResult;
+  asset?: string;
+  asset_name?: string;
+  timeframe?: string;
+  data_length?: number;
+  kline_data?: Array<Record<string, unknown>>;
+  future_kline_chart_base64?: string;
+  future_kline_data?: FutureKlineDataRow[];
   indicator_report?: string;
+  technical_indicators?: string;
   pattern_report?: string;
+  pattern_analysis?: string;
   trend_report?: string;
+  trend_analysis?: string;
   latest_price?: number;
-  price_info?: Record<string, any>;
-  messages?: any[];
+  price_info?: Record<string, unknown>;
+  messages?: unknown[];
   agent_version_name?: string;
   agent_version_description?: string;
   decision_agent_version?: string;
@@ -70,5 +90,5 @@ export interface AnalysisResult {
   trend_image?: string;                // 单时间框架(向后兼容别名)
   trend_images?: Record<string, string>;   // 多时间框架
   
-  [key: string]: any;
+  [key: string]: unknown;
 }

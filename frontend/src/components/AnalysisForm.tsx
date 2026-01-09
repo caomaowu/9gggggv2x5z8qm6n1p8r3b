@@ -24,7 +24,7 @@ export default function AnalysisForm() {
     const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
     useEffect(() => {
-        let interval: any;
+        let interval: ReturnType<typeof setInterval> | undefined;
         if (isLoading) {
             setProgress(0);
             interval = setInterval(() => {
@@ -38,7 +38,11 @@ export default function AnalysisForm() {
         } else {
             setProgress(100);
         }
-        return () => clearInterval(interval);
+        return () => {
+            if (interval) {
+                clearInterval(interval);
+            }
+        };
     }, [isLoading]);
 
     const handleStartAnalysis = async () => {

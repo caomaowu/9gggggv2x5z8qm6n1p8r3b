@@ -12,8 +12,7 @@ export default function PatternPanel() {
         pattern_chart, 
         pattern_image,
         pattern_images,
-        multi_timeframe_mode,
-        timeframes
+        multi_timeframe_mode
     } = analysisResult;
     
     const content = pattern_analysis || pattern_report;

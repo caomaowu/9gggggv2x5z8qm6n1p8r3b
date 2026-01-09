@@ -1,4 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
+import type { FutureKlineDataRow } from '../types';
 import styles from './FutureKlinePanel.module.css';
 
 export default function FutureKlinePanel() {
@@ -30,8 +31,8 @@ export default function FutureKlinePanel() {
 
     if (future_kline_data && future_kline_data.length > 0) {
         for (const kline of future_kline_data) {
-            const high = parseFloat(kline.high);
-            const low = parseFloat(kline.low);
+            const high = parseFloat(String(kline.high));
+            const low = parseFloat(String(kline.low));
             
             if (isLong) {
                 if (!isNaN(tpVal) && high >= tpVal) tpTriggered = true;
@@ -50,7 +51,7 @@ export default function FutureKlinePanel() {
     let firstTrendDiff = 0;
 
     if (firstKline && latestVal) {
-        const close = parseFloat(firstKline.close);
+        const close = parseFloat(String(firstKline.close));
         firstTrendDiff = ((close - latestVal) / latestVal) * 100;
         
         if (isLong) {
@@ -66,7 +67,7 @@ export default function FutureKlinePanel() {
     let trendDiff = 0;
     
     if (secondKline && latestVal) {
-        const close = parseFloat(secondKline.close);
+        const close = parseFloat(String(secondKline.close));
         trendDiff = ((close - latestVal) / latestVal) * 100;
         
         if (isLong) {
@@ -274,7 +275,7 @@ export default function FutureKlinePanel() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {future_kline_data.map((row: any, idx: number) => (
+                                        {future_kline_data.map((row: FutureKlineDataRow, idx: number) => (
                                             <tr key={idx}>
                                                 <td>{row.datetime || row.date}</td>
                                                 <td>{Number(row.open).toFixed(2)}</td>
