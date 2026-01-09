@@ -27,6 +27,10 @@ dist/
 backend/temp_charts/
 backend/*.png
 backend/data/history/
+backend/data/*.csv
+backend/data/*.json
+# 但保留目录结构（可选，如果需要提交 .gitkeep）
+!backend/data/.gitkeep
 exports/
 # Node / Frontend 忽略规则
 node_modules/
