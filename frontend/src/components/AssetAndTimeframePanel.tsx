@@ -16,13 +16,11 @@ const ASSET_METADATA: Record<string, { icon: string, isFab?: boolean }> = {
 const DEFAULT_ASSET_ICON = 'fa-star';
 
 const TIMEFRAMES = [
-    { label: '1分钟', value: '1m' },
     { label: '15分钟', value: '15m' },
     { label: '1小时', value: '1h' },
     { label: '4小时', value: '4h' },
     { label: '1天', value: '1d' },
     { label: '1周', value: '1w' },
-    { label: '1月', value: '1mo' },
 ];
 
 export default function AssetAndTimeframePanel() {
@@ -233,7 +231,7 @@ export default function AssetAndTimeframePanel() {
             {multiTimeframeMode ? (
                 <>
                     {/* Multi-Select Mode */}
-                    <div className={styles.multiTimeframeSelector}>
+                    <div className={styles.timeframeSelector}>
                         {TIMEFRAMES.map(tf => {
                             const isSelected = selectedTimeframes.includes(tf.value);
                             const canSelect = isSelected || selectedTimeframes.length < 3;

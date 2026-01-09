@@ -31,6 +31,7 @@ export default function HistoryPanel() {
     const [selectedAsset, setSelectedAsset] = useState('');
     const [selectedTimeframe, setSelectedTimeframe] = useState('');
     const [selectedDate, setSelectedDate] = useState('');
+    const [isMultiTimeframeOnly, setIsMultiTimeframeOnly] = useState(false);
 
     const fetchHistory = async () => {
         setIsLoading(true);
@@ -87,7 +88,13 @@ export default function HistoryPanel() {
             const matchesAsset = selectedAsset ? item.asset === selectedAsset : true;
 
             // 3. 时间周期筛选
-            const matchesTimeframe = selectedTimeframe ? item.timeframe === selectedTimeframe : true;
+            let matchesTimeframe = true;
+            if (selectedTimeframe === 'multi_only') {
+                 // 特殊值：仅显示多周期
+                 matchesTimeframe = item.timeframe.includes('+');
+            } else if (selectedTimeframe) {
+                 matchesTimeframe = item.timeframe === selectedTimeframe;
+            }
 
             // 4. 日期筛选
             const matchesDate = selectedDate ? item.dateStr === selectedDate : true;
@@ -190,6 +197,9 @@ export default function HistoryPanel() {
                         className={styles.filterSelect}
                     >
                         <option value="">所有周期</option>
+                        <option value="multi_only" style={{ fontWeight: 'bold', color: 'var(--etrade-purple)' }}>
+                            ✨ 多周期组合 (Multi)
+                        </option>
                         {uniqueTimeframes.map(tf => (
                             <option key={tf} value={tf}>{tf}</option>
                         ))}

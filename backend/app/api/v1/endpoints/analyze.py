@@ -29,7 +29,17 @@ async def analyze_market(
     try:
         # 1. Generate Result ID
         id_manager = get_result_id_manager()
-        result_id = id_manager.get_next_id(asset=request.asset, timeframe=request.timeframe)
+        
+        # 处理时间框架：如果是多时间框架模式，使用逗号连接或者特殊格式
+        timeframe_for_id = request.timeframe
+        if request.multi_timeframe_mode and request.timeframes:
+             # 为了避免文件名/ID过长，可以使用 "+" 连接，或者简写
+             # 这里选择用 "+" 连接，如 4h+1d
+             timeframe_for_id = "+".join(request.timeframes)
+        elif isinstance(request.timeframe, list):
+             timeframe_for_id = "+".join(request.timeframe)
+             
+        result_id = id_manager.get_next_id(asset=request.asset, timeframe=timeframe_for_id)
         
         # 2. Log Analysis Start
         analysis_logger = get_analysis_logger()

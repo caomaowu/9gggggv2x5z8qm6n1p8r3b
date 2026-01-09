@@ -10,8 +10,22 @@ export default function SummaryPanel() {
     const { 
         data_length, 
         timeframe, 
-        asset_name 
+        asset_name,
+        multi_timeframe_mode,
+        timeframes
     } = analysisResult;
+
+    // 处理多时间框架显示
+    let displayTimeframe = timeframe || '--';
+    let isLongText = false;
+    
+    if (multi_timeframe_mode && timeframes && timeframes.length > 0) {
+        displayTimeframe = timeframes.join(' + ');
+        // 如果文本较长，适当缩小字体
+        if (displayTimeframe.length > 5) {
+            isLongText = true;
+        }
+    }
 
     return (
         <div className={styles.panel}>
@@ -27,7 +41,12 @@ export default function SummaryPanel() {
                 </div>
                 <div className="flex">
                     <div className={`${styles.statsCard} w-full`}>
-                        <div className={styles.statsNumber}>{timeframe || '--'}</div>
+                        <div 
+                            className={styles.statsNumber}
+                            style={isLongText ? { fontSize: '1.8em' } : {}}
+                        >
+                            {displayTimeframe}
+                        </div>
                         <div className={styles.statsLabel}>时间框架</div>
                     </div>
                 </div>

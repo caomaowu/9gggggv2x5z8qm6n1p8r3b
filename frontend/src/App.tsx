@@ -38,6 +38,27 @@ function App() {
             if (result) {
                 // Map backend fields to frontend expected fields
                 // Ensure compatibility with AnalysisResult components
+                
+                // Robustness: Detect multi-timeframe mode from timeframe string if flags are missing
+                // (For backward compatibility with results generated before backend update)
+                let multiTimeframeMode = !!result.multi_timeframe_mode; // Ensure boolean
+                let timeframes = result.timeframes;
+
+                // Auto-detect from timeframe string if explicit flag is missing/false
+                if (!multiTimeframeMode && result.timeframe && typeof result.timeframe === 'string' && result.timeframe.includes('+')) {
+                    multiTimeframeMode = true;
+                    timeframes = result.timeframe.split('+');
+                }
+                
+                // Ensure timeframes is always an array
+                if (!Array.isArray(timeframes)) {
+                    timeframes = [];
+                }
+                
+                // Ensure image dictionaries are valid objects (not null) to prevent Object.keys() crashes
+                const trend_images = (result.trend_images && typeof result.trend_images === 'object') ? result.trend_images : {};
+                const pattern_images = (result.pattern_images && typeof result.pattern_images === 'object') ? result.pattern_images : {};
+
                 const enrichedResult = {
                     ...result,
                     asset_name: result.asset || result.asset_name,
@@ -45,7 +66,13 @@ function App() {
                     data_length: result.data_length || (result.kline_data ? result.kline_data.length : 0),
                     // Ensure charts are mapped if they exist in result
                     pattern_chart: result.pattern_chart || result.pattern_image,
-                    trend_chart: result.trend_chart || result.trend_image
+                    trend_chart: result.trend_chart || result.trend_image,
+                    // Safe multi-timeframe fields
+                    multi_timeframe_mode: multiTimeframeMode,
+                    timeframes: timeframes,
+                    // Safe image objects
+                    trend_images: trend_images,
+                    pattern_images: pattern_images
                 };
                 
                 setAnalysisResult(enrichedResult);

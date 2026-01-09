@@ -120,7 +120,9 @@ export default function AnalysisForm() {
                 timeframe: selectedTimeframe,
                 data_length: klineCount, // 或者使用后端返回的实际数据点数
                 pattern_chart: result.pattern_chart || result.pattern_image,
-                trend_chart: result.trend_chart || result.trend_image
+                trend_chart: result.trend_chart || result.trend_image,
+                multi_timeframe_mode: multiTimeframeMode,
+                timeframes: selectedTimeframes
             };
             
             setAnalysisResult(enrichedResult);
