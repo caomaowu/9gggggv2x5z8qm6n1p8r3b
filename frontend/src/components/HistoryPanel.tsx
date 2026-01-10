@@ -104,7 +104,8 @@ export default function HistoryPanel() {
     }, [enrichedHistory, searchTerm, selectedAsset, selectedTimeframe, selectedDate]);
 
     const handleSelectHistory = (resultId: string) => {
-        const url = `/?id=${resultId}`;
+        // Fix: Encode resultId to handle special characters like '+' in multi-timeframe IDs
+        const url = `/?id=${encodeURIComponent(resultId)}`;
         if (autoFocusResult) {
             window.open(url, '_blank');
         } else {

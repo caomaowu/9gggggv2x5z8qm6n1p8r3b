@@ -7,7 +7,7 @@ export const analyzeMarket = async (data: AnalyzeRequest) => {
 };
 
 export const getAnalysisHistory = async (resultId: string) => {
-  const response = await apiClient.get<AnalysisResult>(`/analyze/history/${resultId}`);
+  const response = await apiClient.get<AnalysisResult>(`/analyze/history/${encodeURIComponent(resultId)}`);
   return response.data;
 };
 

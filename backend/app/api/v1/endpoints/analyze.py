@@ -228,6 +228,18 @@ async def analyze_market(
         result['multi_timeframe_mode'] = request.multi_timeframe_mode
         if request.multi_timeframe_mode:
             result['timeframes'] = request.timeframes
+            # 多周期模式下，data_length 使用主周期（第一个）的数据长度
+            if isinstance(df, dict) and request.timeframes:
+                 first_tf = request.timeframes[0]
+                 if first_tf in df:
+                     result['data_length'] = len(df[first_tf])
+                 else:
+                     result['data_length'] = 0
+            else:
+                 result['data_length'] = 0
+        else:
+            # 单周期模式
+            result['data_length'] = len(df) if hasattr(df, '__len__') else 0
         
         # 哈雷酱添加：注入未来验证数据
         if future_kline_list:
