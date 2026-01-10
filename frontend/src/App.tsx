@@ -1,14 +1,23 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from './store/useAppStore';
+import { useAuthStore } from './store/useAuthStore';
 import { getAnalysisHistory } from './api/analyze';
 import HomeHeader from './components/HomeHeader';
 import AnalysisForm from './components/AnalysisForm';
 import AnalysisResult from './components/AnalysisResult';
+import { LoginOverlay } from './components/Auth/LoginOverlay';
 
 function App() {
+  const { isAuthenticated, isLoading: isAuthLoading, checkStatus } = useAuthStore();
   const { analysisResult, latestResultId, setAnalysisResult } = useAppStore();
   const [isRestoring, setIsRestoring] = useState(false);
 
+  // 1. Initial Auth Check
+  useEffect(() => {
+    checkStatus();
+  }, [checkStatus]);
+
+  // 2. Restore History Logic
   useEffect(() => {
     const restoreHistory = async () => {
       // 1. Check for URL parameter (Priority)
@@ -87,8 +96,25 @@ function App() {
       }
     };
     
-    restoreHistory();
-  }, [latestResultId, analysisResult, isRestoring, setAnalysisResult]);
+    // Only restore if authenticated to prevent data leak before login
+    if (isAuthenticated) {
+        restoreHistory();
+    }
+  }, [latestResultId, analysisResult, isRestoring, setAnalysisResult, isAuthenticated]);
+
+  // Loading State for Auth
+  if (isAuthLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+      </div>
+    );
+  }
+
+  // Auth Guard
+  if (!isAuthenticated) {
+    return <LoginOverlay />;
+  }
 
   if (isRestoring) {
       return (

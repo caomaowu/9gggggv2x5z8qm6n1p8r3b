@@ -5,6 +5,7 @@
     padding: 4rem 1rem;
     min-height: 60vh;
     display: flex;
+    flex-direction: column; /* Allow header top to be at top */
     align-items: center;
     justify-content: center;
 }
@@ -33,7 +34,16 @@
     z-index: 2;
     max-width: 1200px;
     margin: 0 auto;
+    width: 100%;
     text-align: center;
+}
+
+.headerTop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    position: relative;
 }
 
 .logoWrapper {
@@ -41,8 +51,31 @@
     align-items: center;
     justify-content: center;
     gap: 1rem;
-    margin-bottom: 0.5rem;
+    margin: 0 auto; /* Center by default */
+    transform: translateX(30px); /* Offset to account for right buttons if we want perfect visual centering */
 }
+
+/* Adjust logo wrapper to account for flex layout with absolute/relative positioning if needed, 
+   but for now let's keep it simple flex. 
+   To center the logo perfectly while having buttons on right: */
+.headerTop {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+}
+
+.logoWrapper {
+    grid-column: 2;
+    margin: 0;
+    transform: none;
+}
+
+/* Right side actions */
+.headerTop > div:last-child {
+    grid-column: 3;
+    justify-self: end;
+}
+
 
 .logo {
     width: 6rem;
@@ -100,31 +133,30 @@
 }
 
 .heroBtn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: white;
-    color: var(--etrade-purple);
-    font-size: 1.1rem;
-    padding: 0.8rem 2rem;
-    border-radius: 50px;
+    background-color: white;
+    color: var(--color-primary);
     font-weight: 600;
+    padding: 1rem 2.5rem;
+    border-radius: 9999px;
     text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     transition: all 0.3s ease;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .heroBtn:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
-    background: #F8FAFC;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
 }
 
 .heroBtnIcon {
-    font-size: 0.9em;
+    display: flex;
+    align-items: center;
     transition: transform 0.3s ease;
 }
 
 .heroBtn:hover .heroBtnIcon {
-    transform: translateX(3px);
+    transform: translateX(4px);
 }
