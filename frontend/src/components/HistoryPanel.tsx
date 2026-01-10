@@ -31,7 +31,6 @@ export default function HistoryPanel() {
     const [selectedAsset, setSelectedAsset] = useState('');
     const [selectedTimeframe, setSelectedTimeframe] = useState('');
     const [selectedDate, setSelectedDate] = useState('');
-    const [isMultiTimeframeOnly, setIsMultiTimeframeOnly] = useState(false);
 
     const fetchHistory = async () => {
         setIsLoading(true);
