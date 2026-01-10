@@ -47,18 +47,9 @@ fi
 log "构建前端（生产模式）..."
 cd "$PROJECT_DIR/frontend"
 
-# 清理旧的 node_modules 以解决 tar 报错
-log "清理旧的 node_modules..."
-rm -rf node_modules
-
-# 优先使用 npm ci 以保证依赖一致性，且强制安装开发依赖
-if [ -f "package-lock.json" ]; then
-    log "安装依赖 (npm ci --include=dev)..."
-    npm ci --include=dev
-else
-    log "安装依赖 (npm install --include=dev)..."
-    npm install --include=dev
-fi
+# 使用 npm install 增量更新依赖，且强制安装开发依赖 (构建必需)
+log "更新依赖 (npm install --include=dev)..."
+npm install --include=dev
 
 npm run build
 
