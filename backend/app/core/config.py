@@ -9,11 +9,10 @@ import os
 class LLMProvider(str, Enum):
     """LLM 供应商枚举"""
     MODELSCOPE = "modelscope"
-    OPENAI = "openai"
     DEEPSEEK = "deepseek"
-    ANTHROPIC = "anthropic"
     AZURE = "azure"
     IFLOW = "iflow"
+    OPENROUTER = "openrouter"
     CUSTOM = "custom"
 
 
@@ -34,23 +33,6 @@ PROVIDER_MODELS: Dict[LLMProvider, Dict[str, Any]] = {
             ]
         }
     },
-    LLMProvider.OPENAI: {
-        "name": "OpenAI",
-        "base_url": "https://api.openai.com/v1",
-        "api_key_env": "OPENAI_API_KEY",
-        "models": {
-            "agent": [
-                "gpt-4o",
-                "gpt-4o-mini",
-                "gpt-4-turbo",
-            ],
-            "graph": [
-                "gpt-4o",
-                "gpt-4o-mini",
-                "gpt-4-vision-preview",
-            ]
-        }
-    },
     LLMProvider.DEEPSEEK: {
         "name": "DeepSeek",
         "base_url": "https://api.deepseek.com/v1",
@@ -67,22 +49,6 @@ PROVIDER_MODELS: Dict[LLMProvider, Dict[str, Any]] = {
             ]
         }
     },
-    LLMProvider.ANTHROPIC: {
-        "name": "Anthropic",
-        "base_url": "https://api.anthropic.com/v1",
-        "api_key_env": "ANTHROPIC_API_KEY",
-        "models": {
-            "agent": [
-                "claude-sonnet-4-20250514",
-                "claude-opus-4-20250514",
-                "claude-haiku-3-20250514",
-            ],
-            "graph": [
-                "claude-sonnet-4-20250514",
-                "claude-opus-4-20250514",
-            ]
-        }
-    },
     LLMProvider.IFLOW: {
         "name": "Iflow",
         "base_url": "https://apis.iflow.cn/v1",
@@ -95,6 +61,33 @@ PROVIDER_MODELS: Dict[LLMProvider, Dict[str, Any]] = {
             "graph": [
                 "qwen3-max",
                 "qwen3-max-32k",
+            ]
+        }
+    },
+    LLMProvider.OPENROUTER: {
+        "name": "OpenRouter",
+        "base_url": "https://openrouter.ai/api/v1",
+        "api_key_env": "OPENROUTER_API_KEY",
+        "models": {
+            "agent": [
+                "anthropic/claude-haiku-4.5",
+                "anthropic/claude-sonnet-4.5",
+                "openai/gpt-5-mini",
+                "openai/gpt-5.2",
+                "google/gemini-3-flash-preview",
+                "google/gemini-3-pro-preview",
+                "qwen/qwen3-vl-235b-a22b-instruct",
+                "qwen/qwen3-next-80b-a3b-instruct",
+            ],
+            "graph": [
+                 "anthropic/claude-haiku-4.5",
+                "anthropic/claude-sonnet-4.5",
+                "openai/gpt-5-mini",
+                "openai/gpt-5.2",
+                "google/gemini-3-flash-preview",
+                "google/gemini-3-pro-preview",
+                "qwen/qwen3-vl-235b-a22b-instruct",
+                "qwen/qwen3-next-80b-a3b-instruct",
             ]
         }
     },
@@ -143,10 +136,9 @@ class Settings(BaseSettings):
     
     # API Keys（按供应商存储）
     MODELSCOPE_API_KEY: str = "ms-5b276203-2e1d-4083-b7e8-113630a13a14"
-    OPENAI_API_KEY: str = ""
     DEEPSEEK_API_KEY: str = ""
-    ANTHROPIC_API_KEY: str = ""
     IFLOW_API_KEY: str = ""
+    OPENROUTER_API_KEY: str = ""
     CUSTOM_API_KEY: str = ""
     
     # 自定义 API 端点（用于 custom 供应商）
@@ -394,32 +386,107 @@ class Config:
         """重新加载 LLM 配置"""
         self._llm_config = LLMConfig()
     
-    def set_agent_provider(self, provider: str, model: str = None):
+    def update_env_file(self, updates: Dict[str, str]):
+        """
+        更新 .env 文件并保留注释和格式
+        """
+        env_path = ".env"
+        if not os.path.exists(env_path):
+            return
+
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+
+            new_lines = []
+            updated_keys = set()
+            
+            for line in lines:
+                line_stripped = line.strip()
+                # Skip empty lines and comments
+                if not line_stripped or line_stripped.startswith("#"):
+                    new_lines.append(line)
+                    continue
+                
+                # Check for key match
+                key = line_stripped.split("=", 1)[0].strip()
+                if key in updates:
+                    new_lines.append(f"{key}={updates[key]}\n")
+                    updated_keys.add(key)
+                else:
+                    new_lines.append(line)
+            
+            # Add missing keys (though typically we only update existing ones)
+            for key, value in updates.items():
+                if key not in updated_keys:
+                    new_lines.append(f"{key}={value}\n")
+
+            with open(env_path, "w", encoding="utf-8") as f:
+                f.writelines(new_lines)
+                
+        except Exception as e:
+            print(f"Failed to update .env file: {e}")
+
+    def set_agent_provider(self, provider: str, model: str = None, temperature: float = None, persist: bool = False):
         """
         设置 Agent LLM 供应商和模型
         
         Args:
             provider: 供应商名称
             model: 可选的模型名称
+            temperature: 可选的温度参数
+            persist: 是否持久化到 .env 文件
         """
         settings.AGENT_PROVIDER = provider
         if model:
             settings.AGENT_MODEL = model
+        if temperature is not None:
+            settings.AGENT_TEMPERATURE = temperature
+        
+        if persist:
+            updates = {"AGENT_PROVIDER": provider}
+            if model:
+                updates["AGENT_MODEL"] = model
+            if temperature is not None:
+                updates["AGENT_TEMPERATURE"] = str(temperature)
+            self.update_env_file(updates)
+            
         self.reload_llm_config()
     
-    def set_graph_provider(self, provider: str, model: str = None):
+    def set_graph_provider(self, provider: str, model: str = None, temperature: float = None, persist: bool = False):
         """
         设置 Graph LLM 供应商和模型
         
         Args:
             provider: 供应商名称
             model: 可选的模型名称
+            temperature: 可选的温度参数
+            persist: 是否持久化到 .env 文件
         """
         settings.GRAPH_PROVIDER = provider
         if model:
             settings.GRAPH_MODEL = model
+        if temperature is not None:
+            settings.GRAPH_TEMPERATURE = temperature
+            
+        if persist:
+            updates = {"GRAPH_PROVIDER": provider}
+            if model:
+                updates["GRAPH_MODEL"] = model
+            if temperature is not None:
+                updates["GRAPH_TEMPERATURE"] = str(temperature)
+            self.update_env_file(updates)
+            
         self.reload_llm_config()
     
+    def get_all_providers(self) -> List[Dict[str, str]]:
+        """获取所有可用供应商列表"""
+        return settings.get_all_providers()
+
+    def get_available_models(self, provider: str = None, role: str = "agent") -> List[str]:
+        """获取可用模型列表"""
+        return settings.get_available_models(provider, role)
+
     def get_current_config(self) -> Dict[str, Any]:
         """获取当前完整配置"""
         return {

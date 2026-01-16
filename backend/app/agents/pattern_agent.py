@@ -62,7 +62,7 @@ def invoke_tool_with_retry(tool_fn, tool_args, retries=3, wait_sec=4):
 
 
 @performance_monitor("模式识别智能体")
-def create_pattern_agent(tool_llm, graph_llm, toolkit):
+def create_pattern_agent(graph_llm, toolkit):
     """
     Create a pattern recognition agent node for candlestick pattern analysis.
     现在直接生成K线图，然后让LLM分析，不再通过工具调用。

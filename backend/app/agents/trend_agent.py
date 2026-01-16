@@ -73,7 +73,7 @@ def invoke_with_retry(call_fn, *args, retries=3, wait_sec=4):
 
 
 @performance_monitor("趋势分析智能体")
-def create_trend_agent(tool_llm, graph_llm, toolkit):
+def create_trend_agent(graph_llm, toolkit):
     """
     Create a trend analysis agent node for HFT.
     现在直接生成趋势图，然后让LLM分析，不再通过工具调用。

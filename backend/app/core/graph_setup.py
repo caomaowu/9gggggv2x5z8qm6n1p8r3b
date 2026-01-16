@@ -55,12 +55,12 @@ class SetGraph:
 
         # create nodes for pattern agent
         agent_nodes["pattern"] = create_pattern_agent(
-            self.agent_llm, self.graph_llm, self.toolkit
+            self.graph_llm, self.toolkit
         )
 
         # create nodes for trend agent
         agent_nodes["trend"] = create_trend_agent(
-            self.agent_llm, self.graph_llm, self.toolkit
+            self.graph_llm, self.toolkit
         )
 
         # create nodes for decision agent - 哈雷酱的AI版本功能！
