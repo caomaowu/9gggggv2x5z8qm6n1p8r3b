@@ -29,6 +29,37 @@ export default function ConfigPanel() {
   const [graphModel, setGraphModel] = useState('');
   const [graphTemperature, setGraphTemperature] = useState(0.1);
 
+  // Quick Input State
+  const [quickDate, setQuickDate] = useState('');
+  const [quickTime, setQuickTime] = useState('');
+
+  const handleQuickDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      if (val.length <= 6 && /^\d*$/.test(val)) {
+          setQuickDate(val);
+          if (val.length === 6) {
+              // YYMMDD -> YYYY-MM-DD
+              const yy = val.substring(0, 2);
+              const mm = val.substring(2, 4);
+              const dd = val.substring(4, 6);
+              setDateConfig({ endDate: `20${yy}-${mm}-${dd}`, useCurrentTime: false });
+          }
+      }
+  };
+
+  const handleQuickTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value;
+      if (val.length <= 4 && /^\d*$/.test(val)) {
+          setQuickTime(val);
+          if (val.length === 4) {
+              // HHMM -> HH:mm
+              const hh = val.substring(0, 2);
+              const mm = val.substring(2, 4);
+              setDateConfig({ endTime: `${hh}:${mm}`, useCurrentTime: false });
+          }
+      }
+  };
+
   useEffect(() => {
     fetchLLMConfig();
   }, []);
@@ -184,6 +215,30 @@ export default function ConfigPanel() {
                     <div>
                         <label className="text-sm font-semibold text-gray-700 mb-2 block">结束时间</label>
                         <input type="time" className={styles.formControl} value={endTime} onChange={e => setDateConfig({ endTime: e.target.value })} disabled={useCurrentTime} />
+                    </div>
+                </div>
+
+                {/* Quick Input Section */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                    <div>
+                        <input 
+                            type="text" 
+                            className={`${styles.formControl} text-sm`} 
+                            placeholder="快速日期: YYMMDD (e.g. 250623)" 
+                            value={quickDate}
+                            onChange={handleQuickDateChange}
+                            disabled={useCurrentTime}
+                        />
+                    </div>
+                    <div>
+                        <input 
+                            type="text" 
+                            className={`${styles.formControl} text-sm`} 
+                            placeholder="快速时间: HHMM (e.g. 0524)" 
+                            value={quickTime}
+                            onChange={handleQuickTimeChange}
+                            disabled={useCurrentTime}
+                        />
                     </div>
                 </div>
 
