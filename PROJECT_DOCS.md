@@ -11,6 +11,7 @@ QuantAgent 是一个基于多智能体（Multi-Agent）的量化交易分析系�
   - 模块化服务架构 (Service Layer)
   - Pydantic 类型安全
   - WebSocket 实时进度推送
+  - **统一配置系统** (2026-01-17 重构)
 - **前端 (Frontend)**: React + TypeScript + Vite
   - 组件化 UI 开发
   - Zustand 全局状态管理
@@ -25,11 +26,17 @@ refactor_v2/
 │   ├── app/
 │   │   ├── api/            # API 路由定义
 │   │   ├── core/           # 核心配置与事件
+│   │   │   ├── llm_config.py       # LLM 配置模型
+│   │   │   ├── app_settings.py      # 应用配置
+│   │   │   ├── llm_factory.py       # LLM 客户端工厂
+│   │   │   ├── config_repository.py  # 配置持久化
+│   │   │   ├── llm_settings.py     # 配置管理器
+│   │   │   └── config.py          # 配置入口（向后兼容）
 │   │   ├── services/       # 业务逻辑 (交易引擎、行情服务、HTML导出)
 │   │   ├── models/         # 数据模型
 │   │   ├── agents/         # AI 智能体 (LangGraph)
 │   │   ├── utils/          # 通用工具
-│   └── .env.example        # 环境变量示例
+│   │   └── .env.example        # 环境变量示例
 │
 ├── frontend/               # 前端代码
 │   ├── src/
@@ -48,8 +55,9 @@ refactor_v2/
 │   ├── 2026-01-02/
 │   └── ...
 │
-└── start_all.py            # 一键启动脚本 (Python版)
+├── start_all.py            # 一键启动脚本 (Python版)
 ├── requirements.txt        # 项目整体依赖
+└── CONFIG_REFACTOR_REPORT.md  # 配置系统重构报告
 ```
 
 ## 🚀 快速开始 (Quick Start)
@@ -73,15 +81,14 @@ python start_all.py
 # 1. 进入后端目录
 cd backend
 
-
-# 3. 安装依赖
+# 2. 安装依赖
 pip install -r ../requirements.txt
 
-# 4. 配置环境变量
+# 3. 配置环境变量
 # 复制示例文件为 .env，并填入您的 API Key
 cp .env.example .env
 
-# 5. 启动服务
+# 4. 启动服务
 uvicorn app.main:app --reload
 ```
 
@@ -139,12 +146,110 @@ python tools/auto_pdf.py
   - 前端支持查看最近的历史分析记录
   - 刷新页面可自动恢复上次未关闭的分析结果
 
+## 🔧 配置系统 (Configuration System)
+
+### 配置架构
+
+项目采用分层的配置系统设计，确保类型安全和易于维护：
+
+- **LLM 配置层** (`llm_config.py`) - 定义 LLM 供应商、模型等核心配置
+- **应用配置层** (`app_settings.py`) - 应用级配置（CORS、API 地址等）
+- **配置管理器** (`llm_settings.py`) - 统一的配置访问接口
+- **配置工厂** (`llm_factory.py`) - LLM 客户端创建工厂
+- **配置持久化** (`config_repository.py`) - .env 文件读写
+
+### 使用方式
+
+```python
+from app.core.config import settings, config, create_llm_client
+
+# 访问应用配置
+print(settings.PROJECT_NAME)
+print(settings.MARKET_DATA_API_URL)
+
+# 访问 LLM 配置
+agent_config = config.get_agent_config()
+graph_config = config.get_graph_config()
+
+# 创建 LLM 客户端
+from app.core.llm_settings import global_llm_config_manager
+llm = create_llm_client(
+    global_llm_config_manager.app_settings,
+    global_llm_config_manager.llm_settings,
+    role="agent"
+)
+```
+
+### 环境变量配置
+
+配置文件 `.env` 必须包含以下关键配置：
+
+```bash
+# 应用配置
+PROJECT_NAME=QuantAgent
+API_V1_STR=/api/v1
+BACKEND_CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+
+# 市场数据 API
+MARKET_DATA_API_URL=https://caomao.xyz
+MARKET_DATA_API_TOKEN=your_token_here
+
+# LLM API Keys
+MODELSCOPE_API_KEY=your_key_here
+DEEPSEEK_API_KEY=your_key_here
+IFLOW_API_KEY=your_key_here
+OPENROUTER_API_KEY=your_key_here
+
+# Agent 配置
+AGENT_PROVIDER=modelscope
+AGENT_MODEL=Qwen/Qwen3-Next-80B-A3B-Instruct
+AGENT_TEMPERATURE=0.1
+
+# Graph 配置
+GRAPH_PROVIDER=modelscope
+GRAPH_MODEL=Qwen/Qwen3-VL-30B-A3B-Instruct
+GRAPH_TEMPERATURE=0.1
+
+# 自定义配置（可选）
+CUSTOM_API_KEY=
+CUSTOM_API_BASE=
+CUSTOM_AGENT_MODEL=
+CUSTOM_GRAPH_MODEL=
+```
+
+### 动态配置更新
+
+```python
+# 更新 Agent 配置（持久化到 .env）
+config.set_agent_provider(
+    provider="deepseek",
+    model="deepseek-ai/DeepSeek-V3.2",
+    temperature=0.2,
+    persist=True
+)
+
+# 更新 Graph 配置（持久化到 .env）
+config.set_graph_provider(
+    provider="openrouter",
+    model="anthropic/claude-sonnet-4.5",
+    temperature=0.1,
+    persist=True
+)
+
+# 重新加载配置
+config.reload()
+```
+
+详细的重构信息请参阅 [CONFIG_REFACTOR_REPORT.md](./CONFIG_REFACTOR_REPORT.md)。
+
 ## 📝 开发指南
 
 - **后端开发**: 主要逻辑位于 `app/services/trading_engine.py` (交易核心) 和 `app/api/v1/endpoints/analyze.py` (接口层)。
 - **前端开发**: 主要页面组件位于 `src/components/AnalysisForm.tsx`，状态管理位于 `src/store/useAppStore.ts`。
+- **配置开发**: 配置系统位于 `app/core/` 目录，包含 LLM 配置、应用配置等模块。
 
 ## ⚠️ 注意事项
 
 - 本项目依赖外部行情 API (如 caomao.xyz) 和 LLM API，请确保 `.env` 中的 Token 和 Key 配置正确。
 - 首次运行时，前端需要下载依赖，请保持网络通畅。
+- 配置系统已重构，确保 `.env` 文件中包含所有必需的环境变量。

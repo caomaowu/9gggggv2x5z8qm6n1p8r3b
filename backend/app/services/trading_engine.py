@@ -4,7 +4,7 @@ import pandas as pd
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import ToolNode
 
-from app.core.config import settings, LLMConfig, APIConfig
+from app.core.config import settings, create_llm_client
 from app.agents.decision.decision_configs import DECISION_AGENT_VERSIONS
 from app.core.graph_setup import SetGraph
 from app.utils.graph_util import TechnicalTools
@@ -18,8 +18,8 @@ class TradingEngine:
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        from app.core.config import create_llm_client
-
+        from app.core.llm_settings import global_llm_config_manager
+        
         # Initialize configuration
         self.decision_agent_version = "original"
         self.include_decision_agent = True
@@ -39,15 +39,18 @@ class TradingEngine:
             override_agent_temp = config.get("agent_llm_temperature")
             override_graph_temp = config.get("graph_llm_temperature")
 
-        # Initialize LLMs using the robust factory function
-        # This ensures correct provider (API Key/Base URL) is used for each role
+        # Initialize LLMs using the new factory function
         self.agent_llm = create_llm_client(
+            global_llm_config_manager.app_settings,
+            global_llm_config_manager.llm_settings,
             role="agent",
             model=override_agent_model,
             temperature=override_agent_temp
         )
         
         self.graph_llm = create_llm_client(
+            global_llm_config_manager.app_settings,
+            global_llm_config_manager.llm_settings,
             role="graph",
             model=override_graph_model,
             temperature=override_graph_temp

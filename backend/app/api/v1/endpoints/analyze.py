@@ -6,7 +6,7 @@ from app.services.history_service import history_service
 from app.core.progress import update_analysis_progress
 from app.utils.id_manager import get_result_id_manager
 from app.utils.analysis_log import get_analysis_logger
-from app.core.config import settings
+from app.core.config import config
 import logging
 import pandas as pd
 
@@ -213,10 +213,10 @@ async def analyze_market(
             
         trading_engine = TradingEngine(config=engine_config)
 
-        agent_cfg = settings.get_agent_provider_config()
-        graph_cfg = settings.get_graph_provider_config()
-        agent_provider = getattr(agent_cfg.get("provider"), "value", agent_cfg.get("provider"))
-        graph_provider = getattr(graph_cfg.get("provider"), "value", graph_cfg.get("provider"))
+        agent_cfg_dict = config.get_agent_provider_config()
+        graph_cfg_dict = config.get_graph_provider_config()
+        agent_provider = agent_cfg_dict.get("provider")
+        graph_provider = graph_cfg_dict.get("provider")
 
         logger.info(f"[{result_id}] Starting AI analysis with engine config: {engine_config}")
         update_analysis_progress("analyzing", 30, "Running AI analysis...")
@@ -273,15 +273,15 @@ async def analyze_market(
         result['llm_config'] = {
             "agent": {
                 "provider": agent_provider,
-                "name": agent_cfg.get("name"),
-                "model": agent_cfg.get("model"),
-                "temperature": agent_cfg.get("temperature"),
+                "name": agent_provider,
+                "model": agent_cfg_dict.get("model"),
+                "temperature": agent_cfg_dict.get("temperature"),
             },
             "graph": {
                 "provider": graph_provider,
-                "name": graph_cfg.get("name"),
-                "model": graph_cfg.get("model"),
-                "temperature": graph_cfg.get("temperature"),
+                "name": graph_provider,
+                "model": graph_cfg_dict.get("model"),
+                "temperature": graph_cfg_dict.get("temperature"),
             },
         }
 
