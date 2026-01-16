@@ -27,9 +27,6 @@ interface AppState {
   endTime: string;
   useCurrentTime: boolean;
   
-  // AI Config
-  aiVersion: string;
-  
   // Analysis Result
   analysisResult: AnalysisResult | null;
   latestResultId: string | null;
@@ -56,7 +53,6 @@ interface AppState {
   setKlineCount: (count: number) => void;
   setFutureKlineCount: (count: number) => void;
   setDateConfig: (config: Partial<AppState>) => void;
-  setAiVersion: (version: string) => void;
   setAnalysisResult: (result: AnalysisResult | null) => void;
   setLatestResultId: (id: string | null) => void;
   setContinuousMode: (mode: boolean) => void;
@@ -112,8 +108,6 @@ export const useAppStore = create<AppState>()(
       endDate: '',
       endTime: '23:59',
       useCurrentTime: false,
-      
-      aiVersion: 'original',
       
       analysisResult: null,
       latestResultId: null,
@@ -173,7 +167,6 @@ export const useAppStore = create<AppState>()(
       
       setDateConfig: (config) => set((state) => ({ ...state, ...config })),
       
-      setAiVersion: (version) => set({ aiVersion: version }),
       setAnalysisResult: (result) => set({ analysisResult: result }),
       setLatestResultId: (id) => set({ latestResultId: id }),
       setContinuousMode: (mode) => set({ continuousMode: mode }),

@@ -10,11 +10,7 @@ export default function DecisionPanel() {
         latest_price,
         result_id,
         data_method_short,
-        analysis_time_display,
-        agent_version_name,
-        agent_version_description,
-        decision_agent_version,
-        llm_config
+        analysis_time_display
     } = analysisResult;
 
     // 辅助函数：格式化百分比
@@ -55,68 +51,6 @@ export default function DecisionPanel() {
             <h4 className={styles.panelTitle}>
                 <i className="fas fa-bullseye"></i> 最终交易决策
             </h4>
-
-            {(agent_version_name || decision_agent_version) && (
-                <div className={styles.aiVersionInfo}>
-                    <div className={styles.icon}>
-                        <i className="fas fa-brain fa-2x"></i>
-                    </div>
-                    <div className={styles.content}>
-                        <div className={styles.title}>
-                            <i className="fas fa-cog me-1"></i>决策智能体版本
-                        </div>
-                        {agent_version_name ? (
-                            <span className={`${styles.versionBadge} ${styles.versionStandard}`}>
-                                <i className="fas fa-shield-alt me-1"></i>{agent_version_name}
-                            </span>
-                        ) : decision_agent_version === 'original' ? (
-                            <span className={`${styles.versionBadge} ${styles.versionStandard}`}>
-                                <i className="fas fa-history me-1"></i>原始经典版
-                            </span>
-                        ) : (
-                            <span className={`${styles.versionBadge} ${styles.versionStandard}`}>
-                                <i className="fas fa-shield-alt me-1"></i>{decision_agent_version}
-                            </span>
-                        )}
-                        
-                        {agent_version_description && (
-                            <div className={styles.versionDescription}>
-                                <i className="fas fa-info-circle me-1"></i>{agent_version_description}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {llm_config && (llm_config.agent || llm_config.graph) && (
-                <div className={styles.llmInfo}>
-                    <div className={styles.llmInfoTitle}>参与分析的模型与温度</div>
-                    <div className={styles.llmInfoGrid}>
-                        {llm_config.agent && (
-                            <div className={styles.llmInfoItem}>
-                                <div className={styles.llmLabel}>Decision Agent</div>
-                                <div className={styles.llmValue}>
-                                    <span className={styles.llmModel}>{llm_config.agent.model || '未配置'}</span>
-                                    {typeof llm_config.agent.temperature === 'number' && (
-                                        <span className={styles.llmTemp}>T={llm_config.agent.temperature}</span>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                        {llm_config.graph && (
-                            <div className={styles.llmInfoItem}>
-                                <div className={styles.llmLabel}>Graph Agent</div>
-                                <div className={styles.llmValue}>
-                                    <span className={styles.llmModel}>{llm_config.graph.model || '未配置'}</span>
-                                    {typeof llm_config.graph.temperature === 'number' && (
-                                        <span className={styles.llmTemp}>T={llm_config.graph.temperature}</span>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
 
             <div className={styles.singleModelResults}>
                 <div className="text-center mb-3">
