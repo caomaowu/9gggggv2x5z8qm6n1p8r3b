@@ -268,7 +268,7 @@ def create_pattern_agent(tool_llm, graph_llm, toolkit):
         final_response = invoke_with_retry(
             graph_llm.invoke,
             [
-                SystemMessage(content="You are a trading pattern recognition assistant tasked with analyzing candlestick charts. You specialize in multi-timeframe comprehensive analysis."),
+                SystemMessage(content="You are a trading pattern recognition assistant tasked with analyzing candlestick charts. You specialize in comprehensive single-timeframe analysis, while also capable of providing precise multi-timeframe chart interpretation."),
                 HumanMessage(content=image_content),
             ],
         )

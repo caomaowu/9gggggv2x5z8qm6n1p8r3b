@@ -272,6 +272,17 @@ Trading Pair: {state.get('stock_name', 'Unknown')} | Timeframe: {time_frame}
 ---
 
 """
+            
+            # Append analysis instructions for multi-timeframe
+            indicators_text += """
+## 📊 Analysis Task
+
+You have access to the above technical indicators across multiple timeframes.
+**Autonomously select and analyze** the timeframes and indicators that are most relevant.
+Look for confluence or divergence between timeframes.
+Focus on the signals that provide the clearest insight into market direction and momentum.
+Provide a technical analysis.
+"""
         else:
             # Single timeframe mode: Original English prompt
             # Escape JSON curly braces to avoid LangChain template variable parsing issues
@@ -297,56 +308,39 @@ Here is the OHLC data:
 
 ---
 
-### 🔥 MACD Indicator - Trend Tracker
+### 🔥 MACD Indicator
 {macd_json}
 
-### ⚡ RSI Indicator - Overbought/Oversold Alert
+### ⚡ RSI Indicator
 {rsi_json}
 
-### 📈 ROC Indicator - Momentum Accelerator
+### 📈 ROC Indicator
 {roc_json}
 
-### 🌊 Stochastic Indicator - Oscillation Capturer
+### 🌊 Stochastic Indicator
 {stoch_json}
 
-### 🎯 Williams %R Indicator - Extreme Detector
+### 🎯 Williams %R Indicator
 {willr_json}
 
 ---
 
-## 📊 Analysis Instructions
+## 📊 Analysis Task
 
-Evaluate momentum (e.g., MACD, ROC) and oscillators (e.g., RSI, Stochastic, Williams %R).
-Give **higher weight to strong directional signals** such as MACD crossovers, RSI divergence, extreme overbought/oversold levels.
-**Ignore or down-weight neutral or mixed signals** unless they align across multiple indicators.
-
-Provide a concise technical analysis that can be used for trading decisions.
+You have access to the above technical indicators. 
+**Autonomously select and analyze** the indicators that are most relevant to the current market structure. 
+Focus on the signals that provide the clearest insight into market direction and momentum.
+Provide a technical analysis.
 """
 
         # --- LLM分析预计算的指标结果 ---
         system_prompt_text = """You are a high-frequency trading (HFT) analyst assistant operating under time-sensitive conditions.
-You must analyze technical indicators to support fast-paced trading execution."""
-        
-        if is_multi_tf:
-            # Multi-timeframe mode: Add multi-timeframe analysis guidance
-            system_prompt_text += """
+You must analyze technical indicators to support fast-paced trading execution.
 
-🌐 **Multi-Timeframe Analysis Capabilities**:
-- Identify confluence signals across different timeframes (high reliability)
-- Analyze timeframe divergences (proceed with caution)
-- Longer timeframes determine direction, shorter timeframes determine entry points
-- Multi-timeframe confirmation > single-timeframe signals
-"""
-        
-        system_prompt_text += """
+I have pre-computed several technical indicators for you.
+Your task is to review this data and **autonomously determine** which indicators provide the strongest signals for the current market context.
+Avoid mechanical listing of all data. Focus on the critical signals that matter for trading decisions."""
 
-⚠️ Important:
-- Base your analysis on complete OHLC historical data and all technical indicators
-- Identify which indicators are most important in the current market environment
-- Emphasize timeliness and provide specific judgment at the current time point
-- Avoid dry data listing; focus on professional judgment and practical recommendations
-
-Remember: This is real market analysis, and each judgment may affect actual trading decisions!"""
         
         analysis_prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt_text),
