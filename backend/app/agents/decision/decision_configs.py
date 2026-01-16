@@ -27,6 +27,25 @@ DECISION_AGENT_VERSIONS = {
             "❌ 无法处理复杂市场"
         ]
     },
+    "original": {
+        "name": "原始经典版",
+        "description": "经过实战验证的原始高频交易逻辑，保留英文Prompt，强制二选一",
+        "characteristics": [
+            "决策范围：LONG/SHORT（HFT约束）",
+            "Prompt语言：英文 (Original)",
+            "风险回报比：1.2-1.8",
+            "核心逻辑：三报告一致性优先"
+        ],
+        "features": [
+            "🏆 经过实战验证",
+            "⚡ 纯粹的HFT逻辑",
+            "🎯 英文原版Prompt"
+        ],
+        "limitations": [
+            "❌ 不支持观望 (HOLD prohibited)",
+            "❌ 不包含最新市场环境分类逻辑"
+        ]
+    },
     "relaxed": {
         "name": "宽松版本",
         "description": "更自由的思维，支持观望选项，适合复杂市场环境",
@@ -73,10 +92,11 @@ DECISION_AGENT_VERSIONS = {
 }
 
 # 默认配置
-DEFAULT_DECISION_VERSION = "constrained"
+DEFAULT_DECISION_VERSION = "original"
 
 # 版本描述映射
 VERSION_DESCRIPTIONS = {
+    "original": "原始经典版：经过实战验证的HFT逻辑，英文Prompt，强制二选一",
     "constrained": "约束版本：严格的决策规则，标准化输出格式，适合稳定交易",
     "relaxed": "宽松版本：更自由的思维，支持观望选项，适合复杂市场环境",
     "comprehensive": "综合分析版：结构位与波动性依据，直接给出止损止盈，不含风险回报比"

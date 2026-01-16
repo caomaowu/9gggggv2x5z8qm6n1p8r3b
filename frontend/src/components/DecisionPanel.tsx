@@ -75,6 +75,10 @@ export default function DecisionPanel() {
                                     <i className="fas fa-shield-alt me-1"></i>{agent_version_name}（标准）
                                 </span>
                             )
+                        ) : decision_agent_version === 'original' ? (
+                            <span className={`${styles.versionBadge} ${styles.versionStandard}`}>
+                                <i className="fas fa-history me-1"></i>原始经典版
+                            </span>
                         ) : decision_agent_version === 'relaxed' ? (
                             <span className={`${styles.versionBadge} ${styles.versionExperimental}`}>
                                 <i className="fas fa-magic me-1"></i>宽松版本（实验性）

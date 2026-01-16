@@ -27,6 +27,7 @@ try:
     from .decision_agent import create_final_trade_decider
     from .decision_agent_relaxed import create_final_trade_decider_relaxed
     from .decision_agent_comprehensive import create_final_trade_decider_comprehensive
+    from .decision_agent_original import create_final_trade_decider_original
 except ImportError as e:
     print(f"导入决策智能体模块失败: {e}")
     # 提供空函数避免破坏
@@ -34,6 +35,8 @@ except ImportError as e:
         return lambda state: {"error": "约束版本决策智能体导入失败"}
     def create_final_trade_decider_relaxed(llm):
         return lambda state: {"error": "宽松版本决策智能体导入失败"}
+    def create_final_trade_decider_original(llm):
+        return lambda state: {"error": "原始版本决策智能体导入失败"}
 
 # 版本使用统计
 usage_stats = {
@@ -46,9 +49,10 @@ class DecisionAgentFactory:
     """决策智能体工厂类"""
 
     SUPPORTED_VERSIONS = {
-    "constrained": create_final_trade_decider,
-    "relaxed": create_final_trade_decider_relaxed,
-    "comprehensive": create_final_trade_decider_comprehensive
+        "original": create_final_trade_decider_original,
+        "constrained": create_final_trade_decider,
+        "relaxed": create_final_trade_decider_relaxed,
+        "comprehensive": create_final_trade_decider_comprehensive
     }
 
     def __init__(self):
