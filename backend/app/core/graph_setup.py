@@ -18,7 +18,7 @@ from pathlib import Path
 # sys.path hack removed
 
 from app.agents.agent_state import IndicatorAgentState
-from app.agents.decision.decision_agent import create_final_trade_decider
+from app.agents.decision.decision_agent_original import create_final_trade_decider_original
 from app.utils.graph_util import TechnicalTools
 from app.agents.indicator_agent import create_indicator_agent
 from app.agents.pattern_agent import create_pattern_agent
@@ -32,7 +32,7 @@ class SetGraph:
         graph_llm: ChatOpenAI,
         toolkit: TechnicalTools,
         tool_nodes: Dict[str, ToolNode],
-        decision_agent_version: str = "constrained",
+        decision_agent_version: str = "original",
         include_decision_agent: bool = True,
     ):
         self.agent_llm = agent_llm
@@ -70,8 +70,8 @@ class SetGraph:
             decision_agent_node = factory.create_agent(self.decision_agent_version, self.agent_llm)
             print(f"[AI版本] 图形设置使用决策智能体版本: {self.decision_agent_version}")
         except Exception as e:
-            print(f"[AI版本] 使用决策智能体工厂失败，回退到约束版本: {e}")
-            decision_agent_node = create_final_trade_decider(self.agent_llm)
+            print(f"[AI版本] 使用决策智能体工厂失败，回退到原始版本: {e}")
+            decision_agent_node = create_final_trade_decider_original(self.agent_llm)
 
         # create graph
         graph = StateGraph(IndicatorAgentState)

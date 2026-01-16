@@ -24,17 +24,10 @@ from .decision_configs import (
 
 # 导入不同版本的决策智能体
 try:
-    from .decision_agent import create_final_trade_decider
-    from .decision_agent_relaxed import create_final_trade_decider_relaxed
-    from .decision_agent_comprehensive import create_final_trade_decider_comprehensive
     from .decision_agent_original import create_final_trade_decider_original
 except ImportError as e:
     print(f"导入决策智能体模块失败: {e}")
     # 提供空函数避免破坏
-    def create_final_trade_decider(llm):
-        return lambda state: {"error": "约束版本决策智能体导入失败"}
-    def create_final_trade_decider_relaxed(llm):
-        return lambda state: {"error": "宽松版本决策智能体导入失败"}
     def create_final_trade_decider_original(llm):
         return lambda state: {"error": "原始版本决策智能体导入失败"}
 
@@ -49,10 +42,7 @@ class DecisionAgentFactory:
     """决策智能体工厂类"""
 
     SUPPORTED_VERSIONS = {
-        "original": create_final_trade_decider_original,
-        "constrained": create_final_trade_decider,
-        "relaxed": create_final_trade_decider_relaxed,
-        "comprehensive": create_final_trade_decider_comprehensive
+        "original": create_final_trade_decider_original
     }
 
     def __init__(self):
@@ -220,22 +210,7 @@ class DecisionAgentFactory:
 
     def recommend_version(self, market_conditions: Dict[str, Any] = None) -> str:
         """基于市场条件推荐版本"""
-        if market_conditions is None:
-            return get_default_version()
-
-        # 简单的推荐逻辑
-        complexity = market_conditions.get("complexity", "medium")
-        volatility = market_conditions.get("volatility", "medium")
-
-        # 高复杂度或高波动性推荐宽松版本
-        if complexity in ["high", "very_high"] or volatility in ["high", "very_high"]:
-            return "relaxed"
-
-        # 低复杂度和低波动性推荐约束版本
-        if complexity in ["low", "very_low"] and volatility in ["low", "very_low"]:
-            return "constrained"
-
-        # 其他情况使用默认版本
+        # 由于只保留了 original 版本，直接返回默认版本
         return get_default_version()
 
 # 全局工厂实例

@@ -20,7 +20,7 @@ class TradingEngine:
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         # Initialize configuration
         self.llm_config = LLMConfig()
-        self.decision_agent_version = "constrained"
+        self.decision_agent_version = "original"
         self.include_decision_agent = True
 
         if config:
@@ -29,7 +29,7 @@ class TradingEngine:
             self.llm_config.agent_temperature = config.get("agent_llm_temperature", self.llm_config.agent_temperature)
             self.llm_config.graph_temperature = config.get("graph_llm_temperature", self.llm_config.graph_temperature)
             
-            self.decision_agent_version = config.get("decision_agent_version", "constrained")
+            self.decision_agent_version = config.get("decision_agent_version", "original")
             self.include_decision_agent = config.get("include_decision_agent", True)
 
         # Initialize LLMs

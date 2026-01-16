@@ -18,9 +18,7 @@ agents/
 ├── decision/             # 决策智能体包
 │   ├── __init__.py                 # 包定义
 │   ├── core_decision.py            # 核心决策逻辑（通用）
-│   ├── decision_agent.py           # 约束版本决策智能体 (Constrained)
-│   ├── decision_agent_relaxed.py   # 宽松版本决策智能体 (Relaxed)
-│   ├── decision_agent_comprehensive.py # 综合版本决策智能体 (Comprehensive)
+│   ├── decision_agent_original.py  # 原始经典版决策智能体 (Original)
 │   ├── decision_agent_factory.py   # 决策智能体工厂
 │   └── decision_configs.py         # 决策配置
 └── agent_state.py        # 智能体状态管理
@@ -100,15 +98,13 @@ def indicator_agent_node(state):
  负责汇总所有分析结果并生成最终交易决策。现已重构为独立的子包，包含不同风险偏好的决策策略。
  
  #### 4.1 核心决策逻辑 (`core_decision.py`)
- - **功能**: 提供通用的决策智能体创建模板
- - **特点**: 包含提示词构建、状态管理、工具绑定等核心逻辑
- 
- #### 4.2 决策策略变体
- - **约束版 (`decision_agent.py`)**: 风险厌恶型，注重风险控制，严格遵守止损止盈。
- - **宽松版 (`decision_agent_relaxed.py`)**: 风险偏好型，允许更大的波动，追求更高收益。
- - **综合版 (`decision_agent_comprehensive.py`)**: 平衡型，综合考虑多种因素，不依赖单一风险比率。
- 
- #### 4.3 决策智能体工厂 (`decision_agent_factory.py`)
+- **功能**: 提供通用的决策智能体创建模板
+- **特点**: 包含提示词构建、状态管理、工具绑定等核心逻辑
+
+#### 4.2 决策策略变体
+- **原始经典版 (`decision_agent_original.py`)**: 经过实战验证的原始高频交易逻辑，保留英文Prompt，强制二选一。
+
+#### 4.3 决策智能体工厂 (`decision_agent_factory.py`)
  - **功能**: 根据配置动态创建指定版本的决策智能体
  - **模式**: 工厂模式，解耦客户端与具体智能体实现
  

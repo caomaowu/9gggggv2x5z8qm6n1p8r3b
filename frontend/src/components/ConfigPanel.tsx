@@ -230,10 +230,9 @@ export default function ConfigPanel() {
                     className={styles.formControl}
                     value={aiVersion}
                     onChange={e => setAiVersion(e.target.value)}
+                    disabled={true}
                 >
-                    <option value="constrained">Constrained (Conservative)</option>
-                    <option value="relaxed">Relaxed (Flexible)</option>
-                    <option value="comprehensive">Comprehensive (No Risk Ratio)</option>
+                    <option value="original">Original (Classic HFT)</option>
                 </select>
                 <small className={styles.textMuted}>
                     Select the risk appetite for the decision agent.

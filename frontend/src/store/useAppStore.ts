@@ -113,7 +113,7 @@ export const useAppStore = create<AppState>()(
       endTime: '23:59',
       useCurrentTime: false,
       
-      aiVersion: 'constrained',
+      aiVersion: 'original',
       
       analysisResult: null,
       latestResultId: null,

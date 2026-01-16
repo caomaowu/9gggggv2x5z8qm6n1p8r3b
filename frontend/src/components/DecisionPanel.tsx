@@ -47,7 +47,7 @@ export default function DecisionPanel() {
         return styles.decisionHold;
     };
 
-    const isExperimental = (name: string) => name && name.includes('宽松');
+    // isExperimental removed as we only have original version now
 
     return (
         <div className={styles.panel}>
@@ -66,26 +66,16 @@ export default function DecisionPanel() {
                             <i className="fas fa-cog me-1"></i>决策智能体版本
                         </div>
                         {agent_version_name ? (
-                            isExperimental(agent_version_name) ? (
-                                <span className={`${styles.versionBadge} ${styles.versionExperimental}`}>
-                                    <i className="fas fa-magic me-1"></i>{agent_version_name}（实验性）
-                                </span>
-                            ) : (
-                                <span className={`${styles.versionBadge} ${styles.versionStandard}`}>
-                                    <i className="fas fa-shield-alt me-1"></i>{agent_version_name}（标准）
-                                </span>
-                            )
+                            <span className={`${styles.versionBadge} ${styles.versionStandard}`}>
+                                <i className="fas fa-shield-alt me-1"></i>{agent_version_name}
+                            </span>
                         ) : decision_agent_version === 'original' ? (
                             <span className={`${styles.versionBadge} ${styles.versionStandard}`}>
                                 <i className="fas fa-history me-1"></i>原始经典版
                             </span>
-                        ) : decision_agent_version === 'relaxed' ? (
-                            <span className={`${styles.versionBadge} ${styles.versionExperimental}`}>
-                                <i className="fas fa-magic me-1"></i>宽松版本（实验性）
-                            </span>
                         ) : (
                             <span className={`${styles.versionBadge} ${styles.versionStandard}`}>
-                                <i className="fas fa-shield-alt me-1"></i>约束版本（标准）
+                                <i className="fas fa-shield-alt me-1"></i>{decision_agent_version}
                             </span>
                         )}
                         

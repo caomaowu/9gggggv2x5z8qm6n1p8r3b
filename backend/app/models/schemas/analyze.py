@@ -15,7 +15,7 @@ class AnalyzeRequest(BaseModel):
     end_time: Optional[str] = "23:59"
     use_current_time: bool = False
     
-    ai_version: str = "constrained"
+    ai_version: str = "original"
     
     # Multi-Timeframe Mode
     multi_timeframe_mode: bool = False
