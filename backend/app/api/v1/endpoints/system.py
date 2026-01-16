@@ -14,9 +14,6 @@ async def get_llm_config():
     try:
         config_data = config.get_current_config()
         
-        # 增强返回数据，直接按 provider 分组返回模型列表
-        # 这样前端就不需要瞎猜或者显示所有模型了
-        # 结构: { "openai": ["gpt-4", ...], "modelscope": [...] }
         agent_models_map = {}
         graph_models_map = {}
         
@@ -52,15 +49,11 @@ async def update_llm_config(
     同时更新模型温度偏好
     """
     try:
-        # Update Agent Config
         config.set_agent_provider(agent_provider, agent_model, agent_temperature, persist=True)
-        # Save preference
         if agent_model:
             preferences_manager.set_model_temperature(agent_model, agent_temperature, role="agent")
         
-        # Update Graph Config
         config.set_graph_provider(graph_provider, graph_model, graph_temperature, persist=True)
-        # Save preference
         if graph_model:
             preferences_manager.set_model_temperature(graph_model, graph_temperature, role="graph")
         
