@@ -241,3 +241,64 @@
     background-color: #FEE2E2;
     color: #991B1B;
 }
+
+.llmInfo {
+    background-color: #EFF6FF;
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.llmInfoTitle {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1D4ED8;
+    margin-bottom: 0.5rem;
+}
+
+.llmInfoGrid {
+    display: grid;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+    .llmInfoGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.llmInfoItem {
+    background-color: #FFFFFF;
+    border-radius: 10px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #DBEAFE;
+}
+
+.llmLabel {
+    font-size: 0.75rem;
+    color: #6B7280;
+    margin-bottom: 0.25rem;
+}
+
+.llmValue {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.llmModel {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #111827;
+}
+
+.llmTemp {
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background-color: #DBEAFE;
+    color: #1D4ED8;
+    font-size: 0.75rem;
+    font-weight: 600;
+}

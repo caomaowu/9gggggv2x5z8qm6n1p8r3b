@@ -6,6 +6,7 @@ from app.services.history_service import history_service
 from app.core.progress import update_analysis_progress
 from app.utils.id_manager import get_result_id_manager
 from app.utils.analysis_log import get_analysis_logger
+from app.core.config import settings
 import logging
 import pandas as pd
 
@@ -211,8 +212,12 @@ async def analyze_market(
         }
             
         trading_engine = TradingEngine(config=engine_config)
-        
-        # 3. Run Analysis
+
+        agent_cfg = settings.get_agent_provider_config()
+        graph_cfg = settings.get_graph_provider_config()
+        agent_provider = getattr(agent_cfg.get("provider"), "value", agent_cfg.get("provider"))
+        graph_provider = getattr(graph_cfg.get("provider"), "value", graph_cfg.get("provider"))
+
         logger.info(f"[{result_id}] Starting AI analysis with engine config: {engine_config}")
         update_analysis_progress("analyzing", 30, "Running AI analysis...")
         result = await trading_engine.run_analysis(
@@ -250,6 +255,21 @@ async def analyze_market(
         # 既然用户不想要综合图表，且 pattern_chart 和 trend_chart 已经在 TradingEngine 中处理，
         # 这里就不再生成 summary_chart 了，避免生成用户不想要的“奇怪图表”。
         result['summary_chart_base64'] = None
+
+        result['llm_config'] = {
+            "agent": {
+                "provider": agent_provider,
+                "name": agent_cfg.get("name"),
+                "model": agent_cfg.get("model"),
+                "temperature": agent_cfg.get("temperature"),
+            },
+            "graph": {
+                "provider": graph_provider,
+                "name": graph_cfg.get("name"),
+                "model": graph_cfg.get("model"),
+                "temperature": graph_cfg.get("temperature"),
+            },
+        }
 
         # 5. Auto-save HTML Report (User Requirement: Automation, No Browser Dependency)
         try:

@@ -13,6 +13,18 @@ export type FutureKlineDataRow = {
   [key: string]: unknown;
 };
 
+export interface LLMRuntimeInfo {
+  provider?: string;
+  name?: string;
+  model?: string;
+  temperature?: number;
+}
+
+export interface LLMRuntimeConfig {
+  agent?: LLMRuntimeInfo;
+  graph?: LLMRuntimeInfo;
+}
+
 export interface AnalyzeRequest {
   asset: string;
   timeframe: string | string[];
@@ -79,6 +91,8 @@ export interface AnalysisResult {
   // 多时间框架支持
   multi_timeframe_mode?: boolean;
   timeframes?: string[];
+
+  llm_config?: LLMRuntimeConfig;
   
   // 模式识别图表
   pattern_chart?: string;              // 单时间框架(向后兼容)
