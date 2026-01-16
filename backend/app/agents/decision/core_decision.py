@@ -56,56 +56,56 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
         else:
             print(f"🔹 单一时间框架决策模式")
         
-        # 2. 提取基础数据
-        indicator_report = state.get("indicator_report", "技术指标分析不可用")
-        pattern_report = state.get("pattern_report", "形态分析不可用")
-        trend_report = state.get("trend_report", "趋势分析不可用")
-        time_frame = state.get("time_frame", "未知")
-        stock_name = state.get("stock_name", "未知交易对")
+        # 2. Extract basic data
+        indicator_report = state.get("indicator_report", "Technical indicator analysis unavailable")
+        pattern_report = state.get("pattern_report", "Pattern analysis unavailable")
+        trend_report = state.get("trend_report", "Trend analysis unavailable")
+        time_frame = state.get("time_frame", "Unknown")
+        stock_name = state.get("stock_name", "Unknown trading pair")
         
         latest_price = state.get("latest_price", None)
         price_info = state.get("price_info", "")
         
-        # 3. 数据预处理
+        # 3. Data preprocessing
         if latest_price is not None:
-            price_summary = f"当前{stock_name}最新价格: {latest_price}"
+            price_summary = f"Current {stock_name} latest price: {latest_price}"
             latest_price_str = str(latest_price)
         else:
-            price_summary = f"警告：无法获取{stock_name}的当前价格信息"
-            latest_price_str = "未知"
+            price_summary = f"Warning: Unable to retrieve current price for {stock_name}"
+            latest_price_str = "Unknown"
             
         price_info_str = price_info if price_info else ""
         
-        # ✅ 多时间框架模式下的数据增强
+        # ✅ Multi-timeframe data enhancement
         multi_tf_summary = ""
         if is_multi_tf and timeframes:
-            # 构建多时间框架摘要信息
+            # Build multi-timeframe summary
             multi_tf_summary = f"""
-🌐 **多时间框架分析模式**
-分析周期：{', '.join(timeframes)}
-时间框架数量：{len(timeframes)}
+🌐 **Multi-Timeframe Analysis Mode**
+Analysis Periods: {', '.join(timeframes)}
+Number of Timeframes: {len(timeframes)}
 
-📊 **多周期分析要点**：
-1. 长周期（{timeframes[-1] if len(timeframes) > 0 else ''}）定主趋势方向
-2. 中周期判断趋势强度与持续性
-3. 短周期（{timeframes[0] if len(timeframes) > 0 else ''}）寻找具体入场点
-4. 关注多周期共振信号（高可靠度）
-5. 识别周期间分歧（需要谨慎）
+📊 **Multi-Timeframe Analysis Key Points**:
+1. Long timeframe ({timeframes[-1] if len(timeframes) > 0 else ''}) determines main trend direction
+2. Mid timeframe evaluates trend strength and persistence
+3. Short timeframe ({timeframes[0] if len(timeframes) > 0 else ''}) identifies specific entry points
+4. Focus on multi-timeframe confluence signals (high reliability)
+5. Identify timeframe divergences (proceed with caution)
 """
             
-        # 4. 错误处理与日志
+        # 4. Error handling and logging
         analysis_errors = []
         if "error" in indicator_report and isinstance(indicator_report, dict):
-            analysis_errors.append(f"技术指标分析失败: {indicator_report['error']}")
-            indicator_report = "技术指标分析失败"
+            analysis_errors.append(f"Technical indicator analysis failed: {indicator_report['error']}")
+            indicator_report = "Technical indicator analysis failed"
 
         if "error" in pattern_report and isinstance(pattern_report, dict):
-            analysis_errors.append(f"形态分析失败: {pattern_report['error']}")
-            pattern_report = "形态分析失败"
+            analysis_errors.append(f"Pattern analysis failed: {pattern_report['error']}")
+            pattern_report = "Pattern analysis failed"
 
         if "error" in trend_report and isinstance(trend_report, dict):
-            analysis_errors.append(f"趋势分析失败: {trend_report['error']}")
-            trend_report = "趋势分析失败"
+            analysis_errors.append(f"Trend analysis failed: {trend_report['error']}")
+            trend_report = "Trend analysis failed"
 
         print(f"🧠 {agent_name} 收到分析结果，正在为 {stock_name} ({time_frame}) 进行分析...")
         print(f"💰 当前价格信息: {price_summary}")
@@ -132,7 +132,7 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
             print(f"❌ Prompt 格式化发生未知错误: {e}")
             prompt = f"Prompt Error: {e}"
 
-        # 6. 调用 LLM
+        # 6. Call LLM
         update_agent_progress("decision", 80, f"正在生成{agent_name}决策...")
         
         try:
@@ -140,8 +140,8 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
             content = response.content
         except Exception as e:
             print(f"❌ LLM 调用失败: {e}")
-            content = f'{{"error": "LLM调用失败: {str(e)}", "decision": "观望"}}'
-            # 构造一个伪造的 response 对象以保持接口一致性
+            content = f'{{"error": "LLM call failed: {str(e)}", "decision": "HOLD"}}'
+            # Construct a fake response object to maintain interface consistency
             from langchain_core.messages import AIMessage
             response = AIMessage(content=content)
 

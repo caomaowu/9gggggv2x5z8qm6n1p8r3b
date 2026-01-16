@@ -149,7 +149,7 @@ class TradingEngine:
                 result["agent_version_description"] = version_cfg.get("description", "")
                 logger.info(f"Analysis completed with version: {result['agent_version_name']}")
 
-                # 哈雷酱添加：解析决策智能体的JSON输出，供前端结构化展示
+                # Parse decision agent JSON output for frontend structured display
                 if "final_trade_decision" in result and isinstance(result["final_trade_decision"], str):
                     try:
                         import json
@@ -171,7 +171,7 @@ class TradingEngine:
                         
                         decision_json = json.loads(decision_str)
                         
-                        # 规范化字段名称以匹配前端 AnalysisResult.tsx 的期望
+                        # Normalize field names to match frontend AnalysisResult.tsx expectations
                         normalized_decision = {
                             "action": decision_json.get("decision", "HOLD"),
                             "reasoning": decision_json.get("decision_rationale") or decision_json.get("justification", ""),
@@ -180,7 +180,7 @@ class TradingEngine:
                             "stop_loss": decision_json.get("stop_loss"),
                             "take_profit": decision_json.get("take_profit"),
                             "entry_point": decision_json.get("entry_point") or str(latest_price) if latest_price else None,
-                            # 哈雷酱：保留所有原始字段供 HTML 报告使用
+                            # Preserve all original fields for HTML report use
                             **decision_json
                         }
                         
@@ -188,22 +188,22 @@ class TradingEngine:
                         logger.info("Successfully parsed and normalized trade decision JSON")
                     except Exception as e:
                         logger.warning(f"Failed to parse final_trade_decision JSON: {e}")
-                        # 降级处理：尝试手动提取关键信息
+                        # Fallback: try to extract key information manually
                         result["decision"] = {
-                            "action": "HOLD",  # 默认观望
-                            "reasoning": f"无法解析决策数据，请查看原始报告。错误: {str(e)}",
+                            "action": "HOLD",  # Default to hold
+                            "reasoning": f"Failed to parse decision data. Please check the original report. Error: {str(e)}",
                             "confidence": "Low",
                             "signal_type": "Error",
                             "raw_content": result["final_trade_decision"],
                             "decision": "HOLD" # Fallback
                         }
 
-            # 哈雷酱：构造 market_data 结构，适配前端和 HTML 报告
+            # Construct market_data structure for frontend and HTML report
             result["market_data"] = {
                 "analysis": {
-                    "indicators": result.get("indicator_report", "分析失败"),
-                    "patterns": result.get("pattern_report", "分析失败"),
-                    "trend": result.get("trend_report", "分析失败")
+                    "indicators": result.get("indicator_report", "Analysis failed"),
+                    "patterns": result.get("pattern_report", "Analysis failed"),
+                    "trend": result.get("trend_report", "Analysis failed")
                 }
             }
             
