@@ -85,9 +85,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const err = error as unknown as { response?: { data?: { detail?: unknown } } };
       const data = err.response?.data?.detail;
       if (data) {
-        // 只提取错误信息，忽略锁定相关字段
         set({
-          error: typeof data === 'string' ? data : data.message,
+          error:
+            typeof data === 'string'
+              ? data
+              : typeof data === 'object' && data !== null && 'message' in data
+              ? String((data as { message?: unknown }).message ?? 'Login failed')
+              : 'Login failed',
           isLoading: false
         });
       } else {

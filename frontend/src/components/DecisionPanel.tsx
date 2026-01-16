@@ -13,7 +13,8 @@ export default function DecisionPanel() {
         analysis_time_display,
         agent_version_name,
         agent_version_description,
-        decision_agent_version
+        decision_agent_version,
+        llm_config
     } = analysisResult;
 
     // 辅助函数：格式化百分比
@@ -55,7 +56,6 @@ export default function DecisionPanel() {
                 <i className="fas fa-bullseye"></i> 最终交易决策
             </h4>
 
-            {/* AI 版本信息 */}
             {(agent_version_name || decision_agent_version) && (
                 <div className={styles.aiVersionInfo}>
                     <div className={styles.icon}>
@@ -92,6 +92,36 @@ export default function DecisionPanel() {
                         {agent_version_description && (
                             <div className={styles.versionDescription}>
                                 <i className="fas fa-info-circle me-1"></i>{agent_version_description}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {llm_config && (llm_config.agent || llm_config.graph) && (
+                <div className={styles.llmInfo}>
+                    <div className={styles.llmInfoTitle}>参与分析的模型与温度</div>
+                    <div className={styles.llmInfoGrid}>
+                        {llm_config.agent && (
+                            <div className={styles.llmInfoItem}>
+                                <div className={styles.llmLabel}>Decision Agent</div>
+                                <div className={styles.llmValue}>
+                                    <span className={styles.llmModel}>{llm_config.agent.model || '未配置'}</span>
+                                    {typeof llm_config.agent.temperature === 'number' && (
+                                        <span className={styles.llmTemp}>T={llm_config.agent.temperature}</span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        {llm_config.graph && (
+                            <div className={styles.llmInfoItem}>
+                                <div className={styles.llmLabel}>Graph Agent</div>
+                                <div className={styles.llmValue}>
+                                    <span className={styles.llmModel}>{llm_config.graph.model || '未配置'}</span>
+                                    {typeof llm_config.graph.temperature === 'number' && (
+                                        <span className={styles.llmTemp}>T={llm_config.graph.temperature}</span>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
