@@ -51,30 +51,8 @@ export default function ConfigPanel() {
     }
   };
 
-  // 监听模型变化，自动加载偏好温度
-  useEffect(() => {
-    if (llmConfig?.model_preferences && agentModel) {
-      const prefTemp = llmConfig.model_preferences[agentModel];
-      if (prefTemp !== undefined) {
-        setAgentTemperature(prefTemp);
-      } else {
-        // 如果没有偏好记录，重置为默认值
-        setAgentTemperature(0.1);
-      }
-    }
-  }, [agentModel, llmConfig]);
+  // 监听模型变化的代码已移除，改为手动切换模型时触发
 
-  useEffect(() => {
-    if (llmConfig?.model_preferences && graphModel) {
-      const prefTemp = llmConfig.model_preferences[graphModel];
-      if (prefTemp !== undefined) {
-        setGraphTemperature(prefTemp);
-      } else {
-        // 如果没有偏好记录，重置为默认值
-        setGraphTemperature(0.1);
-      }
-    }
-  }, [graphModel, llmConfig]);
 
   const handleSaveLLMConfig = async () => {
     if (!llmConfig) return;
@@ -342,7 +320,13 @@ export default function ConfigPanel() {
                                         // 智能切换：如果新 provider 有模型，默认选中第一个
                                         const models = llmConfig.agent_models_map?.[e.target.value] || [];
                                         if (models.length > 0) {
-                                            setAgentModel(models[0]);
+                                            const newModel = models[0];
+                                            setAgentModel(newModel);
+                                            // 切换模型时，应用推荐温度
+                                            const agentPrefs = llmConfig.model_preferences?.agent || {};
+                                            if (agentPrefs[newModel] !== undefined) {
+                                                setAgentTemperature(agentPrefs[newModel]);
+                                            } 
                                         } else {
                                             setAgentModel(''); 
                                         }
@@ -358,7 +342,14 @@ export default function ConfigPanel() {
                                     <select
                                         className={`${styles.formControl} text-xs py-1`}
                                         value={agentModel}
-                                        onChange={(e) => setAgentModel(e.target.value)}
+                                        onChange={(e) => {
+                                            const newModel = e.target.value;
+                                            setAgentModel(newModel);
+                                            const agentPrefs = llmConfig.model_preferences?.agent || {};
+                                            if (agentPrefs[newModel] !== undefined) {
+                                                setAgentTemperature(agentPrefs[newModel]);
+                                            } 
+                                        }}
                                     >
                                         {(llmConfig.agent_models_map?.[agentProvider] || []).map(m => (
                                             <option key={m} value={m}>{m}</option>
@@ -416,7 +407,12 @@ export default function ConfigPanel() {
                                         setGraphProvider(e.target.value);
                                         const models = llmConfig.graph_models_map?.[e.target.value] || [];
                                         if (models.length > 0) {
-                                            setGraphModel(models[0]);
+                                            const newModel = models[0];
+                                            setGraphModel(newModel);
+                                            const graphPrefs = llmConfig.model_preferences?.graph || {};
+                                            if (graphPrefs[newModel] !== undefined) {
+                                                setGraphTemperature(graphPrefs[newModel]);
+                                            } 
                                         } else {
                                             setGraphModel('');
                                         }
@@ -432,7 +428,14 @@ export default function ConfigPanel() {
                                      <select
                                          className={`${styles.formControl} text-xs py-1`}
                                          value={graphModel}
-                                         onChange={(e) => setGraphModel(e.target.value)}
+                                         onChange={(e) => {
+                                             const newModel = e.target.value;
+                                             setGraphModel(newModel);
+                                                 const graphPrefs = llmConfig.model_preferences?.graph || {};
+                                                 if (graphPrefs[newModel] !== undefined) {
+                                                     setGraphTemperature(graphPrefs[newModel]);
+                                                 } 
+                                         }}
                                      >
                                          {(llmConfig.graph_models_map?.[graphProvider] || []).map(m => (
                                              <option key={m} value={m}>{m}</option>

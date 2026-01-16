@@ -81,8 +81,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return true;
       }
       return false;
-    } catch (error: any) {
-      const data = error.response?.data?.detail;
+    } catch (error) {
+      const err = error as unknown as { response?: { data?: { detail?: unknown } } };
+      const data = err.response?.data?.detail;
       if (data) {
         // 只提取错误信息，忽略锁定相关字段
         set({
@@ -115,7 +116,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return true;
       }
       return false;
-    } catch (error: any) {
+    } catch {
       set({ 
         error: "Admin action failed", 
         isLoading: false 
@@ -130,5 +131,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isAuthenticated: false });
   },
 
-  setError: (error) => set({ error })
+  setError: (error: string | null) => set({ error })
 }));

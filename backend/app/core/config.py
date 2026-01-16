@@ -229,13 +229,21 @@ class Settings(BaseSettings):
             provider_enum = LLMProvider.CUSTOM
         
         if provider_enum == LLMProvider.CUSTOM:
-            # Custom 供应商返回手动配置的模型
-            if role == "agent":
-                return [self.CUSTOM_AGENT_MODEL] if self.CUSTOM_AGENT_MODEL else []
-            else:
-                return [self.CUSTOM_GRAPH_MODEL] if self.CUSTOM_GRAPH_MODEL else []
+            models: List[str] = []
+            if self.CUSTOM_AGENT_MODEL:
+                models.append(self.CUSTOM_AGENT_MODEL)
+            if self.CUSTOM_GRAPH_MODEL and self.CUSTOM_GRAPH_MODEL not in models:
+                models.append(self.CUSTOM_GRAPH_MODEL)
+            return models
         
-        return PROVIDER_MODELS[provider_enum].get("models", {}).get(role, [])
+        models_cfg = PROVIDER_MODELS[provider_enum].get("models", {})
+        agent_models = models_cfg.get("agent", []) or []
+        graph_models = models_cfg.get("graph", []) or []
+        combined: List[str] = []
+        for m in agent_models + graph_models:
+            if m not in combined:
+                combined.append(m)
+        return combined
     
     def get_all_providers(self) -> List[Dict[str, str]]:
         """获取所有可用供应商列表"""

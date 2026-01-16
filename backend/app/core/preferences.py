@@ -39,21 +39,57 @@ class PreferencesManager:
         except Exception as e:
             print(f"Error saving preferences: {e}")
 
-    def get_model_temperature(self, model: str, default: float = 0.1) -> float:
-        """获取指定模型的温度偏好"""
-        return self._preferences.get("model_temperatures", {}).get(model, default)
-
-    def set_model_temperature(self, model: str, temperature: float):
-        """设置指定模型的温度偏好"""
-        if "model_temperatures" not in self._preferences:
-            self._preferences["model_temperatures"] = {}
+    def get_model_temperature(self, model: str, default: float = 0.1, role: Optional[str] = None) -> float:
+        """获取指定模型的温度偏好，支持按角色区分"""
+        legacy_map = self._preferences.get("model_temperatures", {})
         
-        self._preferences["model_temperatures"][model] = temperature
+        if role == "agent":
+            agent_map = self._preferences.get("agent_model_temperatures", {})
+            if model in agent_map:
+                return agent_map[model]
+            return legacy_map.get(model, default)
+        
+        if role == "graph":
+            graph_map = self._preferences.get("graph_model_temperatures", {})
+            if model in graph_map:
+                return graph_map[model]
+            return legacy_map.get(model, default)
+        
+        return legacy_map.get(model, default)
+
+    def set_model_temperature(self, model: str, temperature: float, role: Optional[str] = None):
+        """设置指定模型的温度偏好，可按角色区分"""
+        if role == "agent":
+            if "agent_model_temperatures" not in self._preferences:
+                self._preferences["agent_model_temperatures"] = {}
+            self._preferences["agent_model_temperatures"][model] = temperature
+        elif role == "graph":
+            if "graph_model_temperatures" not in self._preferences:
+                self._preferences["graph_model_temperatures"] = {}
+            self._preferences["graph_model_temperatures"][model] = temperature
+        else:
+            if "model_temperatures" not in self._preferences:
+                self._preferences["model_temperatures"] = {}
+            self._preferences["model_temperatures"][model] = temperature
+
         self._save_preferences()
 
     def get_all_model_temperatures(self) -> Dict[str, float]:
         """获取所有模型的温度偏好"""
         return self._preferences.get("model_temperatures", {})
+
+    def get_all_model_temperatures_by_role(self, role: str) -> Dict[str, float]:
+        """按角色获取模型温度偏好，合并 legacy 数据"""
+        legacy_map = self._preferences.get("model_temperatures", {}) or {}
+        if role == "agent":
+            agent_map = self._preferences.get("agent_model_temperatures", {}) or {}
+            merged = {**legacy_map, **agent_map}
+            return merged
+        if role == "graph":
+            graph_map = self._preferences.get("graph_model_temperatures", {}) or {}
+            merged = {**legacy_map, **graph_map}
+            return merged
+        return legacy_map
 
 # 全局单例
 preferences_manager = PreferencesManager()

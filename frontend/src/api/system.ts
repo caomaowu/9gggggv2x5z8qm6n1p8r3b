@@ -47,7 +47,10 @@ export interface LLMConfigResponse {
     graph_models: string[]; // Legacy
     agent_models_map: Record<string, string[]>; // New: Provider -> Models
     graph_models_map: Record<string, string[]>; // New: Provider -> Models
-    model_preferences: Record<string, number>; // New: Model -> Temperature
+    model_preferences: {
+        agent: Record<string, number>;
+        graph: Record<string, number>;
+    }; // New: Role -> (Model -> Temperature)
 }
 
 export const getLLMConfig = async (): Promise<LLMConfigResponse> => {
@@ -62,8 +65,8 @@ export const updateLLMConfig = async (
     graph_model: string,
     agent_temperature: number = 0.1,
     graph_temperature: number = 0.1
-): Promise<any> => {
-    const response = await apiClient.post('/system/llm-config', {
+): Promise<LLMConfigResponse> => {
+    const response = await apiClient.post<LLMConfigResponse>('/system/llm-config', {
         agent_provider,
         agent_model,
         graph_provider,
