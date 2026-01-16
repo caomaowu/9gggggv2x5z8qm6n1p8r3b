@@ -88,24 +88,24 @@ def create_pattern_agent(tool_llm, graph_llm, toolkit):
             print(f"🔹 单一时间框架模式：{time_frame}")
 
         pattern_text = """
-        请参考以下经典K线形态：
+        Please refer to the following classic candlestick patterns:
 
-        1. 倒头肩形：三个低点，中间最低，对称结构，通常预示上涨趋势
-        2. 双重底：两个相似低点，中间反弹，形成'W'形状
-        3. 圆形底：价格逐渐下跌后逐渐上涨，形成'U'形状
-        4. 潜伏底：水平整理后突然向上突破
-        5. 下降楔形：价格向下收窄，通常向上突破
-        6. 上升楔形：价格缓慢上涨但收敛，经常向下突破
-        7. 上升三角形：上升支撑线，顶部水平阻力，通常向上突破
-        8. 下降三角形：下降阻力线，底部水平支撑，通常向下突破
-        9. 牛市旗形：急涨后短暂向下整理，继续上涨
-        10. 熊市旗形：急跌后短暂向上整理，继续下跌
-        11. 矩形：价格在水平支撑和阻力间波动
-        12. 岛形反转：两个相反方向的价格缺口，形成孤立价格岛屿
-        13. V形反转：急跌后急涨，或相反
-        14. 圆形顶/底：逐渐见顶或见底，形成弧形形态
-        15. 扩张三角形：高点和低点越来越宽，显示剧烈波动
-        16. 对称三角形：高点和低点向顶点收敛，通常后有突破
+        1. Inverse Head and Shoulders: Three lows with the middle one being the lowest, symmetrical structure, typically indicates an upcoming upward trend.
+        2. Double Bottom: Two similar low points with a rebound in between, forming a 'W' shape.
+        3. Rounded Bottom: Gradual price decline followed by a gradual rise, forming a 'U' shape.
+        4. Hidden Base: Horizontal consolidation followed by a sudden upward breakout.
+        5. Falling Wedge: Price narrows downward, usually breaks out upward.
+        6. Rising Wedge: Price rises slowly but converges, often breaks down.
+        7. Ascending Triangle: Rising support line with a flat resistance on top, breakout often occurs upward.
+        8. Descending Triangle: Falling resistance line with flat support at the bottom, typically breaks down.
+        9. Bullish Flag: After a sharp rise, price consolidates downward briefly before continuing upward.
+        10. Bearish Flag: After a sharp drop, price consolidates upward briefly before continuing downward.
+        11. Rectangle: Price fluctuates between horizontal support and resistance.
+        12. Island Reversal: Two price gaps in opposite directions forming an isolated price island.
+        13. V-shaped Reversal: Sharp decline followed by sharp recovery, or vice versa.
+        14. Rounded Top / Rounded Bottom: Gradual peaking or bottoming, forming an arc-shaped pattern.
+        15. Expanding Triangle: Highs and lows increasingly wider, indicating volatile swings.
+        16. Symmetrical Triangle: Highs and lows converge toward the apex, usually followed by a breakout.
         """
 
         # --- 重试包装器 ---
@@ -216,47 +216,47 @@ def create_pattern_agent(tool_llm, graph_llm, toolkit):
 
         # --- 使用图像进行视觉分析 ---
         if is_multi_tf:
-            # ✅ 多时间框架模式：构建多图分析 Prompt
+            # ✅ Multi-timeframe mode: Build multi-image analysis prompt
             image_content = [
                 {
                     "type": "text",
                     "text": (
-                        f"🌐 **多时间框架形态识别分析**\n"
-                        f"交易对：{state.get('stock_name', '未知')} | 分析周期：{time_frame}\n\n"
-                        f"我为您提供了 {len(multi_tf_images)} 个时间周期的K线图表：{', '.join(multi_tf_images.keys())}\n\n"
+                        f"🌐 **Multi-Timeframe Pattern Recognition Analysis**\n"
+                        f"Trading Pair: {state.get('stock_name', 'Unknown')} | Analysis Period: {time_frame}\n\n"
+                        f"I have provided {len(multi_tf_images)} timeframes' candlestick charts: {', '.join(multi_tf_images.keys())}\n\n"
                         f"{pattern_text}\n\n"
-                        "📋 **分析要求**：\n"
-                        "1. 分别识别每个时间框架的形态特征\n"
-                        "2. 寻找多周期共振信号（例如：多个周期同时出现相同形态）\n"
-                        "3. 识别周期间的分歧（长短周期形态冲突）\n"
-                        "4. 给出综合判断：长周期定方向，短周期定入场点\n"
-                        "5. 明确指出形态名称并解释理由\n\n"
-                        "请用中文详细回答，格式清晰。"
+                        "📋 **Analysis Requirements**:\n"
+                        "1. Identify pattern characteristics for each timeframe separately\n"
+                        "2. Look for multi-timeframe confluence signals (e.g., same pattern appearing across multiple timeframes)\n"
+                        "3. Identify timeframe divergences (conflicting patterns between long and short timeframes)\n"
+                        "4. Provide comprehensive judgment: Long timeframes determine direction, short timeframes determine entry points\n"
+                        "5. Clearly state pattern names and explain your reasoning based on structure, trend, and symmetry\n\n"
+                        "Please provide a detailed answer in clear format."
                     ),
                 }
             ]
             
-            # 添加所有时间框架的图表
+            # Add charts for all timeframes
             for tf_name, img_b64 in multi_tf_images.items():
                 image_content.append({
                     "type": "text",
-                    "text": f"\n--- **{tf_name} 时间框架 K线图** ---"
+                    "text": f"\n--- **{tf_name} Timeframe K-line Chart** ---"
                 })
                 image_content.append({
                     "type": "image_url",
                     "image_url": {"url": f"data:image/png;base64,{img_b64}"}
                 })
         else:
-            # ✅ 单一时间框架模式：保持原有 Prompt
+            # ✅ Single timeframe mode: Original English prompt
             image_content = [
                 {
                     "type": "text",
                     "text": (
-                        f"这是一张根据最近OHLC市场数据生成的{time_frame}K线图表。\n\n"
+                        f"This is a {time_frame} candlestick chart generated from recent OHLC market data.\n\n"
                         f"{pattern_text}\n\n"
-                        "请确定图表是否匹配所列出的任何经典形态。"
-                        "明确说出匹配的形态名称，并基于结构、趋势和对称性解释你的分析理由。请用中文回答。"
-                        "并做出你的未来预测，是否会有进一步的趋势发展。"
+                        "Determine whether the chart matches any of the classic patterns listed above. "
+                        "Clearly state the matched pattern name(s), and explain your reasoning based on structure, trend, and symmetry. "
+                        "Also provide your future prediction on whether there will be further trend development."
                     ),
                 },
                 {
@@ -268,7 +268,7 @@ def create_pattern_agent(tool_llm, graph_llm, toolkit):
         final_response = invoke_with_retry(
             graph_llm.invoke,
             [
-                SystemMessage(content="你是一名专业的交易形态识别助手，任务是分析K线图表。擅长多时间框架综合分析。"),
+                SystemMessage(content="You are a trading pattern recognition assistant tasked with analyzing candlestick charts. You specialize in multi-timeframe comprehensive analysis."),
                 HumanMessage(content=image_content),
             ],
         )

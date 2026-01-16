@@ -226,24 +226,24 @@ def create_indicator_agent(llm, toolkit):
                 latest_price = kline_data["Close"][-1]
 
         # --- 将计算结果整理为结构化文本供LLM分析 ---
-        price_info = f"当前最新收盘价: {latest_price}\n\n" if latest_price else ""
+        price_info = f"Current closing price: {latest_price}\n\n" if latest_price else ""
         
         if is_multi_tf:
-            # 多时间框架模式：Prompt
+            # Multi-timeframe mode: English prompt
             indicators_text = f"""
-⚡ **华尔街交易室 - 多时间框架技术分析**
-交易对：{state.get('stock_name', '未知')} | 时间框架：{time_frame}
+⚡ **Technical Analysis - Multi-Timeframe**
+Trading Pair: {state.get('stock_name', 'Unknown')} | Timeframe: {time_frame}
 
-💰 **当前价位**：{latest_price if latest_price else '未知'}
+💰 **Current Price**: {latest_price if latest_price else 'Unknown'}
 {price_info}
 
-🌐 **多周期分析模式**：正在分析 {len(multi_tf_indicators)} 个时间周期
+🌐 **Multi-Timeframe Analysis**: Analyzing {len(multi_tf_indicators)} timeframes
 
 ---
 
 """
             
-            # 为每个时间框架生成指标展示
+            # Generate indicator display for each timeframe
             for tf_name, indicators in multi_tf_indicators.items():
                 macd_json = json.dumps(indicators.get("MACD", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
                 rsi_json = json.dumps(indicators.get("RSI", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
@@ -252,163 +252,101 @@ def create_indicator_agent(llm, toolkit):
                 willr_json = json.dumps(indicators.get("Williams_R", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
                 
                 indicators_text += f"""
-## 📊 **{tf_name} 时间框架分析**
+## 📊 **{tf_name} Timeframe Analysis**
 
-### 🔥 MACD指标
+### 🔥 MACD Indicator
 {macd_json}
 
-### ⚡ RSI指标
+### ⚡ RSI Indicator
 {rsi_json}
 
-### 📈 ROC指标
+### 📈 ROC Indicator
 {roc_json}
 
-### 🌊 Stochastic指标
+### 🌊 Stochastic Indicator
 {stoch_json}
 
-### 🎯 Williams %R指标
+### 🎯 Williams %R Indicator
 {willr_json}
 
 ---
 
 """
         else:
-            # 单一时间框架模式：保持原有Prompt
-            # 转义JSON花括号避免LangChain模板变量解析问题
+            # Single timeframe mode: Original English prompt
+            # Escape JSON curly braces to avoid LangChain template variable parsing issues
             macd_json = json.dumps(indicator_results.get("MACD", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
             rsi_json = json.dumps(indicator_results.get("RSI", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
             roc_json = json.dumps(indicator_results.get("ROC", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
             stoch_json = json.dumps(indicator_results.get("Stochastic", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
             willr_json = json.dumps(indicator_results.get("Williams_R", {}), indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
 
-            # 转义完整的OHLC数据
+            # Escape complete OHLC data
             ohlc_data_json = json.dumps(kline_data, indent=2, ensure_ascii=False).replace("{", "{{").replace("}", "}}")
 
-            # 哈雷酱的灵魂增强！营造真实交易环境
+            # Original HFT-style English prompt
             indicators_text = f"""
-⚡ **华尔街交易室 - 实时技术分析**
-交易对：{state.get('stock_name', '未知')} | 时间框架：{time_frame}
-分析时间：{kline_data.get('Datetime', ['未知'])[-1] if 'Datetime' in kline_data and len(kline_data['Datetime']) > 0 else '实时'}
+You are a high-frequency trading (HFT) analyst assistant operating under time-sensitive conditions.
+You must analyze technical indicators to support fast-paced trading execution.
 
-💰 **当前价位**：{latest_price if latest_price else '未知'}
-{price_info}
+⚠️ The OHLC data provided is from {time_frame} intervals, reflecting recent market behavior.
+You must interpret this data quickly and accurately.
 
-## 📊 **完整OHLC历史数据**
+Here is the OHLC data:
 {ohlc_data_json}
 
-🎯 **关键指标雷达扫描完成** - 已为你筛选出最重要的技术信号：
+---
 
-### 🔥 MACD指标 - 趋势追踪器
+### 🔥 MACD Indicator - Trend Tracker
 {macd_json}
 
-### ⚡ RSI指标 - 超买超卖警报器
+### ⚡ RSI Indicator - Overbought/Oversold Alert
 {rsi_json}
 
-### 📈 ROC指标 - 动能加速器
+### 📈 ROC Indicator - Momentum Accelerator
 {roc_json}
 
-### 🌊 Stochastic指标 - 震荡捕手
+### 🌊 Stochastic Indicator - Oscillation Capturer
 {stoch_json}
 
-### 🎯 Williams %R指标 - 极端探测器
+### 🎯 Williams %R Indicator - Extreme Detector
 {willr_json}
 
 ---
 
-## 🏦 **交易分析师紧急指令**
+## 📊 Analysis Instructions
 
-"你是一名专业的加密货币交易技术分析总监，擅长基于预计算的技术指标数据进行快速准确的交易分析。"        
-"你需要深入分析各种技术指标的数值、趋势和信号，为交易决策提供专业建议。"
-"在总结处，你要给出当前的最新价格"
+Evaluate momentum (e.g., MACD, ROC) and oscillators (e.g., RSI, Stochastic, Williams %R).
+Give **higher weight to strong directional signals** such as MACD crossovers, RSI divergence, extreme overbought/oversold levels.
+**Ignore or down-weight neutral or mixed signals** unless they align across multiple indicators.
 
-### 🎭 **你的性格设定**：
-- **直觉敏锐**：能从数字中嗅出贪婪与恐惧
-- **决策果断**：在模糊中寻找确定性信号
-- **语言犀利**：用最少的文字表达最核心的观点
-- **风险偏执**：永远先考虑最坏情况的保护措施
-
-### ⚡ **紧急分析任务**：
-基于完整OHLC历史数据和上述指标，进行实战化分析：
-
-#### 🎯 **核心判断**（1句话）：
-- 当前技术面处于什么状态？用最精炼的词语总结
-
-#### 🔥 **关键指标解读**（从所有指标中识别最重要信号）：
-- 基于当前市场环境，哪些指标给出了最强烈的信号？
-- 分析所有指标的相互印证或矛盾关系
-- 从实战经验判断各信号的可信度和优先级
-
-#### 💥 **交易信号识别**：
-- 明确给出：**做多** / **做空** / **观望**
-- 信号强度：**强** / **中** / **弱**
-- 时效性：**立即** / **等待确认** / **短期观察**
-
-#### ⚠️ **风险预警**：
-- 当前最大的风险点在哪里？
-- 如果判断错误，最大的潜在损失是多少？
-- 什么情况下需要立即止损？
-
-#### 🌟 **专业建议**：
-- 如果这是你的实盘账户，你会怎么操作？
-- 仓位大小建议（保守/中等/激进）
-- 持有时间预期（短线/中线/长线）
-
-### 🎪 **分析自由度**：
-- ✅ 可以用交易员黑话（"金叉"、"死叉"、"背离"、"破位"）
-- ✅ 可以用表情符号增强表达（📈📉⚠️🎯💰）
-- ✅ 可以质疑某些指标在当前市场的有效性
-- ✅ 可以基于经验给出非常规但有逻辑的判断
-- ✅ 可以忽略在当前环境下不重要的指标
-- ✅ 可以用"以我10年经验..."来强调专业观点
-
-### 🔥 **核心要求**：
-- **不要死板罗列数据**，要给出你的**专业判断**
-- **避免教科书式分析**，这是**真实交易战场**
-- **强调时效性**，分析**当前时机的交易价值**
-- **保持专业个性**，展现你的**交易风格和直觉**
-
-💡 **记住**：我们需要你的**专业分析智慧**，不是简单的数据复述！
-开始你的专业分析，技术分析专家！
+Provide a concise technical analysis that can be used for trading decisions.
 """
 
         # --- LLM分析预计算的指标结果 ---
-        system_prompt_text = """你是量化交易公司的首席技术分析师，拥有10年加密货币市场经验。
-
-🎯 **你的分析风格**：
-- 专业严谨，数据驱动分析
-- 注重风险管理，每个观点都考虑保护措施  
-- 可以适当使用交易员术语（金叉、死叉、背离等）
-- 语言简洁有力，直击要点
-- 可以用表情符号增强表达（📈📉⚠️🎯💰）
-"""
+        system_prompt_text = """You are a high-frequency trading (HFT) analyst assistant operating under time-sensitive conditions.
+You must analyze technical indicators to support fast-paced trading execution."""
         
         if is_multi_tf:
-            # 多时间框架模式：添加多周期分析指导
+            # Multi-timeframe mode: Add multi-timeframe analysis guidance
             system_prompt_text += """
 
-🌐 **多时间框架分析能力**：
-- 识别不同时间周期的共振信号（高可靠度）
-- 分析周期间的分歧（需要谨慎）
-- 长周期定方向，短周期定入场点
-- 多周期确认 > 单周期信号
+🌐 **Multi-Timeframe Analysis Capabilities**:
+- Identify confluence signals across different timeframes (high reliability)
+- Analyze timeframe divergences (proceed with caution)
+- Longer timeframes determine direction, shorter timeframes determine entry points
+- Multi-timeframe confirmation > single-timeframe signals
 """
         
         system_prompt_text += """
 
-📊 **分析要求**：
-1. **核心判断**（1句话总结当前技术面状态）
-2. **关键信号分析**（从所有指标中识别最重要的信号）
-3. **交易建议**（做多/做空/观望 + 强度评估：强/中/弱）
-4. **风险提示**（止损位和潜在损失）
-5. **操作建议**（仓位大小和持有时间）
+⚠️ Important:
+- Base your analysis on complete OHLC historical data and all technical indicators
+- Identify which indicators are most important in the current market environment
+- Emphasize timeliness and provide specific judgment at the current time point
+- Avoid dry data listing; focus on professional judgment and practical recommendations
 
-⚡ **重要提醒**：
-- 基于完整OHLC历史数据和所有技术指标进行综合判断
-- 你需要自己判断哪些指标在当前市场环境下最重要
-- 强调时效性，给出当前时点的具体判断
-- 避免死板的数据罗列，重点是专业判断和实战建议
-
-记住：这是真实的市场分析，每个判断都可能影响实际交易决策！"""
+Remember: This is real market analysis, and each judgment may affect actual trading decisions!"""
         
         analysis_prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt_text),

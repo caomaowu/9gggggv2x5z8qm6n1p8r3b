@@ -297,88 +297,88 @@ def create_trend_agent(tool_llm, graph_llm, toolkit):
 
         # --- 使用图像进行视觉分析 ---
         if is_multi_tf:
-            # ✅ 多时间框架模式：构建多周期综合分析 Prompt
+            # ✅ Multi-timeframe mode: Build multi-timeframe comprehensive analysis prompt
             image_content = [
                 {
                     "type": "text",
                     "text": (
-                        f"⚠️ **多时间框架趋势综合分析** ⚠️\n\n"
-                        f"交易对：{state.get('stock_name', '未知')} | 分析周期：{time_frame}\n\n"
-                        f"我为您提供了 {len(multi_tf_trends)} 个时间周期的趋势分析数据：{', '.join(multi_tf_trends.keys())}\n\n"
-                        f"每张图表包含：**蓝色支撑线**和**红色阻力线**，以及对应的真实技术指标数据。\n\n"
+                        f"⚠️ **Multi-Timeframe Trend Comprehensive Analysis** ⚠️\n\n"
+                        f"Trading Pair: {state.get('stock_name', 'Unknown')} | Analysis Period: {time_frame}\n\n"
+                        f"I have provided trend analysis data for {len(multi_tf_trends)} timeframes: {', '.join(multi_tf_trends.keys())}\n\n"
+                        f"Each chart contains: **Blue support line** and **Red resistance line**, along with corresponding real technical indicator data.\n\n"
                     )
                 }
             ]
             
-            # 为每个时间框架添加图表和指标数据
+            # Add charts and indicator data for each timeframe
             for tf_name, tf_info in multi_tf_trends.items():
                 indicators_summary = f"""
-**📊 {tf_name} 真实技术指标：**
+**📊 {tf_name} Real Technical Indicators:**
 
-### 🔥 MACD指标
+### 🔥 MACD Indicator
 {json.dumps(tf_info["indicators"].get("MACD", {}), indent=2, ensure_ascii=False)}
 
-### ⚡ RSI指标  
+### ⚡ RSI Indicator  
 {json.dumps(tf_info["indicators"].get("RSI", {}), indent=2, ensure_ascii=False)}
 
-### 📈 ROC指标
+### 📈 ROC Indicator
 {json.dumps(tf_info["indicators"].get("ROC", {}), indent=2, ensure_ascii=False)}
 
-### 🌊 Stochastic指标
+### 🌊 Stochastic Indicator
 {json.dumps(tf_info["indicators"].get("Stochastic", {}), indent=2, ensure_ascii=False)}
 
-### 🎯 Williams %R指标
+### 🎯 Williams %R Indicator
 {json.dumps(tf_info["indicators"].get("Williams_R", {}), indent=2, ensure_ascii=False)}
 """
                 
                 image_content.append({
                     "type": "text",
-                    "text": f"\n\n--- **{tf_name} 时间框架趋势分析** ---\n{indicators_summary}"
+                    "text": f"\n\n--- **{tf_name} Timeframe Trend Analysis** ---\n{indicators_summary}"
                 })
                 image_content.append({
                     "type": "image_url",
                     "image_url": {"url": f"data:image/png;base64,{tf_info['trend_image']}"}
                 })
             
-            # 添加多时间框架综合分析要求
+            # Add multi-timeframe comprehensive analysis requirements
             image_content.append({
                 "type": "text",
                 "text": (
-                    f"\n\n**🎯 多时间框架综合分析要求：**\n"
-                    f"1. **趋势一致性分析**：多个时间框架的趋势方向是否一致？\n"
-                    f"2. **共振信号识别**：多个周期同时出现的强烈信号\n"
-                    f"3. **分歧处理**：长短周期趋势冲突时的判断逻辑\n"
-                    f"4. **综合研判**：长周期定方向，短周期定入场点\n"
-                    f"5. **关键价位**：综合多个时间框架的支撑阻力位\n"
-                    f"6. **交易策略**：基于多周期分析的具体操作建议\n\n"
-                    f"**格式要求：**\n"
-                    f"- 使用 ## 标题和 - 项目符号\n"
-                    f"- 重要数据加粗\n"
-                    f"- 先分别分析每个周期，再给出综合判断\n"
-                    f"- 基于真实指标数据，避免推测\n\n"
-                    f"请用专业、准确的中文进行分析。"
+                    f"\n\n**🎯 Multi-Timeframe Comprehensive Analysis Requirements:**\n"
+                    f"1. **Trend Consistency Analysis**: Are trend directions consistent across multiple timeframes?\n"
+                    f"2. **Confluence Signal Recognition**: Strong signals appearing simultaneously across multiple timeframes\n"
+                    f"3. **Divergence Handling**: Judgment logic when long and short timeframe trends conflict\n"
+                    f"4. **Comprehensive Judgment**: Long timeframes determine direction, short timeframes determine entry points\n"
+                    f"5. **Key Price Levels**: Support/resistance levels based on multiple timeframe analysis\n"
+                    f"6. **Trading Strategy**: Specific operation recommendations based on multi-timeframe analysis\n\n"
+                    f"**Format Requirements:**\n"
+                    f"- Use ## headings and - bullet points\n"
+                    f"- Bold important data\n"
+                    f"- Analyze each timeframe separately first, then provide comprehensive judgment\n"
+                    f"- Base analysis on real indicator data, avoid speculation\n\n"
+                    f"Please provide professional and accurate analysis."
                 )
             })
         else:
-            # ✅ 单一时间框架模式：保持原有 Prompt
+            # ✅ Single timeframe mode: Original English prompt
             ohlc_data = kline_data if kline_data else state.get("kline_data", {})
             
             indicators_summary = f"""
-**📊 真实计算的技术指标数据：**
+**📊 Real Calculated Technical Indicator Data:**
 
-### 🔥 MACD指标
+### 🔥 MACD Indicator
 {json.dumps(indicator_results.get("MACD", {}), indent=2, ensure_ascii=False)}
 
-### ⚡ RSI指标  
+### ⚡ RSI Indicator  
 {json.dumps(indicator_results.get("RSI", {}), indent=2, ensure_ascii=False)}
 
-### 📈 ROC指标
+### 📈 ROC Indicator
 {json.dumps(indicator_results.get("ROC", {}), indent=2, ensure_ascii=False)}
 
-### 🌊 Stochastic指标
+### 🌊 Stochastic Indicator
 {json.dumps(indicator_results.get("Stochastic", {}), indent=2, ensure_ascii=False)}
 
-### 🎯 Williams %R指标
+### 🎯 Williams %R Indicator
 {json.dumps(indicator_results.get("Williams_R", {}), indent=2, ensure_ascii=False)}
 """
             
@@ -386,29 +386,28 @@ def create_trend_agent(tool_llm, graph_llm, toolkit):
                 {
                     "type": "text",
                     "text": (
-                        f"⚠️ 重要：请使用中文进行专业分析，你可以选择一些关键的指标进行分析，可以忽略你觉得不重要的指标。\n\n"
-                        f"这张{time_frame}K线图表包含了自动绘制的趋势线：**蓝色线**是支撑线，**红色线**是阻力线，两者都基于最近的收盘价格计算得出。\n\n"
-                        f"**OHLC历史数据：**\n"
+                        f"This candlestick ({time_frame} K-line) chart includes automated trendlines: the **blue line** is support, and the **red line** is resistance, both derived from recent closing prices.\n\n"
+                        f"**OHLC Historical Data:**\n"
                         f"{json.dumps(ohlc_data, indent=2, ensure_ascii=False)}\n\n"
                         f"{indicators_summary}\n\n"
-                        f"**🎯 专业趋势分析要求：**\n"
-                        f"1. **趋势强度分析**：结合真实技术指标评估趋势线的可靠性\n"
-                        f"2. **价格交互分析**：价格与支撑/阻力位的真实互动情况\n"
-                        f"3. **技术指标验证**：用真实MACD、RSI等指标确认趋势信号\n"
-                        f"4. **动量评估**：真实ROC和Stochastic指标的速度变化\n"
-                        f"5. **综合判断**：基于真实计算数据给出趋势预测\n\n"
-                        f"**请基于以上真实计算的技术指标数据和图表进行专业分析：**\n"
-                        f"- **趋势方向**：明确上升/下降/横盘\n"
-                        f"- **趋势强度**：强/中/弱，并说明具体依据\n"
-                        f"- **技术指标信号**：真实MACD金叉死叉、RSI超买超卖等\n"
-                        f"- **关键价位**：支撑阻力位的具体数值\n"
-                        f"- **短期预测**：1-3根K线的走势预期\n"
-                        f"- **交易建议**：具体的操作策略\n\n"
-                        f"**格式要求：**\n"
-                        f"使用##标题和-项目符号，重要数据加粗\n"
-                        f"基于真实计算的指标数据，绝对避免推测性分析\n"
-                        f"保持专业性和实用性\n\n"
-                        f"请用专业、准确的中文进行分析。"
+                        f"**🎯 Professional Trend Analysis Requirements:**\n"
+                        f"1. **Trend Strength Analysis**: Evaluate trendline reliability combined with real technical indicators\n"
+                        f"2. **Price Interaction Analysis**: Real interaction between price and support/resistance levels\n"
+                        f"3. **Technical Indicator Validation**: Confirm trend signals using real MACD, RSI, etc.\n"
+                        f"4. **Momentum Assessment**: Velocity changes from real ROC and Stochastic indicators\n"
+                        f"5. **Comprehensive Judgment**: Provide trend prediction based on real calculated data\n\n"
+                        f"**Please provide professional analysis based on the above real calculated technical indicator data and chart:**\n"
+                        f"- **Trend Direction**: Clearly state upward/downward/sideways\n"
+                        f"- **Trend Strength**: Strong/Medium/Weak, with specific rationale\n"
+                        f"- **Technical Indicator Signals**: Real MACD golden cross/death cross, RSI overbought/oversold, etc.\n"
+                        f"- **Key Price Levels**: Specific values for support and resistance\n"
+                        f"- **Short-term Prediction**: Expected price movement for 1-3 candlesticks\n"
+                        f"- **Trading Recommendation**: Specific operation strategy\n\n"
+                        f"**Format Requirements:**\n"
+                        f"Use ## headings and - bullet points, bold important data\n"
+                        f"Base analysis on real calculated indicator data, absolutely avoid speculative analysis\n"
+                        f"Maintain professionalism and practicality\n\n"
+                        f"Please provide professional and accurate analysis."
                     ),
                 },
                 {
@@ -417,21 +416,21 @@ def create_trend_agent(tool_llm, graph_llm, toolkit):
                 },
             ]
 
-        update_agent_progress("trend", 90, "正在分析趋势线和K线形态...")
+        update_agent_progress("trend", 90, "Analyzing trendlines and candlestick patterns...")
 
         final_response = invoke_with_retry(
             graph_llm.invoke,
             [
                 SystemMessage(
-                    content="你是专业的量化交易趋势分析师，拥有丰富的市场经验。"
-                    "你的任务是结合自己计算的真实技术指标数据、OHLC历史数据和趋势线图表进行综合分析。"
-                    "所有技术指标都是通过专业工具实时计算的，不是推导数据。"
-                    "你擅长多时间框架综合分析，能够识别多周期共振信号和趋势一致性。"  # ✅ 添加
-                    "你可以选择一些关键的指标进行分析，可以忽略你觉得不重要的指标。"
-                    "重点关注趋势强度验证、技术指标确认、支撑阻力位分析和短期走势预测。"
-                    "用中文进行专业、准确的分析，给出具体的数值和明确的判断，你可以使用一些表情符号来增加视觉效果。"
+                    content="You are a professional quantitative trading trend analyst with extensive market experience. "
+                    "Your task is to perform comprehensive analysis combining self-calculated real technical indicator data, OHLC historical data, and trendline charts. "
+                    "All technical indicators are real-time calculated through professional tools, not derived data. "
+                    "You specialize in multi-timeframe comprehensive analysis and can identify multi-timeframe confluence signals and trend consistency. "
+                    "You can select some key indicators for analysis and ignore those you consider unimportant. "
+                    "Focus on trend strength validation, technical indicator confirmation, support/resistance level analysis, and short-term trend prediction. "
+                    "Provide professional and accurate analysis with specific values and clear judgments. You can use some emojis to enhance visual effect."
                 ),
-                HumanMessage(content=image_content),  # ✅ 使用统一的 image_content
+                HumanMessage(content=image_content),  # ✅ Use unified image_content
             ],
         )
 
