@@ -25,12 +25,15 @@ async def get_llm_config():
             p_id = p["id"]
             agent_models_map[p_id] = config.get_available_models(provider=p_id, role="agent")
             graph_models_map[p_id] = config.get_available_models(provider=p_id, role="graph")
-            
+
         return {
             **config_data,
             "agent_models_map": agent_models_map,
             "graph_models_map": graph_models_map,
-            "model_preferences": preferences_manager.get_all_model_temperatures()
+            "model_preferences": {
+                "agent": preferences_manager.get_all_model_temperatures_by_role("agent"),
+                "graph": preferences_manager.get_all_model_temperatures_by_role("graph"),
+            }
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -53,19 +56,22 @@ async def update_llm_config(
         config.set_agent_provider(agent_provider, agent_model, agent_temperature, persist=True)
         # Save preference
         if agent_model:
-            preferences_manager.set_model_temperature(agent_model, agent_temperature)
+            preferences_manager.set_model_temperature(agent_model, agent_temperature, role="agent")
         
         # Update Graph Config
         config.set_graph_provider(graph_provider, graph_model, graph_temperature, persist=True)
         # Save preference
         if graph_model:
-             preferences_manager.set_model_temperature(graph_model, graph_temperature)
+            preferences_manager.set_model_temperature(graph_model, graph_temperature, role="graph")
         
         return {
             "status": "success", 
             "message": "Configuration updated and persisted to .env",
             "current_config": config.get_current_config(),
-            "model_preferences": preferences_manager.get_all_model_temperatures()
+            "model_preferences": {
+                "agent": preferences_manager.get_all_model_temperatures_by_role("agent"),
+                "graph": preferences_manager.get_all_model_temperatures_by_role("graph"),
+            }
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
