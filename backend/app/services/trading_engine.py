@@ -18,32 +18,39 @@ class TradingEngine:
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
+        from app.core.config import create_llm_client
+
         # Initialize configuration
-        self.llm_config = LLMConfig()
         self.decision_agent_version = "original"
         self.include_decision_agent = True
+        
+        # Configuration overrides
+        override_agent_model = None
+        override_graph_model = None
+        override_agent_temp = None
+        override_graph_temp = None
 
         if config:
-            self.llm_config.agent_model = config.get("agent_llm_model", self.llm_config.agent_model)
-            self.llm_config.graph_model = config.get("graph_llm_model", self.llm_config.graph_model)
-            self.llm_config.agent_temperature = config.get("agent_llm_temperature", self.llm_config.agent_temperature)
-            self.llm_config.graph_temperature = config.get("graph_llm_temperature", self.llm_config.graph_temperature)
-            
             self.decision_agent_version = config.get("decision_agent_version", "original")
             self.include_decision_agent = config.get("include_decision_agent", True)
+            
+            override_agent_model = config.get("agent_llm_model")
+            override_graph_model = config.get("graph_llm_model")
+            override_agent_temp = config.get("agent_llm_temperature")
+            override_graph_temp = config.get("graph_llm_temperature")
 
-        # Initialize LLMs
-        self.agent_llm = ChatOpenAI(
-            model=self.llm_config.agent_model,
-            temperature=self.llm_config.agent_temperature,
-            openai_api_key=self.llm_config.api_key,
-            openai_api_base=self.llm_config.base_url,
+        # Initialize LLMs using the robust factory function
+        # This ensures correct provider (API Key/Base URL) is used for each role
+        self.agent_llm = create_llm_client(
+            role="agent",
+            model=override_agent_model,
+            temperature=override_agent_temp
         )
-        self.graph_llm = ChatOpenAI(
-            model=self.llm_config.graph_model,
-            temperature=self.llm_config.graph_temperature,
-            openai_api_key=self.llm_config.api_key,
-            openai_api_base=self.llm_config.base_url,
+        
+        self.graph_llm = create_llm_client(
+            role="graph",
+            model=override_graph_model,
+            temperature=override_graph_temp
         )
         
         self.toolkit = TechnicalTools()
