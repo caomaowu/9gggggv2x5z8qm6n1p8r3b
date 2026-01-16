@@ -27,6 +27,13 @@ export default function ResultHeader() {
                         <i className="fas fa-fingerprint"></i> ID: {analysisResult.result_id}
                     </div>
                 )}
+                {/* Analysis Time Display */}
+                {analysisResult?.analysis_time_display && (
+                    <div style={{ fontSize: '0.85rem', color: '#6B7280', marginTop: '4px' }}>
+                        <i className="fas fa-clock me-1"></i> 
+                        <span style={{ fontWeight: 500 }}>{analysisResult.analysis_time_display}</span>
+                    </div>
+                )}
                 <div className={styles.backButton}>
                     <a href="/" className={styles.backBtn} onClick={handleBack}>
                         <i className="fas fa-arrow-left"></i>&nbsp;&nbsp; 返回分析页面

@@ -77,6 +77,22 @@ export default function FutureKlinePanel() {
         }
     }
 
+    // Future Kline 3
+    const thirdKline = future_kline_data && future_kline_data.length >= 3 ? future_kline_data[2] : null;
+    let thirdTrendPassed = false;
+    let thirdTrendDiff = 0;
+    
+    if (thirdKline && latestVal) {
+        const close = parseFloat(String(thirdKline.close));
+        thirdTrendDiff = ((close - latestVal) / latestVal) * 100;
+        
+        if (isLong) {
+            thirdTrendPassed = close > latestVal;
+        } else if (isShort) {
+            thirdTrendPassed = close < latestVal;
+        }
+    }
+
     // Helper for Pct Display
     const getPct = (target: number) => {
         if (!latestVal) return '';
@@ -211,7 +227,7 @@ export default function FutureKlinePanel() {
                                             <div className={styles.itemValue}>
                                                 <div style={{textAlign: 'right', marginRight: '8px'}}>
                                                     <div className={styles.priceNum}>{Number(secondKline.close).toFixed(2)}</div>
-                                                    <small style={{color: trendDiff > 0 ? '#EF4444' : '#10B981', fontSize: '0.75rem'}}>
+                                                    <small style={{color: trendDiff > 0 ? '#10B981' : '#EF4444', fontSize: '0.75rem'}}>
                                                         {trendDiff > 0 ? '+' : ''}{trendDiff.toFixed(2)}%
                                                     </small>
                                                 </div>
@@ -230,6 +246,37 @@ export default function FutureKlinePanel() {
                                         <div className={styles.trendItem}>
                                             <div className={styles.itemLabel}>未来第2根K线</div>
                                             <div className="text-muted small">数据不足，无法验证</div>
+                                        </div>
+                                    )}
+
+                                    {/* Item 4: 3rd Future Kline */}
+                                    {thirdKline ? (
+                                        <div className={styles.trendItem}>
+                                            <div className={styles.itemLabel}>
+                                                <i className="fas fa-clock"></i> 未来第3根K线
+                                            </div>
+                                            <div className={styles.itemValue}>
+                                                <div style={{textAlign: 'right', marginRight: '8px'}}>
+                                                    <div className={styles.priceNum}>{Number(thirdKline.close).toFixed(2)}</div>
+                                                    <small style={{color: thirdTrendDiff > 0 ? '#10B981' : '#EF4444', fontSize: '0.75rem'}}>
+                                                        {thirdTrendDiff > 0 ? '+' : ''}{thirdTrendDiff.toFixed(2)}%
+                                                    </small>
+                                                </div>
+                                                {thirdTrendPassed ? (
+                                                    <span className={`${styles.verifyBadge} ${styles.verifyPass}`}>
+                                                        <i className="fas fa-check"></i> 符合
+                                                    </span>
+                                                ) : (
+                                                    <span className={`${styles.verifyBadge} ${styles.verifyFail}`}>
+                                                        <i className="fas fa-times"></i> 不符
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className={styles.trendItem}>
+                                            <div className={styles.itemLabel}>未来第3根K线</div>
+                                            <div className="text-muted small">数据不足</div>
                                         </div>
                                     )}
                                 </div>
@@ -272,18 +319,27 @@ export default function FutureKlinePanel() {
                                             <th>最高价</th>
                                             <th>最低价</th>
                                             <th>收盘价</th>
+                                            <th>振幅</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {future_kline_data.map((row: FutureKlineDataRow, idx: number) => (
-                                            <tr key={idx}>
-                                                <td>{row.datetime || row.date}</td>
-                                                <td>{Number(row.open).toFixed(2)}</td>
-                                                <td className={styles.textSuccess}>{Number(row.high).toFixed(2)}</td>
-                                                <td className={styles.textDanger}>{Number(row.low).toFixed(2)}</td>
-                                                <td>{Number(row.close).toFixed(2)}</td>
-                                            </tr>
-                                        ))}
+                                        {future_kline_data.map((row: FutureKlineDataRow, idx: number) => {
+                                            const open = Number(row.open);
+                                            const high = Number(row.high);
+                                            const low = Number(row.low);
+                                            const amplitude = open ? ((high - low) / open * 100).toFixed(2) : '0.00';
+                                            
+                                            return (
+                                                <tr key={idx}>
+                                                    <td>{row.datetime || row.date}</td>
+                                                    <td>{open.toFixed(2)}</td>
+                                                    <td className={styles.textSuccess}>{high.toFixed(2)}</td>
+                                                    <td className={styles.textDanger}>{low.toFixed(2)}</td>
+                                                    <td>{Number(row.close).toFixed(2)}</td>
+                                                    <td>{amplitude}%</td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>

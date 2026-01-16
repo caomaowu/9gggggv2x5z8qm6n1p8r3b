@@ -251,6 +251,20 @@ async def analyze_market(
             result['future_kline_data'] = future_kline_list
             result['future_kline_chart_base64'] = future_kline_chart_base64
         
+        # Determine analysis time display
+        import datetime
+        analysis_time_display = None
+        if request.data_method == "to_end" and end_dt_str:
+            analysis_time_display = end_dt_str
+        elif request.data_method == "date_range" and end_dt_str:
+            analysis_time_display = f"{start_dt_str} to {end_dt_str}"
+        else:
+             # For latest, use current time
+             analysis_time_display = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        result['analysis_time_display'] = analysis_time_display
+        result['data_method_short'] = request.data_method
+
         # 4. Generate Charts for Frontend (Optional but good for UX)
         # 既然用户不想要综合图表，且 pattern_chart 和 trend_chart 已经在 TradingEngine 中处理，
         # 这里就不再生成 summary_chart 了，避免生成用户不想要的“奇怪图表”。

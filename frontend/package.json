@@ -10,10 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/react-datepicker": "^6.2.0",
     "axios": "^1.13.2",
     "clsx": "^2.1.1",
     "lightweight-charts": "^4.2.3",
     "react": "^19.2.0",
+    "react-datepicker": "^9.1.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
     "remark-breaks": "^4.0.0",
