@@ -76,23 +76,6 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
             
         price_info_str = price_info if price_info else ""
         
-        # ✅ Multi-timeframe data enhancement
-        multi_tf_summary = ""
-        if is_multi_tf and timeframes:
-            # Build multi-timeframe summary
-            multi_tf_summary = f"""
-🌐 **Multi-Timeframe Analysis Mode**
-Analysis Periods: {', '.join(timeframes)}
-Number of Timeframes: {len(timeframes)}
-
-📊 **Multi-Timeframe Analysis Key Points**:
-1. Long timeframe ({timeframes[-1] if len(timeframes) > 0 else ''}) determines main trend direction
-2. Mid timeframe evaluates trend strength and persistence
-3. Short timeframe ({timeframes[0] if len(timeframes) > 0 else ''}) identifies specific entry points
-4. Focus on multi-timeframe confluence signals (high reliability)
-5. Identify timeframe divergences (proceed with caution)
-"""
-            
         # 4. Error handling and logging
         analysis_errors = []
         if "error" in indicator_report and isinstance(indicator_report, dict):
@@ -122,8 +105,7 @@ Number of Timeframes: {len(timeframes)}
                 latest_price_str=latest_price_str,
                 indicator_report=indicator_report,
                 pattern_report=pattern_report,
-                trend_report=trend_report,
-                multi_tf_summary=multi_tf_summary  # ✅ 新增多时间框架摘要
+                trend_report=trend_report
             )
         except KeyError as e:
             print(f"❌ Prompt 格式化错误: 缺少键值 {e}")
