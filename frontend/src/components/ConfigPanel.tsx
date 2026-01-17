@@ -1,34 +1,19 @@
 import { useAppStore } from '../store/useAppStore';
 import type { AnalyzeRequest } from '../types';
 import styles from './ConfigPanel.module.css';
-import { clearSystemCache, clearExportsFiles, getLLMConfig, updateLLMConfig } from '../api/system';
-import type { LLMConfigResponse } from '../api/system';
-import { useState, useEffect } from 'react';
+import { clearSystemCache, clearExportsFiles } from '../api/system';
+import { useState } from 'react';
 
 export default function ConfigPanel() {
   const { 
       dataMethod, setDataMethod,
       startDate, startTime, endDate, endTime, useCurrentTime, setDateConfig,
-      aiVersion, setAiVersion,
       klineCount, setKlineCount, futureKlineCount, setFutureKlineCount
   } = useAppStore();
 
   const [isCleaning, setIsCleaning] = useState(false);
   const [isCleaningExports, setIsCleaningExports] = useState(false);
   
-  // LLM Config State
-  const [llmConfig, setLlmConfig] = useState<LLMConfigResponse | null>(null);
-  const [isLoadingLLM, setIsLoadingLLM] = useState(false);
-  const [isSavingLLM, setIsSavingLLM] = useState(false);
-  
-  // Local state for LLM selections
-  const [agentProvider, setAgentProvider] = useState('');
-  const [agentModel, setAgentModel] = useState('');
-  const [agentTemperature, setAgentTemperature] = useState(0.1);
-  const [graphProvider, setGraphProvider] = useState('');
-  const [graphModel, setGraphModel] = useState('');
-  const [graphTemperature, setGraphTemperature] = useState(0.1);
-
   // Quick Input State
   const [quickDate, setQuickDate] = useState('');
   const [quickTime, setQuickTime] = useState('');
@@ -58,65 +43,6 @@ export default function ConfigPanel() {
               setDateConfig({ endTime: `${hh}:${mm}`, useCurrentTime: false });
           }
       }
-  };
-
-  useEffect(() => {
-    fetchLLMConfig();
-  }, []);
-
-  const fetchLLMConfig = async () => {
-    setIsLoadingLLM(true);
-    try {
-      const config = await getLLMConfig();
-      setLlmConfig(config);
-      setAgentProvider(config.agent.provider);
-      setAgentModel(config.agent.model);
-      setAgentTemperature(config.agent.temperature || 0.1);
-      setGraphProvider(config.graph.provider);
-      setGraphModel(config.graph.model);
-      setGraphTemperature(config.graph.temperature || 0.1);
-    } catch (error) {
-      console.error("Failed to fetch LLM config:", error);
-    } finally {
-      setIsLoadingLLM(false);
-    }
-  };
-
-  // 监听模型变化的代码已移除，改为手动切换模型时触发
-
-
-  const handleSaveLLMConfig = async () => {
-    if (!llmConfig) return;
-    
-    setIsSavingLLM(true);
-    try {
-      const res = await updateLLMConfig(
-        agentProvider, 
-        agentModel, 
-        graphProvider, 
-        graphModel,
-        agentTemperature,
-        graphTemperature
-      );
-      alert('配置已更新并保存到服务器！');
-      
-      // 更新本地配置缓存，包括新的偏好
-      if (res.model_preferences) {
-        setLlmConfig(prev => prev ? {
-            ...prev,
-            model_preferences: res.model_preferences,
-            agent: { ...prev.agent, provider: agentProvider, model: agentModel, temperature: agentTemperature },
-            graph: { ...prev.graph, provider: graphProvider, model: graphModel, temperature: graphTemperature }
-        } : null);
-      } else {
-        await fetchLLMConfig();
-      }
-    } catch (error) {
-      console.error("Failed to save LLM config:", error);
-      alert('保存失败，请检查控制台');
-    } finally {
-      setIsSavingLLM(false);
-    }
   };
 
   type DataMethod = AnalyzeRequest['data_method'];
@@ -340,235 +266,6 @@ export default function ConfigPanel() {
             </div>
         )}
 
-    </div>
-
-    {/* AI Agent Configuration */}
-    <div className={styles.panel}>
-        <h4 className={styles.panelTitle}>
-            <i className="fas fa-robot"></i> AI Agent Configuration
-        </h4>
-        
-        {isLoadingLLM ? (
-             <div className="text-center py-4 text-gray-500">
-                <i className="fas fa-spinner fa-spin mr-2"></i> Loading configuration...
-             </div>
-        ) : llmConfig ? (
-            <div className={styles.aiConfigGrid}>
-                {/* 紧凑布局：一行显示两个配置卡片 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                    {/* Agent LLM */}
-                    <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 relative">
-                         <div className="absolute top-2 right-2 text-xs text-gray-400">
-                            <i className="fas fa-brain text-purple-400"></i>
-                        </div>
-                        <h5 className="font-bold text-xs text-gray-600 uppercase mb-2 tracking-wider">
-                            Decision Agent
-                        </h5>
-                        
-                        <div className="space-y-2">
-                            <div>
-                                <select 
-                                    className={`${styles.formControl} text-xs py-1`}
-                                    value={agentProvider}
-                                    onChange={(e) => {
-                                        setAgentProvider(e.target.value);
-                                        // 智能切换：如果新 provider 有模型，默认选中第一个
-                                        const models = llmConfig.agent_models_map?.[e.target.value] || [];
-                                        if (models.length > 0) {
-                                            const newModel = models[0];
-                                            setAgentModel(newModel);
-                                            // 切换模型时，应用推荐温度
-                                            const agentPrefs = llmConfig.model_preferences?.agent || {};
-                                            if (agentPrefs[newModel] !== undefined) {
-                                                setAgentTemperature(agentPrefs[newModel]);
-                                            } 
-                                        } else {
-                                            setAgentModel(''); 
-                                        }
-                                    }}
-                                >
-                                    {llmConfig.available_providers.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                {(llmConfig.agent_models_map?.[agentProvider] || []).length > 0 ? (
-                                    <select
-                                        className={`${styles.formControl} text-xs py-1`}
-                                        value={agentModel}
-                                        onChange={(e) => {
-                                            const newModel = e.target.value;
-                                            setAgentModel(newModel);
-                                            const agentPrefs = llmConfig.model_preferences?.agent || {};
-                                            if (agentPrefs[newModel] !== undefined) {
-                                                setAgentTemperature(agentPrefs[newModel]);
-                                            } 
-                                        }}
-                                    >
-                                        {(llmConfig.agent_models_map?.[agentProvider] || []).map(m => (
-                                            <option key={m} value={m}>{m}</option>
-                                        ))}
-                                        {/* 如果当前值不在列表里，也显示出来，防止数据丢失 */}
-                                        {agentModel && !(llmConfig.agent_models_map?.[agentProvider] || []).includes(agentModel) && (
-                                            <option value={agentModel}>{agentModel}</option>
-                                        )}
-                                    </select>
-                                ) : (
-                                    <input 
-                                        type="text" 
-                                        className={`${styles.formControl} text-xs py-1`}
-                                        value={agentModel}
-                                        onChange={(e) => setAgentModel(e.target.value)}
-                                        placeholder="Enter model name..."
-                                    />
-                                )}
-                            </div>
-                            
-                            {/* Temperature Control */}
-                            <div>
-                                <label className="text-xs text-gray-500 font-semibold mb-1 block">
-                                    Temperature
-                                </label>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="number"
-                                        className={`${styles.formControl} text-xs py-1 text-center`}
-                                        min="0"
-                                        max="1.5"
-                                        step="0.01"
-                                        value={agentTemperature}
-                                        onChange={(e) => setAgentTemperature(Math.min(1.5, Math.max(0, parseFloat(e.target.value) || 0)))}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Graph LLM */}
-                    <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 relative">
-                        <div className="absolute top-2 right-2 text-xs text-gray-400">
-                            <i className="fas fa-chart-line text-blue-400"></i>
-                        </div>
-                        <h5 className="font-bold text-xs text-gray-600 uppercase mb-2 tracking-wider">
-                            Graph Agent
-                        </h5>
-                        <div className="space-y-2">
-                             <div>
-                                <select 
-                                    className={`${styles.formControl} text-xs py-1`}
-                                    value={graphProvider}
-                                    onChange={(e) => {
-                                        setGraphProvider(e.target.value);
-                                        const models = llmConfig.graph_models_map?.[e.target.value] || [];
-                                        if (models.length > 0) {
-                                            const newModel = models[0];
-                                            setGraphModel(newModel);
-                                            const graphPrefs = llmConfig.model_preferences?.graph || {};
-                                            if (graphPrefs[newModel] !== undefined) {
-                                                setGraphTemperature(graphPrefs[newModel]);
-                                            } 
-                                        } else {
-                                            setGraphModel('');
-                                        }
-                                    }}
-                                >
-                                    {llmConfig.available_providers.map(p => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                             <div>
-                                 {(llmConfig.graph_models_map?.[graphProvider] || []).length > 0 ? (
-                                     <select
-                                         className={`${styles.formControl} text-xs py-1`}
-                                         value={graphModel}
-                                         onChange={(e) => {
-                                             const newModel = e.target.value;
-                                             setGraphModel(newModel);
-                                                 const graphPrefs = llmConfig.model_preferences?.graph || {};
-                                                 if (graphPrefs[newModel] !== undefined) {
-                                                     setGraphTemperature(graphPrefs[newModel]);
-                                                 } 
-                                         }}
-                                     >
-                                         {(llmConfig.graph_models_map?.[graphProvider] || []).map(m => (
-                                             <option key={m} value={m}>{m}</option>
-                                         ))}
-                                          {/* 如果当前值不在列表里，也显示出来 */}
-                                         {graphModel && !(llmConfig.graph_models_map?.[graphProvider] || []).includes(graphModel) && (
-                                             <option value={graphModel}>{graphModel}</option>
-                                         )}
-                                     </select>
-                                 ) : (
-                                     <input 
-                                         type="text" 
-                                         className={`${styles.formControl} text-xs py-1`}
-                                         value={graphModel}
-                                         onChange={(e) => setGraphModel(e.target.value)}
-                                         placeholder="Enter model name..."
-                                     />
-                                )}
-                            </div>
-
-                            {/* Temperature Control */}
-                            <div>
-                                <label className="text-xs text-gray-500 font-semibold mb-1 block">
-                                    Temperature
-                                </label>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="number"
-                                        className={`${styles.formControl} text-xs py-1 text-center`}
-                                        min="0"
-                                        max="1.5"
-                                        step="0.01"
-                                        value={graphTemperature}
-                                        onChange={(e) => setGraphTemperature(Math.min(1.5, Math.max(0, parseFloat(e.target.value) || 0)))}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <button 
-                    className={`${styles.btn} ${styles.btnPrimary} w-full text-sm py-1`}
-                    onClick={handleSaveLLMConfig}
-                    disabled={isSavingLLM}
-                >
-                    {isSavingLLM ? (
-                        <><i className="fas fa-spinner fa-spin mr-2"></i> Saving...</>
-                    ) : (
-                        <><i className="fas fa-save mr-2"></i> Save Configuration</>
-                    )}
-                </button>
-            </div>
-        ) : (
-            <div className="text-center text-red-500 py-4">
-                Failed to load configuration.
-            </div>
-        )}
-        
-        <div className={styles.aiConfigGrid + " mt-4 pt-4 border-t"}>
-            {/* AI Version Selection */}
-            <div>
-                 <label className={styles.formLabel}>
-                    <i className="fas fa-code-branch"></i> AI Strategy Version
-                </label>
-                <select 
-                    className={styles.formControl}
-                    value={aiVersion}
-                    onChange={e => setAiVersion(e.target.value)}
-                    disabled={true}
-                >
-                    <option value="original">Original (Classic HFT)</option>
-                </select>
-                <small className={styles.textMuted}>
-                    Select the risk appetite for the decision agent.
-                </small>
-            </div>
-        </div>
     </div>
 
     {/* System Maintenance */}

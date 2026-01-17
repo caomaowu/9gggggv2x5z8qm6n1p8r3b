@@ -55,48 +55,6 @@ export default function SummaryPanel() {
                 </div>
             </div>
 
-            {/* 模型配置信息展示 */}
-            {analysisResult.llm_config && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-gray-100">
-                    <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
-                         <div className="flex items-center mb-2 pb-1 border-b border-gray-200">
-                            <i className="fas fa-robot text-blue-500 mr-2"></i>
-                            <span className="font-semibold text-gray-700 text-sm">分析智能体</span>
-                        </div>
-                        <div className="text-sm space-y-1">
-                            <div className="flex justify-between items-center">
-                                <span className="text-gray-500 text-xs">模型</span>
-                                <span className="font-medium text-gray-800 text-xs truncate pl-2" title={analysisResult.llm_config.agent.model}>
-                                    {analysisResult.llm_config.agent.model.split('/').pop()}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-gray-500 text-xs">温度</span>
-                                <span className="font-medium text-gray-800 text-xs">{analysisResult.llm_config.agent.temperature}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
-                         <div className="flex items-center mb-2 pb-1 border-b border-gray-200">
-                            <i className="fas fa-chart-line text-purple-500 mr-2"></i>
-                            <span className="font-semibold text-gray-700 text-sm">图表智能体</span>
-                        </div>
-                        <div className="text-sm space-y-1">
-                            <div className="flex justify-between items-center">
-                                <span className="text-gray-500 text-xs">模型</span>
-                                <span className="font-medium text-gray-800 text-xs truncate pl-2" title={analysisResult.llm_config.graph.model}>
-                                    {analysisResult.llm_config.graph.model.split('/').pop()}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-gray-500 text-xs">温度</span>
-                                <span className="font-medium text-gray-800 text-xs">{analysisResult.llm_config.graph.temperature}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
