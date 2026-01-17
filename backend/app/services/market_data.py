@@ -106,15 +106,27 @@ class MarketDataService:
             }
 
     def _convert_symbol(self, symbol: str) -> str:
+        symbol = (symbol or "").strip()
+        if not symbol:
+            return symbol
+
+        if "/" in symbol:
+            base, quote = symbol.split("/", 1)
+            symbol = f"{base}-{quote}"
+
+        symbol = symbol.upper()
+
         if symbol in self.symbol_mapping:
             return self.symbol_mapping[symbol]
-        
-        if '-' in symbol and 'USD' in symbol:
+
+        if "-" in symbol:
             return symbol
-        elif symbol in ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA']:
-            return f"{symbol}-USDT"
-        else:
-            return f"{symbol}-USDT"
+
+        if symbol.endswith("USDT") and len(symbol) > 4:
+            base = symbol[:-4]
+            return f"{base}-USDT"
+
+        return f"{symbol}-USDT"
 
     def _convert_timeframe(self, timeframe: str) -> str:
         return self.timeframe_mapping.get(timeframe, "1h")

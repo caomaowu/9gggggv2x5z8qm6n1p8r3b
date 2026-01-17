@@ -311,8 +311,13 @@ async def analyze_market(
         # For now return raw result
         return result
         
+    except HTTPException as e:
+        detail = getattr(e, "detail", "") or ""
+        logger.error(f"[{result_id}] Analysis HTTP error: {detail}")
+        update_analysis_progress("error", 0, f"Error: {detail}")
+        raise
     except Exception as e:
-        logger.error(f"[{result_id}] Analysis error: {e}")
+        logger.exception(f"[{result_id}] Analysis error")
         update_analysis_progress("error", 0, f"Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 

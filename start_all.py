@@ -118,12 +118,12 @@ def main():
             "color": "32" 
         },
         # PDF 工具 (Yellow - 黄色)
-        {
-            "name": "[PDF-Tool]", 
-            "cmd": "python tools/auto_pdf.py",
-            "cwd": project_root,
-            "color": "33" 
-        }
+        # {
+        #     "name": "[PDF-Tool]", 
+        #     "cmd": "python tools/auto_pdf.py",
+        #     "cwd": project_root,
+        #     "color": "33" 
+        # }
     ]
 
     # 使用线程并发启动所有服务

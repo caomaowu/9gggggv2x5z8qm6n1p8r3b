@@ -21,6 +21,7 @@ PROVIDERS = {
         "agent_models": [
             "deepseek-ai/DeepSeek-V3.2",
             "deepseek-ai/DeepSeek-V3.2-Exp",
+            "deepseek-chat",
       
         ],
         "graph_models": [
@@ -54,6 +55,7 @@ PROVIDERS = {
             "google/gemini-3-pro-preview",
             "qwen/qwen3-vl-235b-a22b-instruct",
             "qwen/qwen3-next-80b-a3b-instruct",
+            "openai/gpt-4o-mini",
         ],
         "graph_models": [
             "anthropic/claude-haiku-4.5",
@@ -64,6 +66,8 @@ PROVIDERS = {
             "google/gemini-3-pro-preview",
             "qwen/qwen3-vl-235b-a22b-instruct",
             "qwen/qwen3-next-80b-a3b-instruct",
+            "openai/gpt-4o-mini",
+            "z-ai/glm-4.6v",
         ],
     },
 }

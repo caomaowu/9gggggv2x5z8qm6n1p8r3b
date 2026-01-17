@@ -1,0 +1,4 @@
+task_id,asset,timeframe,end_date,end_time,kline_count,future_kline_count,ai_version,data_method
+1,BTC/USDT,4h,2025-05-24,03:55,40,13,original,to_end
+2,DOGE/USDT,4h,2025-04-24,03:56,40,13,original,to_end
+3,XRP/USDT,4h,2025-08-24,03:57,40,13,original,to_end
