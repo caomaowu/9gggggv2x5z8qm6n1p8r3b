@@ -78,18 +78,5 @@ class PreferencesManager:
         """获取所有模型的温度偏好"""
         return self._preferences.get("model_temperatures", {})
 
-    def get_all_model_temperatures_by_role(self, role: str) -> Dict[str, float]:
-        """按角色获取模型温度偏好，合并 legacy 数据"""
-        legacy_map = self._preferences.get("model_temperatures", {}) or {}
-        if role == "agent":
-            agent_map = self._preferences.get("agent_model_temperatures", {}) or {}
-            merged = {**legacy_map, **agent_map}
-            return merged
-        if role == "graph":
-            graph_map = self._preferences.get("graph_model_temperatures", {}) or {}
-            merged = {**legacy_map, **graph_map}
-            return merged
-        return legacy_map
-
 # 全局单例
 preferences_manager = PreferencesManager()

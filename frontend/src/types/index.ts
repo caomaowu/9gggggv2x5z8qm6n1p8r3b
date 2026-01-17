@@ -37,7 +37,7 @@ export interface AnalyzeRequest {
   end_date?: string;
   end_time?: string;
   use_current_time: boolean;
-  ai_version: string;
+  ai_version?: string;
   multi_timeframe_mode?: boolean;
   timeframes?: string[];
 }
@@ -81,7 +81,6 @@ export interface AnalysisResult {
   asset_name?: string;
   timeframe?: string;
   data_length?: number;
-  llm_config?: LLMConfig;
   kline_data?: Array<Record<string, unknown>>;
   future_kline_chart_base64?: string;
   future_kline_data?: FutureKlineDataRow[];

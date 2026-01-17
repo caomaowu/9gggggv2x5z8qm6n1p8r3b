@@ -1,73 +1,7 @@
 from fastapi import APIRouter, HTTPException, Body
 from app.utils.temp_file_manager import cleanup_all_temp_files, cleanup_exports_files
-from app.core.config import config
-from app.core.preferences import preferences_manager
-from typing import Dict, Any
 
 router = APIRouter()
-
-@router.get("/llm-config")
-async def get_llm_config():
-    """
-    获取当前 LLM 配置和所有可用选项
-    """
-    try:
-        config_data = config.get_current_config()
-        
-        agent_models_map = {}
-        graph_models_map = {}
-        
-        providers = config.get_all_providers()
-        for p in providers:
-            p_id = p["id"]
-            agent_models_map[p_id] = config.get_available_models(provider=p_id, role="agent")
-            graph_models_map[p_id] = config.get_available_models(provider=p_id, role="graph")
-
-        return {
-            **config_data,
-            "agent_models_map": agent_models_map,
-            "graph_models_map": graph_models_map,
-            "model_preferences": {
-                "agent": preferences_manager.get_all_model_temperatures_by_role("agent"),
-                "graph": preferences_manager.get_all_model_temperatures_by_role("graph"),
-            }
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/llm-config")
-async def update_llm_config(
-    agent_provider: str = Body(..., embed=True),
-    agent_model: str = Body(..., embed=True),
-    agent_temperature: float = Body(0.1, embed=True),
-    graph_provider: str = Body(..., embed=True),
-    graph_model: str = Body(..., embed=True),
-    graph_temperature: float = Body(0.1, embed=True)
-):
-    """
-    更新 LLM 配置并持久化到 .env 文件
-    同时更新模型温度偏好
-    """
-    try:
-        config.set_agent_provider(agent_provider, agent_model, agent_temperature, persist=True)
-        if agent_model:
-            preferences_manager.set_model_temperature(agent_model, agent_temperature, role="agent")
-        
-        config.set_graph_provider(graph_provider, graph_model, graph_temperature, persist=True)
-        if graph_model:
-            preferences_manager.set_model_temperature(graph_model, graph_temperature, role="graph")
-        
-        return {
-            "status": "success", 
-            "message": "Configuration updated and persisted to .env",
-            "current_config": config.get_current_config(),
-            "model_preferences": {
-                "agent": preferences_manager.get_all_model_temperatures_by_role("agent"),
-                "graph": preferences_manager.get_all_model_temperatures_by_role("graph"),
-            }
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/clear-cache")
 async def clear_system_cache():
