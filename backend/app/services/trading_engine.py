@@ -12,6 +12,14 @@ from app.utils.graph_util import TechnicalTools
 
 logger = logging.getLogger(__name__)
 
+class LLMConfig:
+    """Configuration for LLM models used in the trading engine"""
+    def __init__(self):
+        self.agent_model = settings.AGENT_MODEL
+        self.graph_model = settings.GRAPH_MODEL
+        self.agent_temperature = settings.AGENT_TEMPERATURE
+        self.graph_temperature = settings.GRAPH_TEMPERATURE
+
 class TradingEngine:
     """
     Service for running the trading analysis graph.
