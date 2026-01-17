@@ -143,6 +143,8 @@ def _judge_prediction_two_kline(
 def _load_existing_keys(output_csv: str) -> Tuple[Optional[List[str]], set]:
     if not os.path.exists(output_csv):
         return None, set()
+    
+    with open(output_csv, "r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         header = reader.fieldnames or []
         keys = set()
@@ -187,6 +189,9 @@ def _migrate_output_csv_in_place(output_csv: str, fieldnames: List[str]) -> None
         "未来第二根K线的价格",
         "ai_decision",
         "is_correct",
+        "cumulative_win_rate",
+        "profit_loss_pct",
+        "cumulative_profit_loss_pct",
         "duration_s",
         "result_id",
         "ai_version",
@@ -456,6 +461,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         "未来第二根K线的价格",
         "ai_decision",
         "is_correct",
+        "cumulative_win_rate",
+        "profit_loss_pct",
+        "cumulative_profit_loss_pct",
         "duration_s",
         "result_id",
         "ai_version",
@@ -498,6 +506,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     completed = 0
     failed = 0
+    stats_wins = 0
+    stats_losses = 0
 
     with ThreadPoolExecutor(max_workers=max(1, int(args.concurrency))) as executor:
         futures = [
@@ -517,6 +527,21 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         for fut in as_completed(futures):
             result_row = fut.result()
+            
+            # 实时计算胜率
+            is_correct = result_row.get("is_correct")
+            if is_correct == "True":
+                stats_wins += 1
+            elif is_correct == "False":
+                stats_losses += 1
+            
+            total_valid = stats_wins + stats_losses
+            if total_valid > 0:
+                win_rate = (stats_wins / total_valid) * 100.0
+                result_row["cumulative_win_rate"] = f"{win_rate:.2f}%"
+            else:
+                result_row["cumulative_win_rate"] = "N/A"
+
             _append_output_row(output_csv, fieldnames, result_row)
             completed += 1
             if result_row.get("is_correct") == "Error":
@@ -528,9 +553,26 @@ def main(argv: Optional[List[str]] = None) -> int:
             date = f"{result_row.get('end_date', '')} {result_row.get('end_time', '')}"
             decision = result_row.get("ai_decision", "")
             correct = result_row.get("is_correct", "")
-            print(f"[{completed}/{len(to_run)}] {task_id} {asset} {timeframe} {date} => {decision} ({correct})")
+            win_rate_str = result_row.get("cumulative_win_rate", "N/A")
+            
+            print(f"[{completed}/{len(to_run)}] {task_id} {asset} {timeframe} {date} => {decision} ({correct}) [WinRate: {win_rate_str}]")
 
-    print(f"完成: {completed}，失败: {failed}")
+    print("-" * 60)
+    print(f"执行完成 Summary:")
+    print(f"总任务: {len(tasks)}")
+    print(f"本次运行: {completed}")
+    print(f"失败(Error): {failed}")
+    
+    total_valid = stats_wins + stats_losses
+    if total_valid > 0:
+        final_win_rate = (stats_wins / total_valid) * 100.0
+        print(f"胜场: {stats_wins}")
+        print(f"负场: {stats_losses}")
+        print(f"胜率 (Win Rate): {final_win_rate:.2f}%  (计算公式: True / (True + False))")
+    else:
+        print("胜率 (Win Rate): N/A (无有效胜负结果)")
+    print("-" * 60)
+
     return 0
 
 
