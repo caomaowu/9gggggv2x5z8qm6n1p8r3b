@@ -26,12 +26,11 @@ refactor_v2/
 │   ├── app/
 │   │   ├── api/            # API 路由定义
 │   │   ├── core/           # 核心配置与事件
-│   │   │   ├── llm_config.py       # LLM 配置模型
-│   │   │   ├── app_settings.py      # 应用配置
-│   │   │   ├── llm_factory.py       # LLM 客户端工厂
-│   │   │   ├── config_repository.py  # 配置持久化
-│   │   │   ├── llm_settings.py     # 配置管理器
-│   │   │   └── config.py          # 配置入口（向后兼容）
+│   │   │   ├── config.py           # 核心配置与工厂
+│   │   │   ├── providers.py        # LLM 供应商定义
+│   │   │   ├── preferences.py      # 用户偏好管理
+│   │   │   ├── events.py           # 事件处理
+│   │   │   └── ...
 │   │   ├── services/       # 业务逻辑 (交易引擎、行情服务、HTML导出)
 │   │   ├── models/         # 数据模型
 │   │   ├── agents/         # AI 智能体 (LangGraph)
@@ -150,95 +149,46 @@ python tools/auto_pdf.py
 
 ### 配置架构
 
-项目采用分层的配置系统设计，确保类型安全和易于维护：
+项目采用简化的配置系统设计，主要由以下文件组成：
 
-- **LLM 配置层** (`llm_config.py`) - 定义 LLM 供应商、模型等核心配置
-- **应用配置层** (`app_settings.py`) - 应用级配置（CORS、API 地址等）
-- **配置管理器** (`llm_settings.py`) - 统一的配置访问接口
-- **配置工厂** (`llm_factory.py`) - LLM 客户端创建工厂
-- **配置持久化** (`config_repository.py`) - .env 文件读写
+- **核心配置** (`app/core/config.py`): 基于 `pydantic-settings` 定义所有环境变量、默认值以及 LLM 客户端工厂函数。
+- **供应商定义** (`app/core/providers.py`): 集中管理 LLM 供应商信息（API Base URL、Key 环境变量名）和支持的模型列表。
+- **偏好管理** (`app/core/preferences.py`): 管理用户对特定模型的偏好设置（如温度），持久化存储于 `backend/data/llm_preferences.json`。
 
 ### 使用方式
 
+#### 1. 获取配置和创建客户端
+
 ```python
-from app.core.config import settings, config, create_llm_client
+from app.core.config import settings, create_llm_client
 
 # 访问应用配置
 print(settings.PROJECT_NAME)
 print(settings.MARKET_DATA_API_URL)
 
-# 访问 LLM 配置
-agent_config = config.get_agent_config()
-graph_config = config.get_graph_config()
+# 获取当前 Agent 配置
+agent_config = settings.get_agent_config()
 
 # 创建 LLM 客户端
-from app.core.llm_settings import global_llm_config_manager
-llm = create_llm_client(
-    global_llm_config_manager.app_settings,
-    global_llm_config_manager.llm_settings,
-    role="agent"
-)
+llm = create_llm_client(role="agent")  # role 可以是 "agent" 或 "graph"
+```
+
+#### 2. 获取可用模型
+
+```python
+from app.core.config import settings
+
+# 获取所有支持的供应商
+providers = settings.get_all_providers()
+
+# 获取指定供应商的可用模型
+models = settings.get_available_models(provider="openrouter", role="agent")
 ```
 
 ### 环境变量配置
 
-配置文件 `.env` 必须包含以下关键配置：
+配置文件 `.env` 应包含以下关键配置：
 
-```bash
-# 应用配置
-PROJECT_NAME=QuantAgent
-API_V1_STR=/api/v1
-BACKEND_CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-
-# 市场数据 API
-MARKET_DATA_API_URL=https://caomao.xyz
-MARKET_DATA_API_TOKEN=your_token_here
-
-# LLM API Keys
-MODELSCOPE_API_KEY=your_key_here
-DEEPSEEK_API_KEY=your_key_here
-IFLOW_API_KEY=your_key_here
-OPENROUTER_API_KEY=your_key_here
-
-# Agent 配置
-AGENT_PROVIDER=modelscope
-AGENT_MODEL=Qwen/Qwen3-Next-80B-A3B-Instruct
-AGENT_TEMPERATURE=0.1
-
-# Graph 配置
-GRAPH_PROVIDER=modelscope
-GRAPH_MODEL=Qwen/Qwen3-VL-30B-A3B-Instruct
-GRAPH_TEMPERATURE=0.1
-
-# 自定义配置（可选）
-CUSTOM_API_KEY=
-CUSTOM_API_BASE=
-CUSTOM_AGENT_MODEL=
-CUSTOM_GRAPH_MODEL=
-```
-
-### 动态配置更新
-
-```python
-# 更新 Agent 配置（持久化到 .env）
-config.set_agent_provider(
-    provider="deepseek",
-    model="deepseek-ai/DeepSeek-V3.2",
-    temperature=0.2,
-    persist=True
-)
-
-# 更新 Graph 配置（持久化到 .env）
-config.set_graph_provider(
-    provider="openrouter",
-    model="anthropic/claude-sonnet-4.5",
-    temperature=0.1,
-    persist=True
-)
-
-# 重新加载配置
-config.reload()
-```
 
 详细的重构信息请参阅 [CONFIG_REFACTOR_REPORT.md](./CONFIG_REFACTOR_REPORT.md)。
 
