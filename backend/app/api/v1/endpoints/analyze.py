@@ -26,6 +26,13 @@ async def analyze_market(
     market_service: MarketDataService = Depends(get_market_service),
     # trading_engine: TradingEngine = Depends(get_trading_engine) # Instantiating per request for config flexibility
 ):
+    # 强制重新加载配置，确保读取最新的 .env 修改（无需重启服务）
+    try:
+        config.reload()
+        logger.info("Configuration reloaded successfully")
+    except Exception as e:
+        logger.warning(f"Failed to reload configuration: {e}")
+
     result_id = "UNKNOWN" # Default safe value for error handling
     try:
         # 1. Generate Result ID

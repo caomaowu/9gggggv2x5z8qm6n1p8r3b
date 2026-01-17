@@ -50,12 +50,25 @@ export interface DecisionResult {
   [key: string]: unknown;
 }
 
+export interface LLMRoleConfig {
+  provider: string;
+  name: string;
+  model: string;
+  temperature: number;
+}
+
+export interface LLMConfig {
+  agent: LLMRoleConfig;
+  graph: LLMRoleConfig;
+}
+
 export interface AnalysisResult {
   decision?: DecisionResult;
   asset?: string;
   asset_name?: string;
   timeframe?: string;
   data_length?: number;
+  llm_config?: LLMConfig;
   kline_data?: Array<Record<string, unknown>>;
   future_kline_chart_base64?: string;
   future_kline_data?: FutureKlineDataRow[];
