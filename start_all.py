@@ -5,11 +5,12 @@ import threading
 import time
 import shlex
 from pathlib import Path
+from dotenv import load_dotenv
 
 # 全局进程列表，用于退出时清理
 processes = []
 
-def run_service(command_str, cwd, prefix, color_code):
+def run_service(command_str, cwd, prefix, color_code, env_vars=None):
     """
     运行服务并实时打印输出到当前终端
     """
@@ -28,6 +29,9 @@ def run_service(command_str, cwd, prefix, color_code):
 
     # 环境变量，强制 Python 不缓存输出，保证日志实时性
     env = os.environ.copy()
+    if env_vars:
+        env.update(env_vars)
+        
     env["PYTHONUNBUFFERED"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
     
@@ -124,10 +128,26 @@ def main():
 
     # 使用线程并发启动所有服务
     threads = []
+    
+    # 预先加载 backend/.env 到一个字典中
+    backend_env_path = project_root / "backend" / ".env"
+    backend_env_vars = {}
+    if backend_env_path.exists():
+        print(f"Loading env from {backend_env_path}")
+        # 使用 python-dotenv 解析，但不污染当前进程的 os.environ
+        from dotenv import dotenv_values
+        backend_env_vars = dotenv_values(backend_env_path)
+        # 过滤掉 None 值
+        backend_env_vars = {k: v for k, v in backend_env_vars.items() if v is not None}
+        print(f"Loaded {len(backend_env_vars)} env vars for backend service")
+
     for svc in services:
+        # 仅为 Backend 服务注入特定的环境变量
+        env_to_pass = backend_env_vars if svc["name"] == "[Backend ]" else None
+        
         t = threading.Thread(
             target=run_service,
-            args=(svc["cmd"], svc["cwd"], svc["name"], svc["color"]),
+            args=(svc["cmd"], svc["cwd"], svc["name"], svc["color"], env_to_pass),
             daemon=True
         )
         t.start()

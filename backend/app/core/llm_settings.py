@@ -1,6 +1,7 @@
 import os
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
+from dotenv import load_dotenv
 
 from app.core.llm_config import LLMProvider, LLMRoleConfig, LLMSettings, PROVIDER_CONFIGS
 from app.core.app_settings import AppSettings
@@ -19,6 +20,36 @@ class LLMConfigManager(BaseModel):
     @classmethod
     def load(cls) -> "LLMConfigManager":
         """从环境变量加载配置"""
+        # 显式加载 .env 文件，支持多种路径，并强制覆盖以支持热重载
+        env_paths = [
+            ".env", 
+            "backend/.env", 
+            "../.env"
+        ]
+        
+        env_loaded = False
+        loaded_path = ""
+        for path in env_paths:
+            if os.path.exists(path):
+                load_dotenv(path, override=True)
+                env_loaded = True
+                loaded_path = path
+                break
+        
+        if env_loaded:
+            import logging
+            logger = logging.getLogger(__name__)
+            # 调试日志：确认加载了哪个文件以及温度值
+            # 避免在每次请求时都打印大量日志，可以考虑只在值变化时打印，或者简单打印关键信息
+            try:
+                t_agent = os.getenv("AGENT_TEMPERATURE")
+                t_graph = os.getenv("GRAPH_TEMPERATURE")
+                # 仅打印到控制台，确保开发者可见
+                print(f"[Config Reload] Loaded from {loaded_path} | AGENT_TEMP={t_agent} | GRAPH_TEMP={t_graph}")
+            except:
+                pass
+
+        # 重新实例化 AppSettings 以确保它也获取最新配置
         app_settings = AppSettings()
         
         agent_config = _load_role_config(
