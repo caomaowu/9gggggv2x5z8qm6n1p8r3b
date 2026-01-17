@@ -6,7 +6,7 @@ import pandas as pd
 from typing import Dict, Optional, Any, List
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from app.core.app_settings import app_settings
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +17,8 @@ class MarketDataService:
     """
 
     def __init__(self):
-        self.base_url = app_settings.MARKET_DATA_API_URL.rstrip('/')
-        self.api_token = app_settings.MARKET_DATA_API_TOKEN.get_secret_value()
+        self.base_url = settings.MARKET_DATA_API_URL.rstrip('/')
+        self.api_token = settings.MARKET_DATA_API_TOKEN.get_secret_value()
         self.timeout = 15
         self.max_retries = 2
         

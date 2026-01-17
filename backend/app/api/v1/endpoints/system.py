@@ -36,3 +36,26 @@ async def clear_history():
         return {"status": "success", "message": f"成功清理 {count} 条历史记录数据", "cleaned_count": count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/reload-config")
+async def reload_config():
+    """
+    手动重新加载配置（.env 文件）
+    """
+    try:
+        from app.core.config import reload_config, settings
+        reload_config()
+        return {
+            "status": "success",
+            "message": "配置重新加载成功",
+            "current_config": {
+                "agent_provider": settings.AGENT_PROVIDER,
+                "agent_model": settings.AGENT_MODEL,
+                "agent_temperature": settings.AGENT_TEMPERATURE,
+                "graph_provider": settings.GRAPH_PROVIDER,
+                "graph_model": settings.GRAPH_MODEL,
+                "graph_temperature": settings.GRAPH_TEMPERATURE,
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"配置重新加载失败: {str(e)}")

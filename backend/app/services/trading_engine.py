@@ -4,7 +4,8 @@ import pandas as pd
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import ToolNode
 
-from app.core.config import settings, create_llm_client
+from app.core.config import settings
+from app.core.providers import get_provider_config
 from app.agents.decision.decision_configs import DECISION_AGENT_VERSIONS
 from app.core.graph_setup import SetGraph
 from app.utils.graph_util import TechnicalTools
@@ -18,8 +19,6 @@ class TradingEngine:
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
-        from app.core.llm_settings import global_llm_config_manager
-        
         # Initialize configuration
         self.decision_agent_version = "original"
         self.include_decision_agent = True
@@ -39,23 +38,19 @@ class TradingEngine:
             override_agent_temp = config.get("agent_llm_temperature")
             override_graph_temp = config.get("graph_llm_temperature")
 
-        # Initialize LLMs using the new factory function
-        self.agent_llm = create_llm_client(
-            global_llm_config_manager.app_settings,
-            global_llm_config_manager.llm_settings,
+        # Initialize LLMs using the simplified factory function
+        self.agent_llm = self._create_llm_client(
             role="agent",
             model=override_agent_model,
             temperature=override_agent_temp
         )
         
-        self.graph_llm = create_llm_client(
-            global_llm_config_manager.app_settings,
-            global_llm_config_manager.llm_settings,
+        self.graph_llm = self._create_llm_client(
             role="graph",
             model=override_graph_model,
             temperature=override_graph_temp
         )
-        
+
         self.toolkit = TechnicalTools()
         self.tool_nodes = self._set_tool_nodes()
 
@@ -69,6 +64,35 @@ class TradingEngine:
             self.include_decision_agent,
         )
         self.graph = self.graph_setup.set_graph()
+
+    def _create_llm_client(self, role: str, model: Optional[str] = None, temperature: Optional[float] = None) -> ChatOpenAI:
+        """创建 LLM 客户端"""
+        if role == "agent":
+            provider = settings.AGENT_PROVIDER
+            default_model = settings.AGENT_MODEL
+            default_temperature = settings.AGENT_TEMPERATURE
+        else:
+            provider = settings.GRAPH_PROVIDER
+            default_model = settings.GRAPH_MODEL
+            default_temperature = settings.GRAPH_TEMPERATURE
+
+        actual_model = model or default_model
+        actual_temperature = temperature if temperature is not None else default_temperature
+
+        cfg = get_provider_config(provider)
+        if not cfg:
+            raise ValueError(f"Unknown provider: {provider}")
+
+        api_key = getattr(settings, cfg["api_key_env"], "")
+        if not api_key:
+            raise ValueError(f"API Key not found for provider {provider}. Please set {cfg['api_key_env']} in .env file")
+
+        return ChatOpenAI(
+            model=actual_model,
+            temperature=actual_temperature,
+            api_key=api_key,
+            base_url=cfg["base_url"],
+        )
 
     def _set_tool_nodes(self) -> Dict[str, ToolNode]:
         return {

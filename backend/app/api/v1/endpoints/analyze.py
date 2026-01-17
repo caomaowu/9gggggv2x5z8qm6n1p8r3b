@@ -6,7 +6,8 @@ from app.services.history_service import history_service
 from app.core.progress import update_analysis_progress
 from app.utils.id_manager import get_result_id_manager
 from app.utils.analysis_log import get_analysis_logger
-from app.core.config import config
+from app.core.config import settings
+from app.core.events import check_env_changes
 import logging
 import pandas as pd
 
@@ -26,12 +27,6 @@ async def analyze_market(
     market_service: MarketDataService = Depends(get_market_service),
     # trading_engine: TradingEngine = Depends(get_trading_engine) # Instantiating per request for config flexibility
 ):
-    # 强制重新加载配置，确保读取最新的 .env 修改（无需重启服务）
-    try:
-        config.reload()
-        logger.info("Configuration reloaded successfully")
-    except Exception as e:
-        logger.warning(f"Failed to reload configuration: {e}")
 
     result_id = "UNKNOWN" # Default safe value for error handling
     try:
@@ -212,16 +207,16 @@ async def analyze_market(
                 logger.warning(f"Failed to fetch future verification data: {e}")
                 # 不阻断主流程，只是没有未来数据而已
 
-        # 2. Configure Engine
+        check_env_changes()
+
         engine_config = {
             "decision_agent_version": request.ai_version,
-            # Add other config overrides if needed
         }
             
         trading_engine = TradingEngine(config=engine_config)
 
-        agent_cfg_dict = config.get_agent_provider_config()
-        graph_cfg_dict = config.get_graph_provider_config()
+        agent_cfg_dict = settings.get_agent_config()
+        graph_cfg_dict = settings.get_graph_config()
         agent_provider = agent_cfg_dict.get("provider")
         graph_provider = graph_cfg_dict.get("provider")
 
