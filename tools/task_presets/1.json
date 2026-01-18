@@ -1,0 +1,35 @@
+[
+  {
+    "task_id": "end_4h_202512271157_69ad",
+    "asset": "DOGEUSDT",
+    "timeframe": "4h",
+    "end_date": "2025-12-27",
+    "end_time": "11:57",
+    "kline_count": 40,
+    "future_kline_count": 13,
+    "ai_version": "original",
+    "data_method": "to_end"
+  },
+  {
+    "task_id": "end_4h_202511092355_486b",
+    "asset": "PEPEUSDT",
+    "timeframe": "4h",
+    "end_date": "2025-11-09",
+    "end_time": "23:55",
+    "kline_count": 40,
+    "future_kline_count": 13,
+    "ai_version": "original",
+    "data_method": "to_end"
+  },
+  {
+    "task_id": "end_4h_202511251958_326a",
+    "asset": "ADAUSDT",
+    "timeframe": "4h",
+    "end_date": "2025-11-25",
+    "end_time": "19:58",
+    "kline_count": 40,
+    "future_kline_count": 13,
+    "ai_version": "original",
+    "data_method": "to_end"
+  }
+]

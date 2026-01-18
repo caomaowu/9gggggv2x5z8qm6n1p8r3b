@@ -25,6 +25,19 @@ class TaskKey:
     future_kline_count: int
 
 
+def _normalize_end_time(value: Any) -> str:
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    last_part = text.split()[-1]
+    parts = last_part.split(":")
+    if len(parts) >= 2:
+        return f"{parts[0].zfill(2)}:{parts[1].zfill(2)}"
+    return last_part
+
+
 def _normalize_base_url(base_url: str) -> str:
     base_url = base_url.strip()
     if base_url.endswith("/"):
@@ -34,11 +47,19 @@ def _normalize_base_url(base_url: str) -> str:
 
 def _task_key_from_row(row: Dict[str, str], defaults: Dict[str, Any]) -> TaskKey:
     def get_str(name: str, default_value: str) -> str:
-        value = (row.get(name) or "").strip()
+        val = row.get(name)
+        if val is None:
+            val = ""
+        value = str(val).strip()
         return value if value else str(default_value)
 
     def get_int(name: str, default_value: int) -> int:
-        raw = (row.get(name) or "").strip()
+        val = row.get(name)
+        if val is None:
+            return int(default_value)
+        if isinstance(val, (int, float)):
+            return int(val)
+        raw = str(val).strip()
         if not raw:
             return int(default_value)
         return int(float(raw))
@@ -47,7 +68,7 @@ def _task_key_from_row(row: Dict[str, str], defaults: Dict[str, Any]) -> TaskKey
         asset=get_str("asset", defaults["asset"]),
         timeframe=get_str("timeframe", defaults["timeframe"]),
         end_date=get_str("end_date", defaults["end_date"]),
-        end_time=get_str("end_time", defaults["end_time"]),
+        end_time=_normalize_end_time(get_str("end_time", defaults["end_time"])),
         data_method=get_str("data_method", defaults["data_method"]),
         ai_version=get_str("ai_version", defaults["ai_version"]),
         kline_count=get_int("kline_count", defaults["kline_count"]),
@@ -154,7 +175,7 @@ def _load_existing_keys(output_csv: str) -> Tuple[Optional[List[str]], set]:
                     asset=(row.get("asset") or "").strip(),
                     timeframe=(row.get("timeframe") or "").strip(),
                     end_date=(row.get("end_date") or row.get("date") or "").strip().split(" ")[0],
-                    end_time=(row.get("end_time") or "").strip(),
+                    end_time=_normalize_end_time((row.get("end_time") or "").strip()),
                     data_method=(row.get("data_method") or row.get("data_method_short") or "to_end").strip(),
                     ai_version=(row.get("ai_version") or row.get("agent_version") or "original").strip(),
                     kline_count=int(float((row.get("kline_count") or "100").strip() or 100)),
@@ -190,8 +211,6 @@ def _migrate_output_csv_in_place(output_csv: str, fieldnames: List[str]) -> None
         "ai_decision",
         "is_correct",
         "cumulative_win_rate",
-        "profit_loss_pct",
-        "cumulative_profit_loss_pct",
         "duration_s",
         "result_id",
         "ai_version",
@@ -224,9 +243,22 @@ def _ensure_output_header(output_csv: str, fieldnames: List[str]) -> None:
 
 
 def _append_output_row(output_csv: str, fieldnames: List[str], row: Dict[str, Any]) -> None:
-    with open(output_csv, "a", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writerow({k: row.get(k, "") for k in fieldnames})
+    max_retries = 10
+    for attempt in range(max_retries):
+        try:
+            with open(output_csv, "a", encoding="utf-8", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writerow({k: row.get(k, "") for k in fieldnames})
+            return
+        except PermissionError:
+            # File is likely open in Excel. Wait and retry.
+            if attempt < max_retries - 1:
+                time.sleep(1.0)
+            else:
+                # Still failed after retries
+                raise
+        except Exception:
+            raise
 
 
 def _post_with_retry(
@@ -271,13 +303,18 @@ def _run_one_task(
     asset = (row.get("asset") or "").strip()
     timeframe = (row.get("timeframe") or "").strip()
     end_date = (row.get("end_date") or "").strip()
-    end_time = (row.get("end_time") or "").strip()
+    end_time = _normalize_end_time((row.get("end_time") or "").strip())
 
     data_method = (row.get("data_method") or defaults["data_method"]).strip()
     ai_version = (row.get("ai_version") or defaults["ai_version"]).strip()
 
     def get_int(name: str, default_value: int) -> int:
-        raw = (row.get(name) or "").strip()
+        val = row.get(name)
+        if val is None:
+            return int(default_value)
+        if isinstance(val, (int, float)):
+            return int(val)
+        raw = str(val).strip()
         if not raw:
             return int(default_value)
         return int(float(raw))
@@ -332,6 +369,27 @@ def _run_one_task(
 
         is_correct = _judge_prediction_two_kline(action, analysis_price, future_close_1, future_close_2)
 
+        # Calculate Profit Percentage for both candles
+        profit_pct_1_str = "N/A"
+        profit_pct_2_str = "N/A"
+
+        if analysis_price is not None and analysis_price != 0:
+            # Future 1
+            if future_close_1 is not None:
+                raw_pct_1 = (future_close_1 - analysis_price) / analysis_price * 100.0
+                if action == "LONG":
+                    profit_pct_1_str = f"{raw_pct_1:+.2f}%"
+                elif action == "SHORT":
+                    profit_pct_1_str = f"{-raw_pct_1:+.2f}%"
+            
+            # Future 2
+            if future_close_2 is not None:
+                raw_pct_2 = (future_close_2 - analysis_price) / analysis_price * 100.0
+                if action == "LONG":
+                    profit_pct_2_str = f"{raw_pct_2:+.2f}%"
+                elif action == "SHORT":
+                    profit_pct_2_str = f"{-raw_pct_2:+.2f}%"
+
         analysis_time_display = result.get("analysis_time_display") or f"{end_date} {end_time}:00"
         duration_s = round(time.perf_counter() - started, 3)
 
@@ -354,6 +412,8 @@ def _run_one_task(
             ),
             "ai_decision": action,
             "is_correct": is_correct,
+            "profit_pct_1": profit_pct_1_str,
+            "profit_pct_2": profit_pct_2_str,
             "duration_s": duration_s,
             "result_id": result.get("result_id", ""),
             "ai_version": ai_version,
@@ -375,6 +435,7 @@ def _run_one_task(
             "未来第二根K线的价格": "N/A",
             "ai_decision": "ERROR",
             "is_correct": "Error",
+            "profit_percentage": "N/A",
             "duration_s": duration_s,
             "result_id": "",
             "ai_version": ai_version,
@@ -462,8 +523,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         "ai_decision",
         "is_correct",
         "cumulative_win_rate",
-        "profit_loss_pct",
-        "cumulative_profit_loss_pct",
         "duration_s",
         "result_id",
         "ai_version",

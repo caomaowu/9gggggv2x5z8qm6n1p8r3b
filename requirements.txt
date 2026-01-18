@@ -22,3 +22,5 @@ playwright
 mplfinance
 matplotlib
 TA-Lib
+streamlit
+
