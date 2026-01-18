@@ -56,6 +56,7 @@ PROVIDERS = {
             "qwen/qwen3-vl-235b-a22b-instruct",
             "qwen/qwen3-next-80b-a3b-instruct",
             "openai/gpt-4o-mini",
+            "xiaomi/mimo-v2-flash:free",
         ],
         "graph_models": [
             "anthropic/claude-haiku-4.5",
@@ -68,6 +69,7 @@ PROVIDERS = {
             "qwen/qwen3-next-80b-a3b-instruct",
             "openai/gpt-4o-mini",
             "z-ai/glm-4.6v",
+            "nvidia/nemotron-nano-12b-v2-vl:free",
         ],
     },
 }
