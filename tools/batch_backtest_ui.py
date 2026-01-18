@@ -21,7 +21,35 @@ except ImportError:
     st.error("无法导入 batch_backtest.py，请确保它在同一目录下。")
     st.stop()
 
-st.set_page_config(page_title="批量回测工具", page_icon="📈", layout="wide")
+st.set_page_config(page_title="批量工具", page_icon="📈", layout="wide")
+
+st.markdown(
+    """
+    <style>
+    html, body, [class*="css"] {
+        font-size: 18px;
+    }
+    div[role="radiogroup"] label {
+        font-size: 18px;
+    }
+    div[role="radiogroup"] label > div[role="radio"] {
+        border-radius: 999px;
+        border: 1px solid #555;
+        padding: 4px 12px;
+        margin-right: 6px;
+    }
+    div[role="radiogroup"] label > div[role="radio"] > div:first-child {
+        display: none;
+    }
+    div[role="radiogroup"] label > div[role="radio"][aria-checked="true"] {
+        background-color: #1f77b4;
+        color: white;
+        border-color: #1f77b4;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 st.title("📈 批量回测工具 (Batch Backtest)")
 
@@ -60,6 +88,7 @@ def _normalize_asset_token(token: str) -> str:
 
 
 FAV_ASSETS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "favorite_assets.json")
+ENV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", ".env")
 
 def _get_favorites():
     if not os.path.exists(FAV_ASSETS_FILE):
@@ -73,6 +102,26 @@ def _get_favorites():
 def _save_favorites(assets):
     with open(FAV_ASSETS_FILE, "w", encoding="utf-8") as f:
         json.dump(assets, f, indent=2)
+
+
+def _load_env_models():
+    agent_model = ""
+    graph_model = ""
+    try:
+        with open(ENV_PATH, "r", encoding="utf-8") as f:
+            for raw_line in f:
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("AGENT_MODEL="):
+                    agent_model = line.split("=", 1)[1].strip()
+                elif line.startswith("GRAPH_MODEL="):
+                    graph_model = line.split("=", 1)[1].strip()
+        return agent_model, graph_model
+    except FileNotFoundError:
+        return "", ""
+    except Exception:
+        return agent_model, graph_model
 
 
 # --- Preset Management ---
@@ -541,7 +590,8 @@ elif active_page == "🚀 执行回测 (Execute)":
                 "分析时的价格", "未来第一根K线的价格", "未来第二根K线的价格",
                 "ai_decision", "is_correct", "profit_pct_1", "profit_pct_2", "cumulative_win_rate",
                 "duration_s", "result_id", "ai_version",
-                "data_method", "kline_count", "future_kline_count", "error"
+                "data_method", "kline_count", "future_kline_count", "error",
+                "AGENT_MODEL", "GRAPH_MODEL"
             ]
             
             output_csv = os.path.abspath(output_path)
@@ -629,6 +679,12 @@ elif active_page == "🚀 执行回测 (Execute)":
                     
                     for i, fut in enumerate(as_completed(futures)):
                         result_row = fut.result()
+
+                        agent_model, graph_model = _load_env_models()
+                        if agent_model:
+                            result_row["AGENT_MODEL"] = agent_model
+                        if graph_model:
+                            result_row["GRAPH_MODEL"] = graph_model
                         
                         # Update stats
                         is_correct = result_row.get("is_correct")
