@@ -6,7 +6,13 @@
 from .core_decision import create_generic_decision_agent
 
 # 100% 复刻原始 Prompt，保留英文，不做任何本地化修改，以保证逻辑一致性
-ORIGINAL_PROMPT_TEMPLATE = """You are a high-frequency quantitative trading (HFT) analyst operating on the current {time_frame} K-line chart for {stock_name}. Your task is to issue an **immediate execution order**: **LONG** or **SHORT**. ⚠️ HOLD is prohibited due to HFT constraints.
+ORIGINAL_PROMPT_TEMPLATE = """You are a Senior Technical Analyst operating on the current {time_frame} K-line chart for {stock_name}.
+
+            **Current Market Status:**
+            {price_summary}
+            {price_info_str}
+
+            Your task is to issue an **immediate execution order**: **LONG** or **SHORT**. ⚠️ HOLD is prohibited due to HFT constraints.
 
             Your decision should forecast the market move over the **next N candlesticks**, where:
             - For example: TIME_FRAME = 15min, N = 1 → Predict the next 15 minutes.
@@ -43,18 +49,19 @@ ORIGINAL_PROMPT_TEMPLATE = """You are a high-frequency quantitative trading (HFT
 
             ### ✅ Decision Strategy
 
-            1. Only act on **confirmed** signals — avoid emerging, speculative, or conflicting signals.
-            2. Prioritize decisions where **all three reports** (Indicator, Pattern, and Trend) **align in the same direction**.
-            3. Give more weight to:
+            1. **CRITICAL: You MUST explicitly reference findings from ALL THREE reports (Indicator, Pattern, and Trend) in your justification.** Decisions relying on only one report are considered incomplete and risky.
+            2. Only act on **confirmed** signals — avoid emerging, speculative, or conflicting signals.
+            3. Prioritize decisions where **all three reports** align in the same direction. This "Confluence of Signals" is the strongest predictor of success.
+            4. Give more weight to:
             - Recent strong momentum (e.g., MACD crossover, RSI breakout)
             - Decisive price action (e.g., breakout candle, rejection wicks, support bounce)
-            4. If reports disagree:
+            5. If reports disagree:
             - Choose the direction with **stronger and more recent confirmation**
             - Prefer **momentum-backed signals** over weak oscillator hints.
-            5. ⚖️ If the market is in consolidation or reports are mixed:
+            6. ⚖️ If the market is in consolidation or reports are mixed:
             - Default to the **dominant trendline slope** (e.g., SHORT in descending channel).
             - Do not guess direction — choose the **more defensible** side.
-            6. Suggest a reasonable **risk-reward ratio** between **1.2 and 1.8**, based on current volatility and trend strength.
+            7. Suggest a reasonable **risk-reward ratio** between **1.2 and 1.8**, based on current volatility and trend strength.
 
             ---
             ### 🧠 Output Format in json(for system parsing):

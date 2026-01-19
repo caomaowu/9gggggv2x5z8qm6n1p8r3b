@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     MODELSCOPE_API_KEY: str = ""
     DEEPSEEK_API_KEY: str = ""
     IFLOW_API_KEY: str = ""
+    IFLOW2_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
     
     AGENT_PROVIDER: str = "modelscope"

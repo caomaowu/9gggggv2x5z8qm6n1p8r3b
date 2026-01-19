@@ -35,11 +35,27 @@ PROVIDERS = {
         "api_key_env": "IFLOW_API_KEY",
         "agent_models": [
             "qwen3-max",
-       
+            "kimi-k2-0905",
+            "qwen3-235b-a22b-instruct",
         ],
         "graph_models": [
             "qwen3-max",
+            "qwen3-vl-plus",
            
+        ],
+    },
+    "iflow2": {
+        "name": "Iflow2",
+        "base_url": "https://apis.iflow.cn/v1",
+        "api_key_env": "IFLOW2_API_KEY",
+        "agent_models": [
+            "qwen3-max",
+            "kimi-k2-0905",
+            "qwen3-235b-a22b-instruct",
+        ],
+        "graph_models": [
+            "qwen3-max",
+            "qwen3-vl-plus",
         ],
     },
     "openrouter": {
