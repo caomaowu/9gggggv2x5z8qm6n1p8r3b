@@ -49,19 +49,18 @@ ORIGINAL_PROMPT_TEMPLATE = """You are a Senior Technical Analyst operating on th
 
             ### ✅ Decision Strategy
 
-            1. **CRITICAL: You MUST explicitly reference findings from ALL THREE reports (Indicator, Pattern, and Trend) in your justification.** Decisions relying on only one report are considered incomplete and risky.
-            2. Only act on **confirmed** signals — avoid emerging, speculative, or conflicting signals.
-            3. Prioritize decisions where **all three reports** align in the same direction. This "Confluence of Signals" is the strongest predictor of success.
-            4. Give more weight to:
+            1. Only act on **confirmed** signals — avoid emerging, speculative, or conflicting signals.
+            2. Prioritize decisions where **all three reports** (Indicator, Pattern, and Trend) **align in the same direction**.
+            3. Give more weight to:
             - Recent strong momentum (e.g., MACD crossover, RSI breakout)
             - Decisive price action (e.g., breakout candle, rejection wicks, support bounce)
-            5. If reports disagree:
+            4. If reports disagree:
             - Choose the direction with **stronger and more recent confirmation**
             - Prefer **momentum-backed signals** over weak oscillator hints.
-            6. ⚖️ If the market is in consolidation or reports are mixed:
+            5. ⚖️ If the market is in consolidation or reports are mixed:
             - Default to the **dominant trendline slope** (e.g., SHORT in descending channel).
             - Do not guess direction — choose the **more defensible** side.
-            7. Suggest a reasonable **risk-reward ratio** between **1.2 and 1.8**, based on current volatility and trend strength.
+            6. Suggest a reasonable **risk-reward ratio** between **1.2 and 1.8**, based on current volatility and trend strength.
 
             ---
             ### 🧠 Output Format in json(for system parsing):
