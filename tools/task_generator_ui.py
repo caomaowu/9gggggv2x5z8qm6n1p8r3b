@@ -5,6 +5,7 @@ import random
 import os
 from datetime import datetime, timedelta
 import glob
+import calendar
 
 # 配置默认路径
 DEFAULT_DOC_DIR = os.path.join(os.path.dirname(__file__), 'doc')
@@ -28,22 +29,46 @@ class TaskGeneratorApp:
         self._load_default_files()
 
     def _init_ui(self):
-        # 主布局：左侧配置，右侧预览
         main_paned = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         main_paned.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # 左侧面板
-        left_frame = ttk.Frame(main_paned, width=350)
-        main_paned.add(left_frame, weight=1)
+        left_container = ttk.Frame(main_paned, width=380)
+        main_paned.add(left_container, weight=2)
         
-        # 右侧面板
         right_frame = ttk.Frame(main_paned)
         main_paned.add(right_frame, weight=3)
         
-        # === 左侧：配置区域 ===
+        left_canvas = tk.Canvas(left_container, borderwidth=0, highlightthickness=0)
+        left_scrollbar = ttk.Scrollbar(left_container, orient=tk.VERTICAL, command=left_canvas.yview)
+        left_scrollable = ttk.Frame(left_canvas)
+        
+        def _on_frame_configure(event):
+            left_canvas.configure(scrollregion=left_canvas.bbox("all"))
+        
+        def _on_mousewheel(event):
+            if event.delta > 0:
+                left_canvas.yview_scroll(-1, "units")
+            else:
+                left_canvas.yview_scroll(1, "units")
+        
+        def _bind_mousewheel(event):
+            left_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        def _unbind_mousewheel(event):
+            left_canvas.unbind_all("<MouseWheel>")
+        
+        left_scrollable.bind("<Configure>", _on_frame_configure)
+        left_canvas.bind("<Enter>", _bind_mousewheel)
+        left_canvas.bind("<Leave>", _unbind_mousewheel)
+        
+        left_canvas.create_window((0, 0), window=left_scrollable, anchor="nw")
+        left_canvas.configure(yscrollcommand=left_scrollbar.set)
+        
+        left_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        left_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         # 1. 数据源配置
-        step1_frame = ttk.LabelFrame(left_frame, text="1. 数据源配置", padding=10)
+        step1_frame = ttk.LabelFrame(left_scrollable, text="1. 数据源配置", padding=10)
         step1_frame.pack(fill=tk.X, pady=5)
         
         ttk.Label(step1_frame, text="源文件目录:").pack(anchor='w')
@@ -59,7 +84,7 @@ class TaskGeneratorApp:
         self.asset_count_label.pack(anchor='w', pady=2)
 
         # 2. 随机参数设置
-        step2_frame = ttk.LabelFrame(left_frame, text="2. 随机参数设置", padding=10)
+        step2_frame = ttk.LabelFrame(left_scrollable, text="2. 随机参数设置", padding=10)
         step2_frame.pack(fill=tk.X, pady=5)
         
         # 资产数量
@@ -73,37 +98,85 @@ class TaskGeneratorApp:
         date_frame = ttk.Frame(step2_frame)
         date_frame.grid(row=2, column=0, columnspan=2, sticky='ew')
         
-        self.start_date_var = tk.StringVar(value="2024-01-01")
+        self.start_date_var = tk.StringVar(value="2025-01-01")
         self.end_date_var = tk.StringVar(value=datetime.now().strftime("%Y-%m-%d"))
         
-        ttk.Entry(date_frame, textvariable=self.start_date_var, width=12).pack(side=tk.LEFT)
+        start_entry = ttk.Entry(date_frame, textvariable=self.start_date_var, width=12)
+        start_entry.pack(side=tk.LEFT)
+        start_entry.bind("<FocusOut>", lambda e: self._normalize_date_entry(self.start_date_var))
+        start_entry.bind("<Return>", lambda e: self._normalize_date_entry(self.start_date_var))
+        ttk.Button(date_frame, text="📅", width=3, command=lambda: self._open_date_picker(self.start_date_var)).pack(side=tk.LEFT, padx=(2, 4))
         ttk.Label(date_frame, text=" 至 ").pack(side=tk.LEFT)
-        ttk.Entry(date_frame, textvariable=self.end_date_var, width=12).pack(side=tk.LEFT)
+        end_entry = ttk.Entry(date_frame, textvariable=self.end_date_var, width=12)
+        end_entry.pack(side=tk.LEFT)
+        end_entry.bind("<FocusOut>", lambda e: self._normalize_date_entry(self.end_date_var))
+        end_entry.bind("<Return>", lambda e: self._normalize_date_entry(self.end_date_var))
+        ttk.Button(date_frame, text="📅", width=3, command=lambda: self._open_date_picker(self.end_date_var)).pack(side=tk.LEFT, padx=(2, 0))
+        
+        ttk.Label(step2_frame, text="日期模式:").grid(row=3, column=0, sticky='w', pady=(10,2))
+        self.date_mode_var = tk.StringVar(value="随机日期")
+        self.date_mode_combo = ttk.Combobox(step2_frame, textvariable=self.date_mode_var, values=["随机日期", "连续日期"], state="readonly", width=10)
+        self.date_mode_combo.grid(row=3, column=1, sticky='w', pady=2)
+
+        ttk.Label(step2_frame, text="连续天数:").grid(row=4, column=0, sticky='w', pady=2)
+        self.continuous_days_var = tk.IntVar(value=4)
+        self.continuous_days_spin = ttk.Spinbox(step2_frame, from_=1, to=365, textvariable=self.continuous_days_var, width=10)
+        self.continuous_days_spin.grid(row=4, column=1, sticky='w', pady=2)
+
+        ttk.Label(step2_frame, text="随机天数(每资产):").grid(row=5, column=0, sticky='w', pady=2)
+        self.random_days_var = tk.IntVar(value=10)
+        self.random_days_spin = ttk.Spinbox(step2_frame, from_=1, to=365, textvariable=self.random_days_var, width=10)
+        self.random_days_spin.grid(row=5, column=1, sticky='w', pady=2)
+
+        self.unique_random_date_var = tk.BooleanVar(value=False)
+        self.unique_random_cb = ttk.Checkbutton(step2_frame, text="随机日期不重复", variable=self.unique_random_date_var)
+        self.unique_random_cb.grid(row=6, column=0, columnspan=2, sticky='w', pady=(0, 4))
+
+        self.date_mode_combo.bind("<<ComboboxSelected>>", self._on_date_mode_changed)
+        self._on_date_mode_changed()
         
         # 时间周期
-        ttk.Label(step2_frame, text="时间周期 (Timeframe):").grid(row=3, column=0, sticky='w', pady=(10,2))
+        ttk.Label(step2_frame, text="时间周期 (Timeframe):").grid(row=7, column=0, sticky='w', pady=(10,2))
         self.timeframe_var = tk.StringVar(value="4h")
         self.timeframe_combo = ttk.Combobox(step2_frame, textvariable=self.timeframe_var, values=["30m", "1h", "4h", "1d"], state="readonly", width=10)
-        self.timeframe_combo.grid(row=3, column=1, sticky='w', pady=2)
-        
+        self.timeframe_combo.grid(row=7, column=1, sticky='w', pady=2)
+
+        ttk.Label(step2_frame, text="时间模式:").grid(row=8, column=0, sticky='w', pady=(10,2))
+        self.time_mode_var = tk.StringVar(value="随机时间")
+        self.time_mode_combo = ttk.Combobox(step2_frame, textvariable=self.time_mode_var, values=["随机时间", "固定时间"], state="readonly", width=10)
+        self.time_mode_combo.grid(row=8, column=1, sticky='w', pady=2)
+
+        ttk.Label(step2_frame, text="固定时间(HH:MM，逗号分隔):", font=("Arial", 8)).grid(row=9, column=0, columnspan=2, sticky='w', pady=(5,2))
+        self.fixed_times_var = tk.StringVar(value="03:55,15:55")
+        ttk.Entry(step2_frame, textvariable=self.fixed_times_var, width=20).grid(row=10, column=0, columnspan=2, sticky='w')
+
+        ttk.Label(step2_frame, text="资产模式:").grid(row=11, column=0, sticky='w', pady=(10,2))
+        self.asset_mode_var = tk.StringVar(value="随机资产")
+        self.asset_mode_combo = ttk.Combobox(step2_frame, textvariable=self.asset_mode_var, values=["随机资产", "手动资产"], state="readonly", width=10)
+        self.asset_mode_combo.grid(row=11, column=1, sticky='w', pady=2)
+
+        ttk.Label(step2_frame, text="手动资产(逗号分隔):", font=("Arial", 8)).grid(row=12, column=0, columnspan=2, sticky='w', pady=(5,2))
+        self.manual_assets_var = tk.StringVar()
+        ttk.Entry(step2_frame, textvariable=self.manual_assets_var, width=25).grid(row=13, column=0, columnspan=2, sticky='w')
+
         # 其他固定参数
-        ttk.Label(step2_frame, text="Kline Count:", font=("Arial", 8)).grid(row=4, column=0, sticky='w', pady=(10,2))
+        ttk.Label(step2_frame, text="Kline Count:", font=("Arial", 8)).grid(row=14, column=0, sticky='w', pady=(10,2))
         self.kline_count_var = tk.IntVar(value=40)
-        ttk.Entry(step2_frame, textvariable=self.kline_count_var, width=10).grid(row=4, column=1, sticky='w')
+        ttk.Entry(step2_frame, textvariable=self.kline_count_var, width=10).grid(row=14, column=1, sticky='w')
         
-        ttk.Label(step2_frame, text="Future Kline:", font=("Arial", 8)).grid(row=5, column=0, sticky='w', pady=2)
+        ttk.Label(step2_frame, text="Future Kline:", font=("Arial", 8)).grid(row=15, column=0, sticky='w', pady=2)
         self.future_kline_var = tk.IntVar(value=13)
-        ttk.Entry(step2_frame, textvariable=self.future_kline_var, width=10).grid(row=5, column=1, sticky='w')
+        ttk.Entry(step2_frame, textvariable=self.future_kline_var, width=10).grid(row=15, column=1, sticky='w')
 
         # 3. 操作按钮
-        btn_frame = ttk.Frame(left_frame)
+        btn_frame = ttk.Frame(left_scrollable)
         btn_frame.pack(fill=tk.X, pady=20)
         
         ttk.Button(btn_frame, text="一键生成预览", command=self.generate_tasks, width=20).pack(pady=5)
         ttk.Button(btn_frame, text="清空预览", command=self.clear_tasks).pack(pady=5)
 
         # 4. 保存设置
-        save_frame = ttk.LabelFrame(left_frame, text="4. 结果输出", padding=10)
+        save_frame = ttk.LabelFrame(left_scrollable, text="4. 结果输出", padding=10)
         save_frame.pack(fill=tk.X, pady=5)
         
         ttk.Label(save_frame, text="文件名 (留空自动命名):").pack(anchor='w')
@@ -140,6 +213,17 @@ class TaskGeneratorApp:
         
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+    def _on_date_mode_changed(self, event=None):
+        mode = self.date_mode_var.get()
+        if mode == "连续日期":
+            self.continuous_days_spin.config(state="normal")
+            self.random_days_spin.config(state="disabled")
+            self.unique_random_cb.config(state="disabled")
+        else:
+            self.continuous_days_spin.config(state="disabled")
+            self.random_days_spin.config(state="normal")
+            self.unique_random_cb.config(state="normal")
 
     def _load_default_files(self):
         """扫描默认目录下的CSV文件"""
@@ -253,18 +337,140 @@ class TaskGeneratorApp:
         except:
             return datetime.now().strftime("%Y-%m-%d")
 
-    def generate_tasks(self):
-        if not self.assets:
-            messagebox.showwarning("警告", "请先选择有效的数据源文件")
-            return
+    def _normalize_date_entry(self, var):
+        s = var.get().strip()
+        if len(s) == 6 and s.isdigit():
+            yy = s[0:2]
+            mm = s[2:4]
+            dd = s[4:6]
+            try:
+                dt = datetime.strptime(f"20{yy}-{mm}-{dd}", "%Y-%m-%d")
+                var.set(dt.strftime("%Y-%m-%d"))
+            except:
+                pass
 
+    def _open_date_picker(self, target_var):
+        current = target_var.get().strip()
+        year = datetime.now().year
+        month = datetime.now().month
         try:
+            if current:
+                dt = datetime.strptime(current, "%Y-%m-%d")
+                year = dt.year
+                month = dt.month
+        except:
+            pass
+
+        top = tk.Toplevel(self.root)
+        top.title("选择日期")
+        top.grab_set()
+
+        state = {"year": year, "month": month}
+
+        year_var = tk.IntVar(value=year)
+        month_var = tk.IntVar(value=month)
+
+        header_frame = ttk.Frame(top)
+        header_frame.pack(fill=tk.X, pady=5)
+
+        body_frame = ttk.Frame(top)
+        body_frame.pack(padx=5, pady=5)
+
+        def render():
+            for child in header_frame.winfo_children():
+                child.destroy()
+
+            for child in body_frame.winfo_children():
+                child.destroy()
+
+            y = state["year"]
+            m = state["month"]
+
+            year_var.set(y)
+            month_var.set(m)
+
+            ttk.Button(header_frame, text="<", width=3, command=prev_month).pack(side=tk.LEFT, padx=5)
+
+            ttk.Label(header_frame, text="年").pack(side=tk.LEFT)
+            ttk.Spinbox(header_frame, from_=2000, to=2100, textvariable=year_var, width=6).pack(side=tk.LEFT, padx=(2, 4))
+            ttk.Label(header_frame, text="月").pack(side=tk.LEFT)
+            ttk.Spinbox(header_frame, from_=1, to=12, textvariable=month_var, width=3).pack(side=tk.LEFT, padx=(0, 4))
+            ttk.Button(header_frame, text="跳转", width=4, command=jump_to).pack(side=tk.LEFT, padx=4)
+
+            ttk.Button(header_frame, text=">", width=3, command=next_month).pack(side=tk.RIGHT, padx=5)
+
+            weekdays = ["一", "二", "三", "四", "五", "六", "日"]
+            for idx, wd in enumerate(weekdays):
+                ttk.Label(body_frame, text=wd, width=3).grid(row=0, column=idx, padx=1, pady=1)
+
+            month_days = calendar.monthcalendar(y, m)
+            for r, week in enumerate(month_days, start=1):
+                for c, day in enumerate(week):
+                    if day == 0:
+                        ttk.Label(body_frame, text="", width=3).grid(row=r, column=c, padx=1, pady=1)
+                    else:
+                        def select(d=day, yy=y, mm=m):
+                            try:
+                                dt_sel = datetime(yy, mm, d)
+                                target_var.set(dt_sel.strftime("%Y-%m-%d"))
+                            except:
+                                pass
+                            top.destroy()
+
+                        ttk.Button(body_frame, text=str(day), width=3, command=select).grid(row=r, column=c, padx=1, pady=1)
+
+        def prev_month():
+            y = state["year"]
+            m = state["month"] - 1
+            if m < 1:
+                m = 12
+                y -= 1
+            state["year"] = y
+            state["month"] = m
+            render()
+
+        def next_month():
+            y = state["year"]
+            m = state["month"] + 1
+            if m > 12:
+                m = 1
+                y += 1
+            state["year"] = y
+            state["month"] = m
+            render()
+
+        def jump_to():
+            try:
+                y = int(year_var.get())
+                m = int(month_var.get())
+                if m < 1 or m > 12:
+                    return
+                state["year"] = y
+                state["month"] = m
+                render()
+            except:
+                pass
+
+        render()
+
+    def generate_tasks(self):
+        try:
+            asset_mode = getattr(self, "asset_mode_var", None)
+            asset_mode_value = asset_mode.get() if asset_mode else "随机资产"
+            if asset_mode_value == "随机资产" and not self.assets:
+                messagebox.showwarning("警告", "请先选择有效的数据源文件")
+                return
+
             count = self.pick_count_var.get()
             start_date = self.start_date_var.get()
             end_date = self.end_date_var.get()
             tf = self.timeframe_var.get()
             k_count = self.kline_count_var.get()
             fut_count = self.future_kline_var.get()
+            date_mode = getattr(self, "date_mode_var", None)
+            date_mode_value = date_mode.get() if date_mode else "随机日期"
+            time_mode = getattr(self, "time_mode_var", None)
+            time_mode_value = time_mode.get() if time_mode else "随机时间"
             
             # 清空旧数据
             self.clear_tasks()
@@ -272,36 +478,170 @@ class TaskGeneratorApp:
             # 清空文件名（确保下次保存时触发自动命名）
             self.filename_var.set("")
             
-            # 随机抽取资产（允许重复抽取吗？通常 backtest 任务可以重复，但这里我们假设不重复如果 count <= total）
-            if count <= len(self.assets):
-                selected_assets = random.sample(self.assets, count)
+            assets_list = []
+            if asset_mode_value == "手动资产":
+                raw_assets = self.manual_assets_var.get().strip()
+                if not raw_assets:
+                    messagebox.showerror("错误", "资产模式为手动资产时，请输入资产列表")
+                    return
+                parts = [p.strip() for p in raw_assets.split(",") if p.strip()]
+                if not parts:
+                    messagebox.showerror("错误", "资产模式为手动资产时，请输入至少一个资产")
+                    return
+                for a in parts:
+                    a = a.upper()
+                    if "/" not in a and a.endswith("USDT"):
+                        a = a[:-4] + "/USDT"
+                    assets_list.append(a)
             else:
-                # 如果请求数量大于总数，则随机重复抽取
-                selected_assets = [random.choice(self.assets) for _ in range(count)]
-            
-            for i, asset in enumerate(selected_assets, 1):
-                task = {
-                    "task_id": i,
-                    "asset": asset,
-                    "timeframe": tf,
-                    "end_date": self._get_random_date(start_date, end_date),
-                    "end_time": self._generate_random_time(tf),
-                    "kline_count": k_count,
-                    "future_kline_count": fut_count,
-                    "ai_version": "original",
-                    "data_method": "to_end"
-                }
-                self.generated_tasks.append(task)
-                
-                # 插入表格
+                if count <= len(self.assets):
+                    assets_list = random.sample(self.assets, count)
+                else:
+                    assets_list = [random.choice(self.assets) for _ in range(count)]
+
+            dates_list = []
+            start_dt = None
+            end_dt = None
+            total_days = None
+            random_days = None
+            use_unique_random = False
+            if date_mode_value == "连续日期":
+                try:
+                    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+                except:
+                    messagebox.showerror("错误", "日期格式错误，请使用 YYYY-MM-DD")
+                    return
+                days = self.continuous_days_var.get()
+                if days <= 0:
+                    messagebox.showerror("错误", "连续天数必须大于 0")
+                    return
+                last_dt = start_dt + timedelta(days=days - 1)
+                if last_dt > end_dt:
+                    messagebox.showerror("错误", "连续天数超出日期范围，请调整起始日期或连续天数")
+                    return
+                for i in range(days):
+                    d = start_dt + timedelta(days=i)
+                    dates_list.append(d.strftime("%Y-%m-%d"))
+            else:
+                try:
+                    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+                except:
+                    messagebox.showerror("错误", "日期格式错误，请使用 YYYY-MM-DD")
+                    return
+                if end_dt < start_dt:
+                    messagebox.showerror("错误", "结束日期必须不早于开始日期")
+                    return
+                total_days = (end_dt - start_dt).days + 1
+                random_days = self.random_days_var.get()
+                if random_days <= 0:
+                    messagebox.showerror("错误", "随机天数必须大于 0")
+                    return
+                use_unique_random = self.unique_random_date_var.get()
+                if use_unique_random and random_days > total_days:
+                    messagebox.showerror("错误", "随机天数超过日期范围内可用的天数")
+                    return
+
+            times_list = []
+            if time_mode_value == "固定时间":
+                raw_times = self.fixed_times_var.get().strip()
+                if not raw_times:
+                    messagebox.showerror("错误", "时间模式为固定时间时，请输入至少一个时间")
+                    return
+                parts = [p.strip() for p in raw_times.split(",") if p.strip()]
+                if not parts:
+                    messagebox.showerror("错误", "时间模式为固定时间时，请输入至少一个时间")
+                    return
+                for t in parts:
+                    if ":" not in t:
+                        messagebox.showerror("错误", "固定时间格式应为 HH:MM，用逗号分隔")
+                        return
+                    h_str, m_str = t.split(":", 1)
+                    if not (h_str.isdigit() and m_str.isdigit()):
+                        messagebox.showerror("错误", "固定时间格式应为 HH:MM，用逗号分隔")
+                        return
+                    h = int(h_str)
+                    m = int(m_str)
+                    if not (0 <= h <= 23 and 0 <= m <= 59):
+                        messagebox.showerror("错误", "固定时间应在 00:00 到 23:59 之间")
+                        return
+                    times_list.append(f"{h:02d}:{m:02d}")
+            else:
+                times_list.append("RANDOM")
+
+            tasks = []
+            task_id = 1
+            for asset in assets_list:
+                if date_mode_value == "连续日期":
+                    for d in dates_list:
+                        for t in times_list:
+                            if t == "RANDOM":
+                                end_time_value = self._generate_random_time(tf)
+                            else:
+                                end_time_value = t
+                            task = {
+                                "task_id": task_id,
+                                "asset": asset,
+                                "timeframe": tf,
+                                "end_date": d,
+                                "end_time": end_time_value,
+                                "kline_count": k_count,
+                                "future_kline_count": fut_count,
+                                "ai_version": "original",
+                                "data_method": "to_end"
+                            }
+                            tasks.append(task)
+                            task_id += 1
+                else:
+                    if use_unique_random:
+                        indices = random.sample(range(total_days), random_days)
+                        indices.sort()
+                        dates_for_asset = []
+                        for idx in indices:
+                            d = start_dt + timedelta(days=idx)
+                            dates_for_asset.append(d.strftime("%Y-%m-%d"))
+                    else:
+                        dates_for_asset = []
+                        for _ in range(random_days):
+                            d = self._get_random_date(start_date, end_date)
+                            dates_for_asset.append(d)
+                    for d in dates_for_asset:
+                        for t in times_list:
+                            if t == "RANDOM":
+                                end_time_value = self._generate_random_time(tf)
+                            else:
+                                end_time_value = t
+                            task = {
+                                "task_id": task_id,
+                                "asset": asset,
+                                "timeframe": tf,
+                                "end_date": d,
+                                "end_time": end_time_value,
+                                "kline_count": k_count,
+                                "future_kline_count": fut_count,
+                                "ai_version": "original",
+                                "data_method": "to_end"
+                            }
+                            tasks.append(task)
+                            task_id += 1
+
+            tasks.sort(key=lambda x: (x["end_date"], x["end_time"], x["asset"]))
+
+            self.generated_tasks = []
+            for item in self.tree.get_children():
+                self.tree.delete(item)
+
+            self.generated_tasks = tasks
+            for task in tasks:
                 cols_order = ["task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "ai_version", "data_method"]
                 values = [task[k] for k in cols_order]
                 self.tree.insert('', 'end', values=values)
-                
+
             self.preview_info.config(text=f"预览: {len(self.generated_tasks)} 条任务")
-            
         except Exception as e:
             messagebox.showerror("生成失败", str(e))
+
 
     def clear_tasks(self):
         self.generated_tasks = []

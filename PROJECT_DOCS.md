@@ -189,6 +189,16 @@ models = settings.get_available_models(provider="openrouter", role="agent")
 
 配置文件 `.env` 应包含以下关键配置：
 
+#### 智能体模型配置说明 (Agent & Graph Models)
+
+在 `.env` 文件中，`AGENT_MODEL` 和 `GRAPH_MODEL` 分别对应不同职责的智能体：
+
+| 配置项 | 对应智能体 (Agents) | 职责与建议 (Roles & Recommendations) |
+| :--- | :--- | :--- |
+| **AGENT_MODEL** | **Indicator Agent** (技术指标)<br>**Decision Agent** (决策分析) | **职责**: 处理数值计算结果、文本分析和逻辑推理。<br>**注意**: **Decision Agent 必须综合 Indicator、Pattern 和 Trend 三个智能体的分析报告才能做出最终决策。**<br>**建议**: 使用擅长逻辑推理、指令遵循和长文本处理的模型（如 DeepSeek-Chat, Claude 3.5 Sonnet, GPT-4o）。 |
+| **GRAPH_MODEL** | **Pattern Agent** (形态识别)<br>**Trend Agent** (趋势分析) | **职责**: 专注于视觉分析任务，识别 K 线形态（如双底、头肩顶）和绘制趋势线。<br>**建议**: 必须使用具备强大视觉理解能力（Vision/Multimodal）的模型（如 GPT-4o, Claude 3.5 Sonnet, Gemini Pro Vision, Qwen-VL）。 |
+
+> **⚠️ 智能体协作机制**: Decision Agent (决策智能体) 处于工作流的末端，它**严格依赖** Indicator Agent、Pattern Agent 和 Trend Agent 的输出。只有当这三个分析智能体都完成工作并生成报告后，Decision Agent 才会开始运行并进行综合研判。
 
 详细的重构信息请参阅 [CONFIG_REFACTOR_REPORT.md](./CONFIG_REFACTOR_REPORT.md)。
 

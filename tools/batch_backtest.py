@@ -563,6 +563,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     if not to_run:
         return 0
 
+    batch_row = {k: "" for k in fieldnames}
+    batch_row["error"] = f"=== 新批次开始 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ==="
+    _append_output_row(output_csv, fieldnames, batch_row)
+
     completed = 0
     failed = 0
     stats_wins = 0
