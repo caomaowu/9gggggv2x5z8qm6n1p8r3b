@@ -49,10 +49,16 @@ export default function FutureKlinePanel() {
     const firstKline = future_kline_data && future_kline_data.length >= 1 ? future_kline_data[0] : null;
     let firstTrendPassed = false;
     let firstTrendDiff = 0;
+    let firstKlinePct = 0;
 
     if (firstKline && latestVal) {
         const close = parseFloat(String(firstKline.close));
+        const open = parseFloat(String(firstKline.open));
         firstTrendDiff = ((close - latestVal) / latestVal) * 100;
+        
+        if (open > 0) {
+            firstKlinePct = ((close - open) / open) * 100;
+        }
         
         if (isLong) {
             firstTrendPassed = close > latestVal;
@@ -65,11 +71,17 @@ export default function FutureKlinePanel() {
     const secondKline = future_kline_data && future_kline_data.length >= 2 ? future_kline_data[1] : null;
     let trendPassed = false;
     let trendDiff = 0;
+    let secondKlinePct = 0;
     
     if (secondKline && latestVal) {
         const close = parseFloat(String(secondKline.close));
+        const open = parseFloat(String(secondKline.open));
         trendDiff = ((close - latestVal) / latestVal) * 100;
         
+        if (open > 0) {
+            secondKlinePct = ((close - open) / open) * 100;
+        }
+
         if (isLong) {
             trendPassed = close > latestVal;
         } else if (isShort) {
@@ -81,17 +93,36 @@ export default function FutureKlinePanel() {
     const thirdKline = future_kline_data && future_kline_data.length >= 3 ? future_kline_data[2] : null;
     let thirdTrendPassed = false;
     let thirdTrendDiff = 0;
+    let thirdKlinePct = 0;
     
     if (thirdKline && latestVal) {
         const close = parseFloat(String(thirdKline.close));
+        const open = parseFloat(String(thirdKline.open));
         thirdTrendDiff = ((close - latestVal) / latestVal) * 100;
         
+        if (open > 0) {
+            thirdKlinePct = ((close - open) / open) * 100;
+        }
+
         if (isLong) {
             thirdTrendPassed = close > latestVal;
         } else if (isShort) {
             thirdTrendPassed = close < latestVal;
         }
     }
+
+    // Helper for Price Formatting
+    const formatPrice = (price: number | string | undefined) => {
+        if (price === undefined || price === null) return '';
+        const num = typeof price === 'string' ? parseFloat(price) : price;
+        if (isNaN(num)) return price;
+        
+        // Dynamic precision based on price magnitude
+        if (num < 1) return num.toFixed(6);
+        if (num < 10) return num.toFixed(4);
+        if (num < 1000) return num.toFixed(2);
+        return num.toFixed(2);
+    };
 
     // Helper for Pct Display
     const getPct = (target: number) => {
@@ -132,7 +163,7 @@ export default function FutureKlinePanel() {
                                     {/* Latest Price */}
                                     <div className={styles.priceItem}>
                                         <div className={styles.priceLabel}>预测时价格</div>
-                                        <div className={styles.priceValue}>{latestVal}</div>
+                                        <div className={styles.priceValue}>{formatPrice(latestVal)}</div>
                                         <span className={styles.statusPending}>基准点</span>
                                     </div>
 
@@ -140,7 +171,7 @@ export default function FutureKlinePanel() {
                                     <div className={styles.priceItem}>
                                         <div className={styles.priceLabel}>止损价格</div>
                                         <div className={`${styles.priceValue} ${styles.textDanger}`}>
-                                            {!isNaN(slVal) ? slVal : '未设置'}
+                                            {!isNaN(slVal) ? formatPrice(slVal) : '未设置'}
                                         </div>
                                         {!isNaN(slVal) && (
                                             <>
@@ -156,7 +187,7 @@ export default function FutureKlinePanel() {
                                     <div className={styles.priceItem}>
                                         <div className={styles.priceLabel}>止盈价格</div>
                                         <div className={`${styles.priceValue} ${styles.textSuccess}`}>
-                                            {!isNaN(tpVal) ? tpVal : '未设置'}
+                                            {!isNaN(tpVal) ? formatPrice(tpVal) : '未设置'}
                                         </div>
                                         {!isNaN(tpVal) && (
                                             <>
@@ -183,7 +214,7 @@ export default function FutureKlinePanel() {
                                         </div>
                                         <div className={styles.itemValue}>
                                             <span className="text-muted">最新价</span>
-                                            <span className={styles.priceNum}>{latestVal}</span>
+                                            <span className={styles.priceNum}>{formatPrice(latestVal)}</span>
                                         </div>
                                     </div>
 
@@ -195,10 +226,13 @@ export default function FutureKlinePanel() {
                                             </div>
                                             <div className={styles.itemValue}>
                                                 <div style={{textAlign: 'right', marginRight: '8px'}}>
-                                                    <div className={styles.priceNum}>{Number(firstKline.close).toFixed(2)}</div>
-                                                    <small style={{color: firstTrendDiff > 0 ? '#10B981' : '#EF4444', fontSize: '0.75rem'}}>
-                                                        {firstTrendDiff > 0 ? '+' : ''}{firstTrendDiff.toFixed(2)}%
-                                                    </small>
+                                                    <div className={styles.priceNum}>{formatPrice(firstKline.close)}</div>
+                                                    <div style={{color: firstKlinePct > 0 ? '#10B981' : (firstKlinePct < 0 ? '#EF4444' : '#6B7280'), fontSize: '0.75rem', fontWeight: 'bold'}}>
+                                                        {firstKlinePct > 0 ? '+' : ''}{firstKlinePct.toFixed(2)}%
+                                                    </div>
+                                                    <div style={{color: '#6B7280', fontSize: '0.7rem'}}>
+                                                        (vs预测: {firstTrendDiff > 0 ? '+' : ''}{firstTrendDiff.toFixed(2)}%)
+                                                    </div>
                                                 </div>
                                                 {firstTrendPassed ? (
                                                     <span className={`${styles.verifyBadge} ${styles.verifyPass}`}>
@@ -226,10 +260,13 @@ export default function FutureKlinePanel() {
                                             </div>
                                             <div className={styles.itemValue}>
                                                 <div style={{textAlign: 'right', marginRight: '8px'}}>
-                                                    <div className={styles.priceNum}>{Number(secondKline.close).toFixed(2)}</div>
-                                                    <small style={{color: trendDiff > 0 ? '#10B981' : '#EF4444', fontSize: '0.75rem'}}>
-                                                        {trendDiff > 0 ? '+' : ''}{trendDiff.toFixed(2)}%
-                                                    </small>
+                                                    <div className={styles.priceNum}>{formatPrice(secondKline.close)}</div>
+                                                    <div style={{color: secondKlinePct > 0 ? '#10B981' : (secondKlinePct < 0 ? '#EF4444' : '#6B7280'), fontSize: '0.75rem', fontWeight: 'bold'}}>
+                                                        {secondKlinePct > 0 ? '+' : ''}{secondKlinePct.toFixed(2)}%
+                                                    </div>
+                                                    <div style={{color: '#6B7280', fontSize: '0.7rem'}}>
+                                                        (vs预测: {trendDiff > 0 ? '+' : ''}{trendDiff.toFixed(2)}%)
+                                                    </div>
                                                 </div>
                                                 {trendPassed ? (
                                                     <span className={`${styles.verifyBadge} ${styles.verifyPass}`}>
@@ -257,10 +294,13 @@ export default function FutureKlinePanel() {
                                             </div>
                                             <div className={styles.itemValue}>
                                                 <div style={{textAlign: 'right', marginRight: '8px'}}>
-                                                    <div className={styles.priceNum}>{Number(thirdKline.close).toFixed(2)}</div>
-                                                    <small style={{color: thirdTrendDiff > 0 ? '#10B981' : '#EF4444', fontSize: '0.75rem'}}>
-                                                        {thirdTrendDiff > 0 ? '+' : ''}{thirdTrendDiff.toFixed(2)}%
-                                                    </small>
+                                                    <div className={styles.priceNum}>{formatPrice(thirdKline.close)}</div>
+                                                    <div style={{color: thirdKlinePct > 0 ? '#10B981' : (thirdKlinePct < 0 ? '#EF4444' : '#6B7280'), fontSize: '0.75rem', fontWeight: 'bold'}}>
+                                                        {thirdKlinePct > 0 ? '+' : ''}{thirdKlinePct.toFixed(2)}%
+                                                    </div>
+                                                    <div style={{color: '#6B7280', fontSize: '0.7rem'}}>
+                                                        (vs预测: {thirdTrendDiff > 0 ? '+' : ''}{thirdTrendDiff.toFixed(2)}%)
+                                                    </div>
                                                 </div>
                                                 {thirdTrendPassed ? (
                                                     <span className={`${styles.verifyBadge} ${styles.verifyPass}`}>

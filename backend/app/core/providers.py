@@ -8,6 +8,7 @@ PROVIDERS = {
         "agent_models": [
             "Qwen/Qwen3-Next-80B-A3B-Instruct",
             "Qwen/Qwen3-235B-A22B-Instruct",
+            "ZhipuAI/GLM-4.7",
         ],
         "graph_models": [
             "Qwen/Qwen3-VL-30B-A3B-Instruct",
