@@ -84,6 +84,8 @@ export interface AnalysisResult {
   kline_data?: Array<Record<string, unknown>>;
   future_kline_chart_base64?: string;
   future_kline_data?: FutureKlineDataRow[];
+  future_15m_chart_base64?: string;
+  future_15m_kline_data?: FutureKlineDataRow[];
   indicator_report?: string;
   technical_indicators?: string;
   pattern_report?: string;

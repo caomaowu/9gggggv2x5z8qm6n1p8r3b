@@ -163,97 +163,172 @@ async def analyze_market(
         future_kline_list = []
         future_kline_chart_base64 = None
         
-        if request.data_method in ["to_end", "date_range"] and request.future_kline_count > 0:
+        # User requirement: Force fetch 15m future data for backtesting validation (36 candles)
+        future_15m_kline_list = []
+        future_15m_chart_base64 = None
+        
+        if request.data_method in ["to_end", "date_range"]:
+            # 1. Fetch User Requested Future Data (Main Timeframe)
+            if request.future_kline_count > 0:
+                try:
+                    # 关键修复：直接使用用户指定的结束时间作为未来数据的起始时间
+                    # 避免从 df.index[-1] 转换带来的格式或时区问题
+                    # end_dt_str 已经在前面构造好，格式为 "YYYY-MM-DD HH:MM:00"，这是 API 验证通过的格式
+                    future_start_str = end_dt_str
+                    
+                    # 如果因为某种原因 end_dt_str 为空（防御性编程），则回退到 last_dt
+                    if not future_start_str:
+                        # 多时间框架模式下，使用第一个时间框架的数据
+                        reference_df = df[list(df.keys())[0]] if isinstance(df, dict) else df
+                        last_dt = reference_df.index[-1]
+                        future_start_str = last_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+                    logger.info(f"Fetching future verification data starting from {future_start_str}...")
+                    
+                    # 计算未来的结束时间，以确保 API 能返回我们需要的数据范围
+                    # 假设 API 忽略 start_time，只看 end_time，且返回 end_time 之前的 limit 条
+                    future_end_str = None
+                    try:
+                        # 多时间框架模式下，使用第一个时间框架
+                        tf = timeframe_for_result.split(",")[0] if "," in timeframe_for_result else timeframe_for_result
+                        delta = None
+                        if tf == '1mo':
+                            delta = pd.Timedelta(days=31)
+                        elif tf == '1w':
+                            delta = pd.Timedelta(weeks=1)
+                        else:
+                            # 尝试将 m 替换为 min (pandas 使用 min 表示分钟，避免歧义)
+                            # 注意：要避免把 1mo 替换成 1mino
+                            if tf.endswith('m') and not tf.endswith('mo'):
+                                tf_pd = tf.replace('m', 'min') 
+                            else:
+                                tf_pd = tf
+                            delta = pd.Timedelta(tf_pd)
+                        
+                        if delta:
+                            # 加上缓冲，确保覆盖所需范围
+                            # 比如需要 13 条，我们计算 13+20 条的时间跨度
+                            total_delta = delta * (request.future_kline_count + 20)
+                            start_dt = pd.to_datetime(future_start_str)
+                            future_end_dt = start_dt + total_delta
+                            future_end_str = future_end_dt.strftime("%Y-%m-%d %H:%M:%S")
+                            logger.info(f"Calculated future end date: {future_end_str}")
+                    except Exception as e:
+                        logger.warning(f"Failed to calculate future end date: {e}")
+
+                    # 获取比请求多一点的数据，以便过滤
+                    # 如果 future_end_str 有值，就用它。否则用 None (默认到 Now)
+                    future_df = market_service.get_ohlcv_data(
+                        symbol=request.asset,
+                        timeframe=tf,
+                        limit=request.future_kline_count + 50, # 大幅增加 limit 以防止不足
+                        start_date=future_start_str,
+                        end_date=future_end_str 
+                    )
+                    
+                    if future_df is not None and not future_df.empty:
+                        # 过滤掉已经包含在主分析数据中的时间点
+                        # 这里的 last_dt 是主数据的最后一条时间
+                        reference_df = df[tf] if isinstance(df, dict) else df
+                        last_dt = reference_df.index[-1]
+                        future_df = future_df[future_df.index > last_dt]
+                        
+                        # 截取用户请求的数量
+                        future_df = future_df.head(request.future_kline_count)
+                        
+                        if not future_df.empty:
+                            # 1. 生成图表
+                            from app.utils.chart_generator import chart_generator
+                            future_kline_chart_base64 = chart_generator.generate_kline_chart(
+                                future_df, 
+                                title=f"未来{len(future_df)}根K线走势 (回测验证)"
+                            )
+                            
+                            # 2. 准备数据列表
+                            future_df_reset = future_df.reset_index()
+                            # 处理索引列名
+                            date_col = 'Date' if 'Date' in future_df_reset.columns else 'index'
+                            if date_col in future_df_reset.columns:
+                                future_df_reset[date_col] = future_df_reset[date_col].dt.strftime('%Y-%m-%d %H:%M:%S')
+                                future_df_reset.rename(columns={date_col: 'datetime'}, inplace=True)
+                            
+                            # 转换为全小写列名
+                            future_df_reset.columns = [str(c).lower() for c in future_df_reset.columns]
+                            future_kline_list = future_df_reset.to_dict(orient='records')
+                            
+                            logger.info(f"Successfully fetched {len(future_kline_list)} future klines for verification")
+                except Exception as e:
+                    logger.warning(f"Failed to fetch future verification data: {e}")
+                    # 不阻断主流程，只是没有未来数据而已
+
+            # 2. Fetch 15m Future Data (Forced, 36 candles)
+            # --------------------------------------------------------------------------------
+            # User Requirement (2025-01-20): 
+            # Regardless of the analysis timeframe, always fetch and display the 
+            # 15-minute timeframe data for the 36 periods immediately following the analysis time.
+            # This provides a consistent "short-term verification" view for backtesting.
+            # --------------------------------------------------------------------------------
             try:
-                # 关键修复：直接使用用户指定的结束时间作为未来数据的起始时间
-                # 避免从 df.index[-1] 转换带来的格式或时区问题
-                # end_dt_str 已经在前面构造好，格式为 "YYYY-MM-DD HH:MM:00"，这是 API 验证通过的格式
+                # Use same start time
                 future_start_str = end_dt_str
-                
-                # 如果因为某种原因 end_dt_str 为空（防御性编程），则回退到 last_dt
                 if not future_start_str:
-                     # 多时间框架模式下，使用第一个时间框架的数据
                      reference_df = df[list(df.keys())[0]] if isinstance(df, dict) else df
                      last_dt = reference_df.index[-1]
                      future_start_str = last_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-                logger.info(f"Fetching future verification data starting from {future_start_str}...")
-                
-                # 计算未来的结束时间，以确保 API 能返回我们需要的数据范围
-                # 假设 API 忽略 start_time，只看 end_time，且返回 end_time 之前的 limit 条
-                future_end_str = None
-                try:
-                    # 多时间框架模式下，使用第一个时间框架
-                    tf = timeframe_for_result.split(",")[0] if "," in timeframe_for_result else timeframe_for_result
-                    delta = None
-                    if tf == '1mo':
-                        delta = pd.Timedelta(days=31)
-                    elif tf == '1w':
-                        delta = pd.Timedelta(weeks=1)
-                    else:
-                        # 尝试将 m 替换为 min (pandas 使用 min 表示分钟，避免歧义)
-                        # 注意：要避免把 1mo 替换成 1mino
-                        if tf.endswith('m') and not tf.endswith('mo'):
-                             tf_pd = tf.replace('m', 'min') 
-                        else:
-                             tf_pd = tf
-                        delta = pd.Timedelta(tf_pd)
-                    
-                    if delta:
-                        # 加上缓冲，确保覆盖所需范围
-                        # 比如需要 13 条，我们计算 13+20 条的时间跨度
-                        total_delta = delta * (request.future_kline_count + 20)
-                        start_dt = pd.to_datetime(future_start_str)
-                        future_end_dt = start_dt + total_delta
-                        future_end_str = future_end_dt.strftime("%Y-%m-%d %H:%M:%S")
-                        logger.info(f"Calculated future end date: {future_end_str}")
-                except Exception as e:
-                    logger.warning(f"Failed to calculate future end date: {e}")
+                # Calculate end time for 15m * 36 candles + buffer
+                # 36 candles * 15 min = 540 min = 9 hours
+                # Add buffer of 4 hours
+                start_dt = pd.to_datetime(future_start_str)
+                future_end_15m = start_dt + pd.Timedelta(hours=13) 
+                future_end_str_15m = future_end_15m.strftime("%Y-%m-%d %H:%M:%S")
 
-                # 获取比请求多一点的数据，以便过滤
-                # 如果 future_end_str 有值，就用它。否则用 None (默认到 Now)
-                future_df = market_service.get_ohlcv_data(
+                logger.info(f"Fetching 15m future verification data (36 candles) from {future_start_str} to {future_end_str_15m}...")
+                
+                df_future_15m = market_service.get_ohlcv_data(
                     symbol=request.asset,
-                    timeframe=tf,
-                    limit=request.future_kline_count + 50, # 大幅增加 limit 以防止不足
+                    timeframe="15m",
+                    limit=100, # Request more to filter
                     start_date=future_start_str,
-                    end_date=future_end_str 
+                    end_date=future_end_str_15m 
                 )
                 
-                if future_df is not None and not future_df.empty:
-                    # 过滤掉已经包含在主分析数据中的时间点
-                    # 这里的 last_dt 是主数据的最后一条时间
-                    reference_df = df[tf] if isinstance(df, dict) else df
-                    last_dt = reference_df.index[-1]
-                    future_df = future_df[future_df.index > last_dt]
-                    
-                    # 截取用户请求的数量
-                    future_df = future_df.head(request.future_kline_count)
-                    
-                    if not future_df.empty:
-                        # 1. 生成图表
+                if df_future_15m is not None and not df_future_15m.empty:
+                     # Filter: strictly after analysis time
+                     # Make sure indices are comparable (timezone-aware vs naive)
+                     if df_future_15m.index.tz is None and start_dt.tz is not None:
+                         start_dt = start_dt.tz_localize(None)
+                     elif df_future_15m.index.tz is not None and start_dt.tz is None:
+                         start_dt = start_dt.tz_localize('UTC') # Assume UTC if one is aware
+
+                     df_future_15m = df_future_15m[df_future_15m.index > start_dt]
+                     
+                     # Take exactly 36 candles (or less if not enough)
+                     target_count_15m = 36
+                     df_future_15m = df_future_15m.head(target_count_15m)
+                     
+                     if not df_future_15m.empty:
+                        # Generate chart
                         from app.utils.chart_generator import chart_generator
-                        future_kline_chart_base64 = chart_generator.generate_kline_chart(
-                            future_df, 
-                            title=f"未来{len(future_df)}根K线走势 (回测验证)"
+                        future_15m_chart_base64 = chart_generator.generate_kline_chart(
+                            df_future_15m, 
+                            title=f"未来36根15分钟K线走势 (短线验证)"
                         )
                         
-                        # 2. 准备数据列表
-                        future_df_reset = future_df.reset_index()
-                        # 处理索引列名
-                        date_col = 'Date' if 'Date' in future_df_reset.columns else 'index'
-                        if date_col in future_df_reset.columns:
-                            future_df_reset[date_col] = future_df_reset[date_col].dt.strftime('%Y-%m-%d %H:%M:%S')
-                            future_df_reset.rename(columns={date_col: 'datetime'}, inplace=True)
+                        # Prepare list
+                        future_15m_reset = df_future_15m.reset_index()
+                        date_col = 'Date' if 'Date' in future_15m_reset.columns else 'index'
+                        if date_col in future_15m_reset.columns:
+                            future_15m_reset[date_col] = future_15m_reset[date_col].dt.strftime('%Y-%m-%d %H:%M:%S')
+                            future_15m_reset.rename(columns={date_col: 'datetime'}, inplace=True)
                         
-                        # 转换为全小写列名
-                        future_df_reset.columns = [str(c).lower() for c in future_df_reset.columns]
-                        future_kline_list = future_df_reset.to_dict(orient='records')
+                        future_15m_reset.columns = [str(c).lower() for c in future_15m_reset.columns]
+                        future_15m_kline_list = future_15m_reset.to_dict(orient='records')
                         
-                        logger.info(f"Successfully fetched {len(future_kline_list)} future klines for verification")
+                        logger.info(f"Successfully fetched {len(future_15m_kline_list)} 15m future klines")
+
             except Exception as e:
-                logger.warning(f"Failed to fetch future verification data: {e}")
-                # 不阻断主流程，只是没有未来数据而已
+                logger.error(f"Failed to fetch 15m future data: {e}")
 
         check_env_changes()
 
@@ -313,6 +388,11 @@ async def analyze_market(
         if future_kline_list:
             result['future_kline_data'] = future_kline_list
             result['future_kline_chart_base64'] = future_kline_chart_base64
+            
+        # 注入强制获取的 15m 验证数据
+        if future_15m_kline_list:
+            result['future_15m_kline_data'] = future_15m_kline_list
+            result['future_15m_chart_base64'] = future_15m_chart_base64
         
         # Determine analysis time display
         import datetime

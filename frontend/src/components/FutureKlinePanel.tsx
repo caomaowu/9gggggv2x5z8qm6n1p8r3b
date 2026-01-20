@@ -9,6 +9,7 @@ export default function FutureKlinePanel() {
     const { 
         future_kline_chart_base64, 
         future_kline_data,
+        future_15m_chart_base64,
         latest_price,
         decision: singleDecision
     } = analysisResult;
@@ -345,6 +346,24 @@ export default function FutureKlinePanel() {
                             <div className={styles.chartCaption}>展示分析时间点之后实际发生的市场走势，用于验证AI决策的准确性（非预测生成）</div>
                         </div>
                     </div>
+
+                    {/* 
+                        15m Chart Container (New) 
+                        User Requirement (2025-01-20): Always show 36 candles of 15m future data for short-term verification.
+                    */}
+                    {future_15m_chart_base64 && (
+                        <div className={styles.chartContainer} style={{ marginTop: '1.5rem' }}>
+                            <div className={styles.chartTitle}>分析时间点后的15分钟K线走势 (36根)</div>
+                            <div className={styles.chartImageWrapper}>
+                                <img 
+                                    src={`data:image/png;base64,${future_15m_chart_base64}`} 
+                                    alt="Future 15m Kline Verification" 
+                                    className={styles.chartImage}
+                                />
+                                <div className={styles.chartCaption}>展示分析时间点之后15分钟级别的实际走势，用于短线验证</div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Table Container */}
                     {future_kline_data && future_kline_data.length > 0 && (

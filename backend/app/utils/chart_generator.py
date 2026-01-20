@@ -64,6 +64,8 @@ class ChartGenerator:
 
                 # 设置mplfinance样式
                 # 兼容性处理：检查可用的 matplotlib 样式
+                # 确保支持中文标题
+                
                 base_style = 'seaborn'
                 if base_style not in plt.style.available:
                     # 尝试查找替代的 seaborn 样式（新版 matplotlib 改名了）
@@ -83,7 +85,7 @@ class ChartGenerator:
                     type='candle',
                     style=s,
                     title=title,
-                    ylabel='价格',
+                    ylabel='Price', # 使用英文标签以避免乱码风险
                     volume=True,
                     figsize=(12, 8),
                     returnfig=True,
