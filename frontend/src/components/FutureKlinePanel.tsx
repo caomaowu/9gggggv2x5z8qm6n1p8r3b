@@ -11,7 +11,8 @@ export default function FutureKlinePanel() {
         future_kline_data,
         future_15m_chart_base64,
         latest_price,
-        decision: singleDecision
+        decision: singleDecision,
+        timeframe // Get timeframe
     } = analysisResult;
 
     const stopLoss = singleDecision?.stop_loss;
@@ -116,12 +117,20 @@ export default function FutureKlinePanel() {
     const formatPrice = (price: number | string | undefined) => {
         if (price === undefined || price === null) return '';
         const num = typeof price === 'string' ? parseFloat(price) : price;
-        if (isNaN(num)) return price;
+        if (isNaN(num)) return String(price);
         
-        // Dynamic precision based on price magnitude
-        if (num < 1) return num.toFixed(6);
-        if (num < 10) return num.toFixed(4);
-        if (num < 1000) return num.toFixed(2);
+        if (num === 0) return '0.00';
+
+        const absNum = Math.abs(num);
+        
+        // Intelligent precision based on price magnitude
+        // For very small values (Meme coins etc.)
+        if (absNum < 0.000001) return num.toFixed(10);
+        if (absNum < 0.0001) return num.toFixed(8);
+        if (absNum < 1) return num.toFixed(6);
+        if (absNum < 10) return num.toFixed(5);
+        if (absNum < 1000) return num.toFixed(4); // Even for BTC/ETH, 4 decimals is often useful
+        
         return num.toFixed(2);
     };
 
@@ -219,11 +228,11 @@ export default function FutureKlinePanel() {
                                         </div>
                                     </div>
 
-                                     {/* Item 2: 1st Future Kline */}
-                                     {firstKline ? (
+                                    {/* Item 2: 1st Future Kline */}
+                                    {firstKline ? (
                                         <div className={styles.trendItem}>
                                             <div className={styles.itemLabel}>
-                                                <i className="fas fa-clock"></i> 未来第1根K线
+                                                <i className="fas fa-clock"></i> 未来第1根K线 ({timeframe})
                                             </div>
                                             <div className={styles.itemValue}>
                                                 <div style={{textAlign: 'right', marginRight: '8px'}}>
@@ -257,7 +266,7 @@ export default function FutureKlinePanel() {
                                     {secondKline ? (
                                         <div className={`${styles.trendItem} ${styles.active}`}>
                                             <div className={styles.itemLabel}>
-                                                <i className="fas fa-clock"></i> 未来第2根K线
+                                                <i className="fas fa-clock"></i> 未来第2根K线 ({timeframe})
                                             </div>
                                             <div className={styles.itemValue}>
                                                 <div style={{textAlign: 'right', marginRight: '8px'}}>
@@ -291,7 +300,7 @@ export default function FutureKlinePanel() {
                                     {thirdKline ? (
                                         <div className={styles.trendItem}>
                                             <div className={styles.itemLabel}>
-                                                <i className="fas fa-clock"></i> 未来第3根K线
+                                                <i className="fas fa-clock"></i> 未来第3根K线 ({timeframe})
                                             </div>
                                             <div className={styles.itemValue}>
                                                 <div style={{textAlign: 'right', marginRight: '8px'}}>
@@ -327,7 +336,7 @@ export default function FutureKlinePanel() {
 
                     {/* Chart Container */}
                     <div className={styles.chartContainer}>
-                        <div className={styles.chartTitle}>分析时间点后的实际K线走势</div>
+                        <div className={styles.chartTitle}>分析时间点后的实际K线走势 ({timeframe}周期)</div>
                         <div className={styles.chartImageWrapper}>
                             {future_kline_chart_base64 ? (
                                 <img 
@@ -391,10 +400,10 @@ export default function FutureKlinePanel() {
                                             return (
                                                 <tr key={idx}>
                                                     <td>{row.datetime || row.date}</td>
-                                                    <td>{open.toFixed(2)}</td>
-                                                    <td className={styles.textSuccess}>{high.toFixed(2)}</td>
-                                                    <td className={styles.textDanger}>{low.toFixed(2)}</td>
-                                                    <td>{Number(row.close).toFixed(2)}</td>
+                                                    <td>{formatPrice(open)}</td>
+                                                    <td className={styles.textSuccess}>{formatPrice(high)}</td>
+                                                    <td className={styles.textDanger}>{formatPrice(low)}</td>
+                                                    <td>{formatPrice(Number(row.close))}</td>
                                                     <td>{amplitude}%</td>
                                                 </tr>
                                             );

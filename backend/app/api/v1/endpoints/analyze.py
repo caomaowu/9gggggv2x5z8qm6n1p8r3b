@@ -241,7 +241,7 @@ async def analyze_market(
                             from app.utils.chart_generator import chart_generator
                             future_kline_chart_base64 = chart_generator.generate_kline_chart(
                                 future_df, 
-                                title=f"未来{len(future_df)}根K线走势 (回测验证)"
+                                title=f"未来{len(future_df)}根K线走势 ({tf}周期 回测验证)"
                             )
                             
                             # 2. 准备数据列表
