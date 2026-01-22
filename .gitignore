@@ -53,3 +53,5 @@ caomao.xyz-ssl-bundle/
 随机表格/*.xlsx
 原始版本/
 backtest_results.csv
+# 忽略 tools 目录下的所有 csv 文件
+tools/**/*.csv

@@ -50,6 +50,7 @@ OUTPUT_FIELDNAMES = [
 DEFAULT_EXECUTE_DISPLAY_COLS = [
     "task_id",
     "asset",
+    "timeframe",
     "end_date",
     "end_time",
     "ai_decision",
@@ -65,6 +66,7 @@ DEFAULT_EXECUTE_DISPLAY_COLS = [
 DEFAULT_RESULTS_DISPLAY_COLS = [
     "task_id",
     "asset",
+    "timeframe",
     "end_date",
     "end_time",
     "ai_decision",

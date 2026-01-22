@@ -1,11 +1,12 @@
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-import pandas as pd
-import random
-import os
+import calendar
 from datetime import datetime, timedelta
 import glob
-import calendar
+import os
+import random
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
+
+import pandas as pd
 
 # 配置默认路径
 DEFAULT_DOC_DIR = os.path.join(os.path.dirname(__file__), 'doc')
@@ -137,9 +138,28 @@ class TaskGeneratorApp:
         
         # 时间周期
         ttk.Label(step2_frame, text="时间周期 (Timeframe):").grid(row=7, column=0, sticky='w', pady=(10,2))
+        
+        self.tf_container = ttk.Frame(step2_frame)
+        self.tf_container.grid(row=7, column=1, sticky='w', pady=2)
+        
         self.timeframe_var = tk.StringVar(value="4h")
-        self.timeframe_combo = ttk.Combobox(step2_frame, textvariable=self.timeframe_var, values=["30m", "1h", "4h", "1d"], state="readonly", width=10)
-        self.timeframe_combo.grid(row=7, column=1, sticky='w', pady=2)
+        self.all_timeframes = ["15m", "30m", "1h", "4h", "1d"]
+        self.timeframe_combo = ttk.Combobox(self.tf_container, textvariable=self.timeframe_var, values=self.all_timeframes, state="readonly", width=10)
+        self.timeframe_combo.pack(side=tk.LEFT)
+        
+        # 多周期选择区域
+        self.multi_tf_vars = {}
+        self.multi_tf_frame = ttk.Frame(self.tf_container)
+        for tf in self.all_timeframes:
+            var = tk.BooleanVar(value=False)
+            self.multi_tf_vars[tf] = var
+            cb = ttk.Checkbutton(self.multi_tf_frame, text=tf, variable=var)
+            cb.pack(side=tk.LEFT, padx=2)
+            
+        # 多周期开关
+        self.is_multi_tf = tk.BooleanVar(value=False)
+        self.multi_tf_check = ttk.Checkbutton(step2_frame, text="多周期", variable=self.is_multi_tf, command=self._on_tf_mode_changed)
+        self.multi_tf_check.grid(row=7, column=2, sticky='w', padx=5)
 
         ttk.Label(step2_frame, text="时间模式:").grid(row=8, column=0, sticky='w', pady=(10,2))
         self.time_mode_var = tk.StringVar(value="随机时间")
@@ -213,6 +233,14 @@ class TaskGeneratorApp:
         
         self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+    def _on_tf_mode_changed(self):
+        if self.is_multi_tf.get():
+            self.timeframe_combo.pack_forget()
+            self.multi_tf_frame.pack(side=tk.LEFT)
+        else:
+            self.multi_tf_frame.pack_forget()
+            self.timeframe_combo.pack(side=tk.LEFT)
 
     def _on_date_mode_changed(self, event=None):
         mode = self.date_mode_var.get()
@@ -290,8 +318,18 @@ class TaskGeneratorApp:
         - 4h: 3:55-3:59, 7:55-7:59, 11:55-11:59, 15:55-15:59, 19:55-19:59, 23:55-23:59
         - 1h: xx:55-xx:59
         - 30m: xx:25-xx:29, xx:55-xx:59
+        - 15m: xx:10-xx:14, xx:25-xx:29, xx:40-xx:44, xx:55-xx:59
         - 1d: 23:55-23:59
         """
+        # Handle multi-tf: "4h+15m" -> use smallest timeframe
+        if "+" in timeframe:
+            parts = timeframe.split("+")
+            # Sort by duration ascending (smallest first)
+            prio = {'1d':1440, '4h':240, '1h':60, '30m':30, '15m':15}
+            parts.sort(key=lambda x: prio.get(x, 9999))
+            base_tf = parts[0]
+            return self._generate_random_time(base_tf)
+
         minute = random.randint(55, 59)
         hour = 0
         
@@ -313,6 +351,13 @@ class TaskGeneratorApp:
             # 30m 收盘点: 00, 30
             # Ranges: xx:25-xx:29 (for 30 close), xx:55-xx:59 (for 00 close)
             base_min = random.choice([25, 55])
+            minute = random.randint(base_min, base_min + 4)
+            
+        elif timeframe == '15m':
+            hour = random.randint(0, 23)
+            # 15m closes: 00, 15, 30, 45
+            # Ranges: xx:10-14, xx:25-29, xx:40-44, xx:55-59
+            base_min = random.choice([10, 25, 40, 55])
             minute = random.randint(base_min, base_min + 4)
             
         elif timeframe == '1d':
@@ -464,7 +509,19 @@ class TaskGeneratorApp:
             count = self.pick_count_var.get()
             start_date = self.start_date_var.get()
             end_date = self.end_date_var.get()
-            tf = self.timeframe_var.get()
+            
+            if self.is_multi_tf.get():
+                selected = [tf for tf in self.all_timeframes if self.multi_tf_vars[tf].get()]
+                if not selected:
+                    messagebox.showerror("错误", "请至少选择一个时间周期")
+                    return
+                # Sort descending duration (Big -> Small) for string "4h+15m"
+                prio = {'1d':5, '4h':4, '1h':3, '30m':2, '15m':1}
+                selected.sort(key=lambda x: prio.get(x, 0), reverse=True)
+                tf = "+".join(selected)
+            else:
+                tf = self.timeframe_var.get()
+
             k_count = self.kline_count_var.get()
             fut_count = self.future_kline_var.get()
             date_mode = getattr(self, "date_mode_var", None)

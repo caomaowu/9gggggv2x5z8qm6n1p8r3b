@@ -1,5 +1,6 @@
 import csv
 import os
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -43,6 +44,27 @@ def normalize_base_url(base_url: str) -> str:
     return base_url
 
 
+def parse_timeframes(value: Any, default_value: str) -> list[str]:
+    if isinstance(value, list):
+        items = [str(v).strip() for v in value if str(v).strip()]
+    else:
+        text = str(value or "").strip()
+        if not text:
+            text = str(default_value or "").strip()
+        if not text:
+            return []
+        parts = [p.strip() for p in re.split(r"[+|,，、;；\s]+", text) if p and p.strip()]
+        items = parts
+    seen = set()
+    result: list[str] = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        result.append(item)
+    return result
+
+
 def task_key_from_row(row: Dict[str, str], defaults: Dict[str, Any]) -> TaskKey:
     def get_str(name: str, default_value: str) -> str:
         val = row.get(name)
@@ -62,9 +84,13 @@ def task_key_from_row(row: Dict[str, str], defaults: Dict[str, Any]) -> TaskKey:
             return int(default_value)
         return int(float(raw))
 
+    timeframe_raw = row.get("timeframes") or row.get("timeframe")
+    timeframes = parse_timeframes(timeframe_raw, defaults["timeframe"])
+    timeframe_value = "+".join(timeframes) if len(timeframes) > 1 else (timeframes[0] if timeframes else "")
+
     return TaskKey(
         asset=get_str("asset", defaults["asset"]),
-        timeframe=get_str("timeframe", defaults["timeframe"]),
+        timeframe=timeframe_value or get_str("timeframe", defaults["timeframe"]),
         end_date=get_str("end_date", defaults["end_date"]),
         end_time=normalize_end_time(get_str("end_time", defaults["end_time"])),
         data_method=get_str("data_method", defaults["data_method"]),
@@ -192,9 +218,12 @@ def load_existing_keys(output_csv: str) -> Tuple[Optional[List[str]], set]:
         keys = set()
         for row in reader:
             try:
+                timeframe_raw = row.get("timeframes") or row.get("timeframe")
+                timeframes = parse_timeframes(timeframe_raw, "")
+                timeframe_value = "+".join(timeframes) if len(timeframes) > 1 else (timeframes[0] if timeframes else "")
                 key = TaskKey(
                     asset=(row.get("asset") or "").strip(),
-                    timeframe=(row.get("timeframe") or "").strip(),
+                    timeframe=timeframe_value or (row.get("timeframe") or "").strip(),
                     end_date=(row.get("end_date") or row.get("date") or "").strip().split(" ")[0],
                     end_time=normalize_end_time((row.get("end_time") or "").strip()),
                     data_method=(row.get("data_method") or row.get("data_method_short") or "to_end").strip(),
@@ -335,7 +364,9 @@ def run_one_task(
 
     task_id = (row.get("task_id") or "").strip()
     asset = (row.get("asset") or "").strip()
-    timeframe = (row.get("timeframe") or "").strip()
+    timeframe_raw = row.get("timeframes") or row.get("timeframe")
+    timeframes = parse_timeframes(timeframe_raw, defaults["timeframe"])
+    timeframe = "+".join(timeframes) if len(timeframes) > 1 else (timeframes[0] if timeframes else "")
     end_date = (row.get("end_date") or "").strip()
     end_time = normalize_end_time((row.get("end_time") or "").strip())
 
@@ -358,7 +389,6 @@ def run_one_task(
 
     payload: Dict[str, Any] = {
         "asset": asset,
-        "timeframe": timeframe,
         "data_method": data_method,
         "kline_count": kline_count,
         "future_kline_count": future_kline_count,
@@ -366,6 +396,12 @@ def run_one_task(
         "end_date": end_date,
         "end_time": end_time,
     }
+    if len(timeframes) > 1:
+        payload["timeframe"] = timeframes
+        payload["multi_timeframe_mode"] = True
+        payload["timeframes"] = timeframes
+    else:
+        payload["timeframe"] = timeframe
 
     url = f"{base_url}{analyze_path}"
     try:
@@ -497,7 +533,9 @@ def run_one_task_with_funds(
 
     task_id = (row.get("task_id") or "").strip()
     asset = (row.get("asset") or "").strip()
-    timeframe = (row.get("timeframe") or "").strip()
+    timeframe_raw = row.get("timeframes") or row.get("timeframe")
+    timeframes = parse_timeframes(timeframe_raw, defaults["timeframe"])
+    timeframe = "+".join(timeframes) if len(timeframes) > 1 else (timeframes[0] if timeframes else "")
     end_date = (row.get("end_date") or "").strip()
     end_time = normalize_end_time((row.get("end_time") or "").strip())
 
@@ -520,7 +558,6 @@ def run_one_task_with_funds(
 
     payload: Dict[str, Any] = {
         "asset": asset,
-        "timeframe": timeframe,
         "data_method": data_method,
         "kline_count": kline_count,
         "future_kline_count": future_kline_count,
@@ -528,6 +565,12 @@ def run_one_task_with_funds(
         "end_date": end_date,
         "end_time": end_time,
     }
+    if len(timeframes) > 1:
+        payload["timeframe"] = timeframes
+        payload["multi_timeframe_mode"] = True
+        payload["timeframes"] = timeframes
+    else:
+        payload["timeframe"] = timeframe
 
     url = f"{base_url}{analyze_path}"
     try:
