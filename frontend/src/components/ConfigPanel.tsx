@@ -1,8 +1,9 @@
 import { useAppStore } from '../store/useAppStore';
 import type { AnalyzeRequest } from '../types';
 import styles from './ConfigPanel.module.css';
-import { clearSystemCache, clearExportsFiles } from '../api/system';
-import { useState } from 'react';
+import { clearSystemCache, clearExportsFiles, getLLMConfig, updateLLMConfig } from '../api/system';
+import type { LLMConfigCurrent, LLMProviderInfo } from '../api/system';
+import { useState, useEffect } from 'react';
 
 export default function ConfigPanel() {
   const { 
@@ -14,6 +15,54 @@ export default function ConfigPanel() {
   const [isCleaning, setIsCleaning] = useState(false);
   const [isCleaningExports, setIsCleaningExports] = useState(false);
   
+  // LLM Config State
+  const [llmConfig, setLLMConfig] = useState<LLMConfigCurrent | null>(null);
+  const [availableProviders, setAvailableProviders] = useState<Record<string, LLMProviderInfo>>({});
+  const [isSavingLLM, setIsSavingLLM] = useState(false);
+
+  useEffect(() => {
+      const fetchConfig = async () => {
+          try {
+              const data = await getLLMConfig();
+              setLLMConfig(data.current);
+              setAvailableProviders(data.options.providers);
+          } catch (error) {
+              console.error("Failed to fetch LLM config:", error);
+          }
+      };
+      fetchConfig();
+  }, []);
+
+  const handleSaveLLMConfig = async () => {
+      if (!llmConfig) return;
+      setIsSavingLLM(true);
+      try {
+          await updateLLMConfig(llmConfig);
+          alert("LLM 配置已保存并更新！");
+      } catch (error) {
+          console.error("Failed to save LLM config:", error);
+          alert("保存配置失败，请检查控制台");
+      } finally {
+          setIsSavingLLM(false);
+      }
+  };
+
+  const handleAgentProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      if (!llmConfig) return;
+      const newProvider = e.target.value;
+      // 当切换 Provider 时，默认选择第一个可用模型
+      const firstModel = availableProviders[newProvider]?.agent_models?.[0] || '';
+      setLLMConfig({ ...llmConfig, agent_provider: newProvider, agent_model: firstModel });
+  };
+
+  const handleGraphProviderChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      if (!llmConfig) return;
+      const newProvider = e.target.value;
+      // 当切换 Provider 时，默认选择第一个可用模型
+      const firstModel = availableProviders[newProvider]?.graph_models?.[0] || '';
+      setLLMConfig({ ...llmConfig, graph_provider: newProvider, graph_model: firstModel });
+  };
+
   // Quick Input State
   const [quickDate, setQuickDate] = useState('');
   const [quickTime, setQuickTime] = useState('');
@@ -267,6 +316,99 @@ export default function ConfigPanel() {
         )}
 
     </div>
+
+    {/* LLM Configuration */}
+    {llmConfig && (
+        <div className={styles.panel}>
+            <h4 className={styles.panelTitle}>
+                <i className="fas fa-robot"></i> LLM Configuration
+            </h4>
+            
+            <div className={styles.formGroup}>
+                <label className={styles.formLabel}>
+                    Agent Model (Logic & Analysis)
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Provider</label>
+                        <select 
+                            className={styles.formControl}
+                            value={llmConfig.agent_provider}
+                            onChange={handleAgentProviderChange}
+                        >
+                            {Object.entries(availableProviders).map(([key, info]) => (
+                                <option key={key} value={key}>{info.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Model</label>
+                        <select 
+                            className={styles.formControl}
+                            value={llmConfig.agent_model}
+                            onChange={(e) => setLLMConfig({ ...llmConfig, agent_model: e.target.value })}
+                        >
+                            {availableProviders[llmConfig.agent_provider]?.agent_models?.map(model => (
+                                <option key={model} value={model}>{model}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div className={`${styles.formGroup} mt-4`}>
+                <label className={styles.formLabel}>
+                    Graph Model (Vision & Pattern)
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                         <label className="text-xs text-gray-500 mb-1 block">Provider</label>
+                        <select 
+                            className={styles.formControl}
+                            value={llmConfig.graph_provider}
+                            onChange={handleGraphProviderChange}
+                        >
+                            {Object.entries(availableProviders).map(([key, info]) => (
+                                <option key={key} value={key}>{info.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Model</label>
+                        <select 
+                            className={styles.formControl}
+                            value={llmConfig.graph_model}
+                            onChange={(e) => setLLMConfig({ ...llmConfig, graph_model: e.target.value })}
+                        >
+                            {availableProviders[llmConfig.graph_provider]?.graph_models?.map(model => (
+                                <option key={model} value={model}>{model}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+                <button 
+                    type="button" 
+                    className={styles.btnPrimary}
+                    onClick={handleSaveLLMConfig}
+                    disabled={isSavingLLM}
+                    style={{ padding: '0.5rem 1rem' }}
+                >
+                    {isSavingLLM ? (
+                        <>
+                            <i className="fas fa-spinner fa-spin me-2"></i> Saving...
+                        </>
+                    ) : (
+                        <>
+                            <i className="fas fa-save me-2"></i> Save Configuration
+                        </>
+                    )}
+                </button>
+            </div>
+        </div>
+    )}
 
     {/* System Maintenance */}
     <div className={styles.panel}>

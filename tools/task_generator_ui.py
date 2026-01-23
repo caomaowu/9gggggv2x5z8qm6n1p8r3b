@@ -3,14 +3,23 @@ from datetime import datetime, timedelta
 import glob
 import os
 import random
+import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+import requests
+from dotenv import load_dotenv
 
 import pandas as pd
 
 # 配置默认路径
 DEFAULT_DOC_DIR = os.path.join(os.path.dirname(__file__), 'doc')
 DEFAULT_OUTPUT_DIR = os.path.dirname(__file__)
+
+# 加载环境变量
+env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backend', '.env')
+load_dotenv(env_path)
+API_URL = os.getenv("MARKET_DATA_API_URL", "https://caomao.xyz")
+API_TOKEN = os.getenv("MARKET_DATA_API_TOKEN", "")
 
 class TaskGeneratorApp:
     def __init__(self, root):
@@ -192,8 +201,16 @@ class TaskGeneratorApp:
         btn_frame = ttk.Frame(left_scrollable)
         btn_frame.pack(fill=tk.X, pady=20)
         
-        ttk.Button(btn_frame, text="一键生成预览", command=self.generate_tasks, width=20).pack(pady=5)
-        ttk.Button(btn_frame, text="清空预览", command=self.clear_tasks).pack(pady=5)
+        # 配置网格列权重，使按钮均匀分布
+        btn_frame.columnconfigure(0, weight=1)
+        btn_frame.columnconfigure(1, weight=1)
+
+        ttk.Button(btn_frame, text="一键生成预览", command=self.generate_tasks).grid(row=0, column=0, padx=2, pady=5, sticky='ew')
+        self.btn_verify = ttk.Button(btn_frame, text="验证所有任务", command=self.verify_tasks)
+        self.btn_verify.grid(row=0, column=1, padx=2, pady=5, sticky='ew')
+        
+        ttk.Button(btn_frame, text="删除无效任务", command=self.delete_invalid_tasks).grid(row=1, column=0, padx=2, pady=5, sticky='ew')
+        ttk.Button(btn_frame, text="清空预览", command=self.clear_tasks).grid(row=1, column=1, padx=2, pady=5, sticky='ew')
 
         # 4. 保存设置
         save_frame = ttk.LabelFrame(left_scrollable, text="4. 结果输出", padding=10)
@@ -213,19 +230,24 @@ class TaskGeneratorApp:
         self.preview_info.pack(anchor='w', pady=(0, 10))
         
         # 表格
-        cols = ("task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "ai_version", "data_method")
+        cols = ("task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "ai_version", "data_method", "status")
         self.tree = ttk.Treeview(right_frame, columns=cols, show='headings', height=25)
         
         # 设置列宽
         col_widths = {
             "task_id": 50, "asset": 80, "timeframe": 60, "end_date": 90, 
             "end_time": 70, "kline_count": 60, "future_kline_count": 60,
-            "ai_version": 70, "data_method": 70
+            "ai_version": 70, "data_method": 70, "status": 80
         }
         
         for col in cols:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=col_widths.get(col, 80), anchor='center')
+        
+        # Tag configuration for colors
+        self.tree.tag_configure("valid", background="#E8F5E9") # Light Green
+        self.tree.tag_configure("invalid", background="#FFEBEE") # Light Red
+        self.tree.tag_configure("checking", background="#E3F2FD") # Light Blue
         
         # 滚动条
         scrollbar = ttk.Scrollbar(right_frame, orient=tk.VERTICAL, command=self.tree.yview)
@@ -498,6 +520,46 @@ class TaskGeneratorApp:
 
         render()
 
+    def _check_data_availability(self, asset, timeframe, end_date, end_time):
+        """验证数据是否存在"""
+        if not API_URL:
+            return True # No API configured, skip validation
+            
+        symbol = asset.replace('/', '-')
+        tf = timeframe.split('+')[0]
+        # Ensure proper datetime format
+        if len(end_time) == 5:
+            dt_str = f"{end_date} {end_time}:00"
+        else:
+            dt_str = f"{end_date} {end_time}"
+        
+        try:
+            url = f"{API_URL.rstrip('/')}/api/v1/ohlcv"
+            headers = {"Authorization": f"Bearer {API_TOKEN}"} if API_TOKEN else {}
+            params = {
+                "symbol": symbol,
+                "timeframe": tf,
+                "limit": 1,
+                "end_time": dt_str
+            }
+            # Add timeout to prevent freezing UI for too long
+            resp = requests.get(url, params=params, headers=headers, timeout=3)
+            
+            if resp.status_code == 200:
+                data = resp.json()
+                # Handle different API response structures
+                if isinstance(data, dict):
+                     if data.get("data") and len(data["data"]) > 0:
+                         return True
+                     if data.get("status") == "success" and data.get("data"):
+                         return True
+                elif isinstance(data, list) and len(data) > 0:
+                    return True
+            return False
+        except Exception as e:
+            print(f"Validation error for {symbol} at {dt_str}: {e}")
+            return False
+
     def generate_tasks(self):
         try:
             asset_mode = getattr(self, "asset_mode_var", None)
@@ -637,6 +699,13 @@ class TaskGeneratorApp:
                                 end_time_value = self._generate_random_time(tf)
                             else:
                                 end_time_value = t
+                            
+                            # 验证数据
+                            if self.validate_data_var.get():
+                                if not self._check_data_availability(asset, tf, d, end_time_value):
+                                    print(f"Skipping invalid data: {asset} {d} {end_time_value}")
+                                    continue
+
                             task = {
                                 "task_id": task_id,
                                 "asset": asset,
@@ -646,7 +715,8 @@ class TaskGeneratorApp:
                                 "kline_count": k_count,
                                 "future_kline_count": fut_count,
                                 "ai_version": "original",
-                                "data_method": "to_end"
+                                "data_method": "to_end",
+                                "status": "Pending"
                             }
                             tasks.append(task)
                             task_id += 1
@@ -669,6 +739,7 @@ class TaskGeneratorApp:
                                 end_time_value = self._generate_random_time(tf)
                             else:
                                 end_time_value = t
+                            
                             task = {
                                 "task_id": task_id,
                                 "asset": asset,
@@ -678,7 +749,8 @@ class TaskGeneratorApp:
                                 "kline_count": k_count,
                                 "future_kline_count": fut_count,
                                 "ai_version": "original",
-                                "data_method": "to_end"
+                                "data_method": "to_end",
+                                "status": "Pending"
                             }
                             tasks.append(task)
                             task_id += 1
@@ -691,13 +763,102 @@ class TaskGeneratorApp:
 
             self.generated_tasks = tasks
             for task in tasks:
-                cols_order = ["task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "ai_version", "data_method"]
+                cols_order = ["task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "ai_version", "data_method", "status"]
                 values = [task[k] for k in cols_order]
                 self.tree.insert('', 'end', values=values)
 
             self.preview_info.config(text=f"预览: {len(self.generated_tasks)} 条任务")
         except Exception as e:
             messagebox.showerror("生成失败", str(e))
+
+    def verify_tasks(self):
+        """启动后台线程验证任务"""
+        if not self.generated_tasks:
+            messagebox.showwarning("警告", "没有可验证的任务")
+            return
+            
+        self.btn_verify.config(state="disabled", text="验证中...")
+        t = threading.Thread(target=self._run_verification)
+        t.daemon = True
+        t.start()
+
+    def _run_verification(self):
+        """后台验证循环"""
+        items = self.tree.get_children()
+        total = len(items)
+        
+        for i, item_id in enumerate(items):
+            try:
+                values = self.tree.item(item_id, 'values')
+                # cols: task_id, asset, timeframe, end_date, end_time, ...
+                # indices: 0, 1, 2, 3, 4
+                asset = values[1]
+                tf = values[2]
+                end_date = values[3]
+                end_time = values[4]
+                
+                # Update status to checking
+                self.root.after(0, lambda i=item_id: self.tree.item(i, tags=('checking',)))
+                
+                is_valid = self._check_data_availability(asset, tf, end_date, end_time)
+                
+                status_text = "Valid" if is_valid else "Invalid"
+                tag = "valid" if is_valid else "invalid"
+                
+                # Update UI
+                def update_row(iid=item_id, s=status_text, t=tag, idx=i):
+                    # 获取当前值并更新最后一列
+                    curr_vals = list(self.tree.item(iid, 'values'))
+                    if len(curr_vals) >= 10:
+                        curr_vals[9] = s
+                    else:
+                        curr_vals.append(s)
+                    self.tree.item(iid, values=curr_vals, tags=(t,))
+                    self.preview_info.config(text=f"验证进度: {idx+1}/{total}")
+                
+                self.root.after(0, update_row)
+                
+                # 更新内部数据
+                if i < len(self.generated_tasks):
+                    self.generated_tasks[i]["status"] = status_text
+                    
+            except Exception as e:
+                print(f"Error verifying row {i}: {e}")
+
+        self.root.after(0, lambda: self.btn_verify.config(state="normal", text="验证所有任务"))
+        self.root.after(0, lambda: self.preview_info.config(text=f"预览: {total} 条任务 (验证完成)"))
+
+    def delete_invalid_tasks(self):
+        """删除状态为 Invalid 的任务"""
+        if not self.generated_tasks:
+            return
+            
+        original_count = len(self.generated_tasks)
+        # Filter out invalid tasks
+        self.generated_tasks = [t for t in self.generated_tasks if t.get("status") != "Invalid"]
+        new_count = len(self.generated_tasks)
+        
+        deleted_count = original_count - new_count
+        
+        # Refresh Treeview
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+            
+        for task in self.generated_tasks:
+            cols_order = ["task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "ai_version", "data_method", "status"]
+            values = [task[k] for k in cols_order]
+            
+            # Restore tag based on status
+            tag = "valid" if task.get("status") == "Valid" else ""
+            if task.get("status") == "Pending": tag = ""
+            
+            self.tree.insert('', 'end', values=values, tags=(tag,))
+            
+        self.preview_info.config(text=f"预览: {new_count} 条任务")
+        if deleted_count > 0:
+            messagebox.showinfo("完成", f"已删除 {deleted_count} 条无效任务")
+        else:
+            messagebox.showinfo("提示", "没有发现无效任务")
 
 
     def clear_tasks(self):

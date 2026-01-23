@@ -21,3 +21,45 @@ export const clearHistoryData = async (): Promise<SystemCleanResponse> => {
     return response.data;
 };
 
+// LLM Configuration Types
+
+export interface LLMProviderInfo {
+    name: string;
+    agent_models: string[];
+    graph_models: string[];
+}
+
+export interface LLMConfigCurrent {
+    agent_provider: string;
+    agent_model: string;
+    agent_temperature: number;
+    graph_provider: string;
+    graph_model: string;
+    graph_temperature: number;
+}
+
+export interface LLMConfigResponse {
+    current: LLMConfigCurrent;
+    options: {
+        providers: Record<string, LLMProviderInfo>;
+    };
+}
+
+export interface LLMConfigUpdate {
+    agent_provider?: string;
+    agent_model?: string;
+    agent_temperature?: number;
+    graph_provider?: string;
+    graph_model?: string;
+    graph_temperature?: number;
+}
+
+export const getLLMConfig = async (): Promise<LLMConfigResponse> => {
+    const response = await apiClient.get<LLMConfigResponse>('/system/llm-config');
+    return response.data;
+};
+
+export const updateLLMConfig = async (config: LLMConfigUpdate): Promise<any> => {
+    const response = await apiClient.post('/system/llm-config', config);
+    return response.data;
+};
