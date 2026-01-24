@@ -267,9 +267,19 @@ def render_execute(
             return
 
         if execute_mode == "后台执行":
-            tasks = list(state["tasks"])
+            # 准备任务数据，注入配置
+            tasks_to_queue = []
+            for t in state["tasks"]:
+                t_copy = t.copy()
+                if backtest_mode == "带资金回测" and funds_cfg:
+                    t_copy["backtest_mode"] = "带资金回测"
+                    t_copy["funds_cfg"] = funds_cfg
+                else:
+                    t_copy["backtest_mode"] = "普通回测"
+                tasks_to_queue.append(t_copy)
+
             batch_name = f"批次_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            success, message, added_count = daemon_client.add_tasks_to_queue(tasks, batch_name)
+            success, message, added_count = daemon_client.add_tasks_to_queue(tasks_to_queue, batch_name)
 
             if success:
                 st.success(f"{message}")

@@ -319,10 +319,23 @@ def run_daemon() -> None:
                 time.sleep(5)
                 continue
 
+            # 确定当前任务的模式和配置
+            current_backtest_mode = task.get("backtest_mode", backtest_mode)
+            current_funds_cfg = task.get("funds_cfg", funds_cfg)
+
             batch_id = task.get("_batch_id")
             if batch_id != last_task_batch_id:
                 batch_name = task.get("_batch_name", "未知批次")
                 logger.info(f"开始处理新批次: {batch_name}")
+
+                # 如果是资金回测模式，新批次开始时重置资金
+                if current_backtest_mode == "带资金回测" and current_funds_cfg:
+                    try:
+                        equity = float(current_funds_cfg["initial_equity"])
+                        logger.info(f"批次 {batch_id} (资金回测) 开始，重置初始资金为: {equity}")
+                    except Exception as e:
+                        logger.error(f"重置资金失败: {e}")
+
                 batch_row = {k: "" for k in core.OUTPUT_FIELDNAMES}
                 batch_row["error"] = f"=== 后台批次开始 {batch_name} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ==="
                 try:
@@ -349,7 +362,7 @@ def run_daemon() -> None:
             )
 
             try:
-                result_row, equity = run_one_task(config, task, output_csv, backtest_mode, funds_cfg, equity)
+                result_row, equity = run_one_task(config, task, output_csv, current_backtest_mode, current_funds_cfg, equity)
 
                 is_correct = core.classify_is_correct(result_row.get("is_correct"))
                 if is_correct == "True":

@@ -55,3 +55,6 @@ caomao.xyz-ssl-bundle/
 backtest_results.csv
 # 忽略 tools 目录下的所有 csv 文件
 tools/**/*.csv
+tools/data/batch_backtest_progress.json
+tools/data/batch_backtest_status.json
+tools/data/batch_backtest_status.json
