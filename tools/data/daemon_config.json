@@ -1,8 +1,8 @@
 {
   "backend_url": "http://localhost:8000/api/v1",
   "analyze_path": "/analyze/",
-  "concurrency": 2,
-  "task_delay": 16.0,
+  "concurrency": 6,
+  "task_delay": 1.6,
   "timeout": 180.0,
   "retries": 2,
   "hold_threshold": 0.002,
