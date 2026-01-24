@@ -72,16 +72,18 @@ def run_app() -> None:
         }
     )
 
-    pages_list = ["📁 任务来源", "🚀 执行回测", "📊 结果"]
+    pages_list = ["任务来源", "执行回测", "结果", "后台任务管理"]
     if st.session_state.next_page:
         st.session_state.active_page = st.session_state.next_page
         st.session_state.next_page = None
 
     active_page = st.radio("导航", pages_list, horizontal=True, key="active_page", label_visibility="collapsed")
 
-    if active_page == "📁 任务来源":
+    if active_page == "任务来源":
         pages.render_task_source(cfg=cfg, state=st.session_state, store=store, core=core)
-    elif active_page == "🚀 执行回测":
+    elif active_page == "执行回测":
         pages.render_execute(cfg=cfg, state=st.session_state, store=store, core=core)
-    else:
+    elif active_page == "结果":
         pages.render_results(cfg=cfg, state=st.session_state, core=core)
+    else:
+        pages.render_daemon_management(cfg=cfg, state=st.session_state, core=core)

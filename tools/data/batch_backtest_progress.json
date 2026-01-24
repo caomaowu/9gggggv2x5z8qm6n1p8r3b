@@ -1,0 +1,18 @@
+{
+  "is_running": false,
+  "current_task_id": "gen_a6d377bc",
+  "current_task_index": 8,
+  "total_tasks": 7,
+  "completed_count": 8,
+  "failed_count": 0,
+  "start_time": "2026-01-25T01:03:42.712658",
+  "last_update": "2026-01-25T01:13:29.238596",
+  "current_asset": "SOLUSDT",
+  "current_timeframe": "4h",
+  "current_end_date": "2025-09-03",
+  "current_end_time": "19:42",
+  "stats_wins": 3,
+  "stats_losses": 5,
+  "equity": null,
+  "status": "空闲"
+}

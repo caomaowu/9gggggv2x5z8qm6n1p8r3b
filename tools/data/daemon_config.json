@@ -1,0 +1,21 @@
+{
+  "backend_url": "http://localhost:8000/api/v1",
+  "analyze_path": "/analyze/",
+  "concurrency": 2,
+  "task_delay": 16.0,
+  "timeout": 180.0,
+  "retries": 2,
+  "hold_threshold": 0.002,
+  "default_kline_count": 40,
+  "default_future_kline_count": 13,
+  "default_ai_version": "original",
+  "default_data_method": "to_end",
+  "backtest_mode": "普通回测",
+  "output_path": "tools/backtest_results.csv",
+  "initial_equity": 10000.0,
+  "allocation_pct": 100.0,
+  "contract_multiplier": 1.0,
+  "slippage_pct": 0.05,
+  "force_close_pct": 5.0,
+  "trigger_order": "保守（先不利）"
+}

@@ -12,8 +12,8 @@ def _repo_root() -> str:
     return os.path.dirname(_tools_dir())
 
 
-FAV_ASSETS_FILE = os.path.join(_tools_dir(), "favorite_assets.json")
-PRESETS_DIR = os.path.join(_tools_dir(), "task_presets")
+FAV_ASSETS_FILE = os.path.join(_tools_dir(), "data", "favorite_assets.json")
+PRESETS_DIR = os.path.join(_tools_dir(), "data", "task_presets")
 ENV_PATH = os.path.join(_repo_root(), "backend", ".env")
 
 

@@ -8,7 +8,7 @@ from typing import Any, MutableMapping, Optional
 import pandas as pd
 import streamlit as st
 
-from batch_backtest_app import core, engine, store
+from batch_backtest_app import core, daemon_client, engine, store
 
 
 def render_task_source(
@@ -19,7 +19,7 @@ def render_task_source(
     core: Any,
 ) -> None:
     st.markdown("### 选择任务来源")
-    source_option = st.radio("模式", ["上传任务文件", "自动生成任务", "📂 加载已保存任务"], horizontal=True)
+    source_option = st.radio("模式", ["上传任务文件", "自动生成任务", "加载已保存任务"], horizontal=True)
 
     if source_option == "上传任务文件":
         st.markdown("#### 方式 1: 直接上传")
@@ -43,7 +43,7 @@ def render_task_source(
             selected_source_name = selected_local_csv
 
         if final_input_path:
-            if st.button("📥 加载选中的文件", type="primary"):
+            if st.button("加载选中的文件", type="primary"):
                 try:
                     tasks = engine.read_tasks(final_input_path)
                     state["tasks"] = tasks
@@ -65,7 +65,7 @@ def render_task_source(
             selected_preset = c_load1.selectbox("选择任务集", presets, label_visibility="collapsed")
 
             col_act1, col_act2 = st.columns(2)
-            if col_act1.button("📥 加载选中任务集", type="primary"):
+            if col_act1.button("加载选中任务集", type="primary"):
                 try:
                     loaded_tasks = store.load_preset(selected_preset)
                     if loaded_tasks:
@@ -81,7 +81,7 @@ def render_task_source(
                 except Exception as e:
                     st.error(f"加载失败: {e}")
 
-            if col_act2.button("🗑️ 删除该记录"):
+            if col_act2.button("删除该记录"):
                 try:
                     store.delete_preset(selected_preset)
                     st.success(f"已删除: {selected_preset}")
@@ -103,10 +103,10 @@ def render_task_source(
             )
 
             fav_list = store.get_favorites()
-            with st.expander("⭐ 常用币种管理", expanded=False):
+            with st.expander("常用币种管理", expanded=False):
                 st.caption("选择常用币种并添加到上方列表")
                 selected_favs = st.multiselect("选择币种:", fav_list, key="fav_multiselect")
-                st.button("⬇️ 添加选中到资产列表", on_click=lambda: _add_favs_callback(state, selected_favs))
+                st.button("添加选中到资产列表", on_click=lambda: _add_favs_callback(state, selected_favs))
 
                 st.markdown("---")
                 st.caption("编辑常用列表")
@@ -228,11 +228,13 @@ def render_execute(
 ) -> None:
     st.markdown("### 执行回测")
 
+    execute_mode = st.radio("执行模式", ["前台执行", "后台执行"], horizontal=True, help="前台执行：浏览器关闭会中断 | 后台执行：浏览器关闭不影响，任务继续运行")
+
     col_run1, col_run2 = st.columns(2)
     with col_run1:
         output_path = st.text_input("结果输出路径", value=os.path.join("tools", "backtest_results.csv"))
     with col_run2:
-        rerun = st.checkbox("强制重跑", value=False)
+        rerun = st.checkbox("强制重跑", value=False, disabled=(execute_mode == "后台执行"))
 
     backtest_mode = st.radio("回测模式", ["普通回测", "带资金回测"], horizontal=True)
 
@@ -260,10 +262,24 @@ def render_execute(
             }
 
     if st.button("开始回测", type="primary"):
-        st.warning("⚠️ 回测运行期间请勿切换左侧菜单页面，否则会导致进度视图丢失！")
         if not state.get("tasks"):
-            st.error("当前没有任务，请先在“任务来源”上传或生成任务！")
+            st.error("当前没有任务，请先在「任务来源」上传或生成任务！")
             return
+
+        if execute_mode == "后台执行":
+            tasks = list(state["tasks"])
+            batch_name = f"批次_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            success, message, added_count = daemon_client.add_tasks_to_queue(tasks, batch_name)
+
+            if success:
+                st.success(f"{message}")
+                st.info(f"任务已添加到后台队列，请在「后台任务管理」页面查看执行状态")
+                state["tasks"] = []
+            else:
+                st.error(message)
+            return
+
+        st.warning("回测运行期间请勿切换左侧菜单页面，否则会导致进度视图丢失！")
 
         tasks = list(state["tasks"])
         base_url = engine.normalize_base_url(str(cfg["backend_url"]))
@@ -587,6 +603,177 @@ def render_results(*, cfg: dict[str, Any], state: MutableMapping[str, Any], core
             state["bt_last_output_csv"] = ""
             state["bt_last_summary"] = None
             state["bt_last_rows"] = []
+
+
+def render_daemon_management(
+    *,
+    cfg: dict[str, Any],
+    state: MutableMapping[str, Any],
+    core: Any,
+) -> None:
+    st.markdown("### 后台任务管理")
+
+    daemon_status = daemon_client.get_daemon_status()
+    is_running = daemon_status["is_running"]
+
+    col_status1, col_status2, col_status3 = st.columns(3)
+    with col_status1:
+        status_icon = "[运行中]" if is_running else "[未运行]"
+        status_text = "运行中" if is_running else "未运行"
+        st.metric("守护进程状态", f"{status_icon} {status_text}")
+
+    with col_status2:
+        if daemon_status["pid"]:
+            st.metric("进程 ID", daemon_status["pid"])
+        else:
+            st.metric("进程 ID", "-")
+
+    with col_status3:
+        if daemon_status["queue_size"] > 0:
+            st.metric("队列任务数", daemon_status["queue_size"])
+        else:
+            st.metric("队列任务数", "空闲")
+
+    st.markdown("---")
+
+    col_ctrl1, col_ctrl2, col_ctrl3 = st.columns(3)
+    with col_ctrl1:
+        if not is_running:
+            if st.button("启动守护进程", type="primary", use_container_width=True):
+                success, message = daemon_client.start_daemon(cfg)
+                if success:
+                    st.success(message)
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error(message)
+        else:
+            if st.button("停止守护进程", type="secondary", use_container_width=True):
+                success, message = daemon_client.stop_daemon()
+                if success:
+                    st.success(message)
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error(message)
+
+    with col_ctrl2:
+        if daemon_status["queue_size"] > 0:
+            if st.button("清空队列", type="secondary", use_container_width=True):
+                success, message, count = daemon_client.clear_queue()
+                if success:
+                    st.success(message)
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error(message)
+        else:
+            st.button("清空队列", type="secondary", use_container_width=True, disabled=True)
+
+    with col_ctrl3:
+        if st.button("刷新状态", use_container_width=True):
+            st.rerun()
+
+    st.markdown("---")
+
+    st.markdown("#### 队列信息")
+    queue_status = daemon_client.get_queue_status()
+
+    if queue_status["queue_size"] > 0:
+        st.info(f"当前队列中有 {queue_status['queue_size']} 个任务待执行")
+
+        for batch in queue_status.get("batches", []):
+            with st.expander(f"[批次] {batch['name']} - {batch['count']} 个任务", expanded=False):
+                st.write(f"批次 ID: {batch['id']}")
+                st.write(f"任务数量: {batch['count']}")
+                if batch.get("first_task_time"):
+                    st.write(f"首次添加时间: {batch['first_task_time']}")
+    else:
+        st.info("队列为空，暂无待执行任务")
+
+    st.markdown("---")
+
+    st.markdown("#### 执行进度")
+    progress = daemon_client.get_progress()
+
+    if progress.get("is_running") and progress.get("current_task_id"):
+        st.info(f"当前正在执行任务: {progress.get('current_task_id', '未知')}")
+
+        col_prog1, col_prog2, col_prog3 = st.columns(3)
+        with col_prog1:
+            st.metric("已完成", f"{progress.get('completed_count', 0)}")
+        with col_prog2:
+            st.metric("总任务数", progress.get("total_tasks", 0))
+        with col_prog3:
+            st.metric("失败数", progress.get("failed_count", 0))
+
+        col_prog4, col_prog5 = st.columns(2)
+        with col_prog4:
+            st.metric("胜场", progress.get("stats_wins", 0))
+        with col_prog5:
+            st.metric("负场", progress.get("stats_losses", 0))
+
+        col_prog6, col_prog7 = st.columns(2)
+        with col_prog6:
+            st.metric("胜率", f"{progress.get('win_rate', 0.0):.2f}%")
+        with col_prog7:
+            equity = progress.get("equity")
+            if equity is not None:
+                st.metric("当前资金", f"{equity:.2f}")
+            else:
+                st.metric("当前资金", "-")
+
+        st.markdown("##### 当前任务详情")
+        col_detail1, col_detail2, col_detail3 = st.columns(3)
+        with col_detail1:
+            st.write(f"**资产**: {progress.get('current_asset', '-')}")
+        with col_detail2:
+            st.write(f"**周期**: {progress.get('current_timeframe', '-')}")
+        with col_detail3:
+            st.write(f"**日期**: {progress.get('current_end_date', '')} {progress.get('current_end_time', '')}")
+
+        if progress.get("elapsed_formatted"):
+            st.write(f"**运行时长**: {progress['elapsed_formatted']}")
+
+        if st.button("刷新进度"):
+            st.rerun()
+
+    else:
+        if is_running:
+            st.info("守护进程正在运行，但当前没有执行中的任务")
+        else:
+            st.info("守护进程未运行，暂无进度信息")
+
+    st.markdown("---")
+
+    st.markdown("#### 守护进程配置")
+    with st.expander("编辑守护进程配置", expanded=False):
+        config_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "daemon_config.json")
+        st.info(f"配置文件位置: {config_file}")
+        st.markdown("""
+        守护进程配置说明:
+        - `backend_url`: 后端接口地址
+        - `analyze_path`: 分析接口路径
+        - `concurrency`: 并发数（默认 6）
+        - `task_delay`: 任务启动间隔秒数（默认 1.6）
+        - `timeout`: 超时时间秒数（默认 180）
+        - `retries`: 重试次数（默认 2）
+        - `hold_threshold`: 观望阈值（默认 0.002）
+        - `default_kline_count`: 默认K线数量（默认 40）
+        - `default_future_kline_count`: 默认未来K线数量（默认 13）
+        - `default_ai_version`: 默认模型版本（默认 original）
+        - `default_data_method`: 默认数据方法（默认 to_end）
+        - `backtest_mode`: 回测模式（普通回测/带资金回测）
+        - `output_path`: 结果输出路径（默认 tools/backtest_results.csv）
+
+        带资金回测额外参数:
+        - `initial_equity`: 初始资金（默认 10000）
+        - `allocation_pct`: 仓位比例百分比（默认 100）
+        - `contract_multiplier`: 合约倍数（默认 1）
+        - `slippage_pct`: 滑点百分比（默认 0.05）
+        - `force_close_pct`: 强制平仓百分比（默认 5）
+        - `trigger_order`: 触发顺序（保守/乐观）
+        """)
 
 
 def _normalize_assets_input_state(state: MutableMapping[str, Any]) -> None:

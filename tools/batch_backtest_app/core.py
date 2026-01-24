@@ -5,7 +5,7 @@ from typing import Any, MutableMapping
 import pandas as pd
 
 
-PAGES = ["📁 任务来源", "🚀 执行回测", "📊 结果"]
+PAGES = ["任务来源", "执行回测", "结果", "后台任务管理"]
 
 OUTPUT_FIELDNAMES = [
     "task_id",
