@@ -241,12 +241,23 @@ def generate_tasks_cycle_end(
     generated_tasks: list[dict[str, Any]] = []
 
     cycle_offsets: list[int] = []
-    if timeframe == "4h":
+    
+    # 尝试解析主周期（支持 4h+15m 这种格式，取第一个作为主周期）
+    # 分隔符支持 + , | 空格
+    separators = ["+", ",", "|", " "]
+    main_tf = timeframe
+    for sep in separators:
+        if sep in main_tf:
+            main_tf = main_tf.split(sep)[0]
+            break
+    main_tf = main_tf.strip()
+
+    if main_tf == "4h":
         cycle_offsets = [4, 8, 12, 16, 20, 24]
-    elif timeframe == "1h":
+    elif main_tf == "1h":
         cycle_offsets = list(range(1, 25))
     else:
-        errors.append(f"周期末端模式暂不支持 {timeframe}，仅支持 1h 和 4h")
+        errors.append(f"周期末端模式暂不支持 {timeframe} (识别为主周期: {main_tf})，仅支持 1h 和 4h")
         return [], errors
 
     for asset in assets:

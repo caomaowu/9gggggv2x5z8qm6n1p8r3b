@@ -37,6 +37,28 @@ def normalize_end_time(value: Any) -> str:
     return last_part
 
 
+def normalize_end_date(value: Any) -> str:
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if not text:
+        return ""
+    
+    # 去除可能的时间部分
+    text = text.split(" ")[0].split("T")[0]
+    
+    # 替换常见分隔符
+    text = text.replace("/", "-").replace(".", "-")
+    
+    parts = text.split("-")
+    if len(parts) == 3:
+        y, m, d = parts
+        return f"{y}-{m.zfill(2)}-{d.zfill(2)}"
+    
+    return text
+
+
+
 def normalize_base_url(base_url: str) -> str:
     base_url = base_url.strip()
     if base_url.endswith("/"):
@@ -91,7 +113,7 @@ def task_key_from_row(row: Dict[str, str], defaults: Dict[str, Any]) -> TaskKey:
     return TaskKey(
         asset=get_str("asset", defaults["asset"]),
         timeframe=timeframe_value or get_str("timeframe", defaults["timeframe"]),
-        end_date=get_str("end_date", defaults["end_date"]),
+        end_date=normalize_end_date(get_str("end_date", defaults["end_date"])),
         end_time=normalize_end_time(get_str("end_time", defaults["end_time"])),
         data_method=get_str("data_method", defaults["data_method"]),
         ai_version=get_str("ai_version", defaults["ai_version"]),
@@ -224,7 +246,7 @@ def load_existing_keys(output_csv: str) -> Tuple[Optional[List[str]], set]:
                 key = TaskKey(
                     asset=(row.get("asset") or "").strip(),
                     timeframe=timeframe_value or (row.get("timeframe") or "").strip(),
-                    end_date=(row.get("end_date") or row.get("date") or "").strip().split(" ")[0],
+                    end_date=normalize_end_date((row.get("end_date") or row.get("date") or "").strip()),
                     end_time=normalize_end_time((row.get("end_time") or "").strip()),
                     data_method=(row.get("data_method") or row.get("data_method_short") or "to_end").strip(),
                     ai_version=(row.get("ai_version") or row.get("agent_version") or "original").strip(),
@@ -367,7 +389,7 @@ def run_one_task(
     timeframe_raw = row.get("timeframes") or row.get("timeframe")
     timeframes = parse_timeframes(timeframe_raw, defaults["timeframe"])
     timeframe = "+".join(timeframes) if len(timeframes) > 1 else (timeframes[0] if timeframes else "")
-    end_date = (row.get("end_date") or "").strip()
+    end_date = normalize_end_date((row.get("end_date") or "").strip())
     end_time = normalize_end_time((row.get("end_time") or "").strip())
 
     data_method = (row.get("data_method") or defaults["data_method"]).strip()
@@ -510,6 +532,42 @@ def run_one_task(
         }
 
 
+def _should_use_aggressive_mode(
+    *,
+    position_state: Dict[str, Any],
+    equity_pct: float,
+    initial_equity: float,
+    aggressive_threshold_pct: float,
+    conservative_threshold_pct: float,
+) -> bool:
+    """
+    判断是否应该使用激进模式。
+
+    策略逻辑：
+    1. 如果已经在激进模式，必须跌破保守阈值才回到保守模式
+    2. 如果在保守模式，必须达到激进阈值才进入激进模式
+    3. 这样可以避免频繁切换
+
+    Args:
+        position_state: 当前仓位状态，包含 is_aggressive 标志
+        equity_pct: 当前资金相对初始本金的百分比
+        initial_equity: 初始本金
+        aggressive_threshold_pct: 进入激进模式的阈值（百分比）
+        conservative_threshold_pct: 回到保守模式的阈值（百分比）
+
+    Returns:
+        bool: True 表示使用激进模式，False 表示使用保守模式
+    """
+    is_aggressive = position_state.get("is_aggressive", False)
+
+    if is_aggressive:
+        # 已经在激进模式，必须跌破保守阈值才回到保守
+        return equity_pct >= conservative_threshold_pct
+    else:
+        # 在保守模式，必须达到激进阈值才进入激进
+        return equity_pct >= aggressive_threshold_pct
+
+
 def run_one_task_with_funds(
     *,
     base_url: str,
@@ -522,21 +580,33 @@ def run_one_task_with_funds(
     defaults: Dict[str, Any],
     initial_equity: float,
     equity_before: float,
-    allocation_pct: float,
+    position_mode: str = "固定百分比",
+    allocation_pct: float = 100.0,
+    fixed_amount: float = 1000.0,
     contract_multiplier: float,
     slippage_pct: float,
     force_close_pct: float,
     trigger_order: str,
+    # 阶梯仓位策略参数
+    position_state: Optional[Dict[str, Any]] = None,
+    conservative_base_ratio: float = 30.0,
+    aggressive_threshold_pct: float = 150.0,
+    conservative_threshold_pct: float = 110.0,
+    use_aggressive_mode_only_profit: bool = True,
 ) -> tuple[Dict[str, Any], float]:
     started = time.perf_counter()
     session = requests.Session()
+
+    # 初始化仓位状态
+    if position_state is None:
+        position_state = {"is_aggressive": False}
 
     task_id = (row.get("task_id") or "").strip()
     asset = (row.get("asset") or "").strip()
     timeframe_raw = row.get("timeframes") or row.get("timeframe")
     timeframes = parse_timeframes(timeframe_raw, defaults["timeframe"])
     timeframe = "+".join(timeframes) if len(timeframes) > 1 else (timeframes[0] if timeframes else "")
-    end_date = (row.get("end_date") or "").strip()
+    end_date = normalize_end_date((row.get("end_date") or "").strip())
     end_time = normalize_end_time((row.get("end_time") or "").strip())
 
     data_method = (row.get("data_method") or defaults["data_method"]).strip()
@@ -713,7 +783,45 @@ def run_one_task_with_funds(
                     entry_exec = baseline * (1.0 - slippage)
                     exit_exec = float(exit_raw) * (1.0 + slippage)
 
-                order_amount = float(equity_before) * alloc
+                # 根据策略计算下单金额
+                if position_mode == "阶梯仓位":
+                    # 计算当前资金相对初始本金的百分比（防止除零）
+                    if float(initial_equity) == 0:
+                        equity_pct = 100.0  # 如果初始本金为0，视为100%
+                    else:
+                        equity_pct = (float(equity_before) / float(initial_equity)) * 100.0
+
+                    # 判断是否应该使用激进模式
+                    is_aggressive = _should_use_aggressive_mode(
+                        position_state=position_state,
+                        equity_pct=equity_pct,
+                        initial_equity=float(initial_equity),
+                        aggressive_threshold_pct=aggressive_threshold_pct,
+                        conservative_threshold_pct=conservative_threshold_pct,
+                    )
+
+                    # 更新状态
+                    position_state["is_aggressive"] = is_aggressive
+
+                    # 计算下单金额
+                    if is_aggressive and use_aggressive_mode_only_profit:
+                        # 激进模式：只用盈利部分
+                        profit = float(equity_before) - float(initial_equity)
+                        if profit > 0:
+                            order_amount = profit  # 盈利部分全仓
+                        else:
+                            # 盈利亏完，自动回到保守模式
+                            order_amount = float(equity_before) * conservative_base_ratio / 100.0
+                            position_state["is_aggressive"] = False
+                    else:
+                        # 保守模式：使用基础比例
+                        order_amount = float(equity_before) * conservative_base_ratio / 100.0
+
+                elif position_mode == "固定百分比":
+                    order_amount = float(equity_before) * alloc
+                else:  # 固定金额
+                    # 固定金额，但不超过当前资金
+                    order_amount = min(float(fixed_amount), float(equity_before))
                 notional = order_amount * multiplier
                 qty = (notional / entry_exec) if entry_exec and entry_exec > 0 else 0.0
 
@@ -758,7 +866,7 @@ def run_one_task_with_funds(
             "资金_初始": f"{float(initial_equity):.2f}",
             "资金_当前": f"{float(equity_after):.2f}",
             "下单金额": f"{float(order_amount):.2f}",
-            "仓位比例": f"{alloc * 100.0:.2f}%",
+            "仓位比例": f"{alloc * 100.0:.2f}%" if position_mode != "阶梯仓位" else f"{(float(order_amount) / float(equity_before) * 100.0) if equity_before > 0 else 0:.2f}%",
             "合约倍数": f"{multiplier:.4f}",
             "滑点百分比": f"{float(slippage_pct):.4f}%",
             "强制平仓百分比": f"{float(force_close_pct):.4f}%",
@@ -770,6 +878,9 @@ def run_one_task_with_funds(
             "本次盈亏": f"{float(pnl):+.2f}",
             "本次盈亏百分比": f"{float(pnl_pct):+.2f}%" if pnl_pct is not None else "N/A",
         }
+
+        # 添加仓位状态到返回结果
+        result_row["_is_aggressive"] = position_state.get("is_aggressive", False)
 
         return result_row, float(equity_after)
     except Exception as e:
@@ -809,6 +920,8 @@ def run_one_task_with_funds(
             "本次盈亏": "+0.00",
             "本次盈亏百分比": "N/A",
         }
+        # 添加仓位状态到返回结果（异常情况下保持当前状态）
+        result_row["_is_aggressive"] = position_state.get("is_aggressive", False)
         return result_row, float(equity_before)
 
 

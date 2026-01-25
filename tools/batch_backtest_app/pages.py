@@ -138,7 +138,15 @@ def render_task_source(
                                 time.sleep(0.5)
                                 st.rerun()
 
-            gen_timeframe = st.selectbox("时间周期", ["15m", "1h", "4h", "1d"], index=1)
+            
+            st.markdown("##### 时间周期设置")
+            gen_tf_mode = st.radio("周期模式", ["常用预设", "自定义/多周期"], horizontal=True, label_visibility="collapsed", key="gen_tf_mode_radio")
+            
+            if gen_tf_mode == "常用预设":
+                gen_timeframe = st.selectbox("选择周期", ["15m", "1h", "4h", "1d"], index=1, label_visibility="collapsed")
+            else:
+                gen_timeframe = st.text_input("输入周期", value="4h+15m", help="支持多周期（如 4h+15m），如果是周期末端模式，首个周期必须是 1h 或 4h")
+
             gen_count = st.number_input("生成数量 (每个资产)", min_value=1, value=10)
             if gen_mode != "完全随机":
                 st.info(f"将按日期顺序生成所有符合条件的 {gen_timeframe} 周期末端时间点，然后随机抽取 {gen_count} 个。")
@@ -243,8 +251,51 @@ def render_execute(
         with st.expander("资金回测参数", expanded=True):
             c1, c2, c3 = st.columns(3)
             with c1:
-                initial_equity = st.number_input("初始资金", min_value=0.0, value=10000.0, step=100.0)
-                allocation_pct = st.number_input("仓位比例（百分比）", min_value=0.0, max_value=100.0, value=100.0, step=1.0)
+                initial_equity = st.number_input("初始资金", min_value=1.0, value=10000.0, step=100.0)
+                position_mode = st.selectbox(
+                    "仓位管理策略",
+                    options=["固定百分比", "固定金额", "阶梯仓位"],
+                    index=0,
+                    help="固定百分比：每次使用资金的一定比例；固定金额：每次使用固定USDT金额；阶梯仓位：盈利保护策略，保守阶段用固定比例，激进阶段只用盈利部分"
+                )
+
+                # 阶梯仓位策略的额外参数
+                conservative_base_ratio = 30.0
+                aggressive_threshold_pct = 150.0
+                conservative_threshold_pct = 110.0
+                use_aggressive_mode_only_profit = True
+
+                if position_mode == "固定百分比":
+                    allocation_pct = st.number_input("仓位比例（百分比）", min_value=0.0, max_value=100.0, value=100.0, step=1.0)
+                    fixed_amount = 1000.0
+                elif position_mode == "固定金额":
+                    fixed_amount = st.number_input("固定开仓金额（USDT）", min_value=0.0, value=1000.0, step=100.0)
+                    allocation_pct = 100.0
+                else:  # 阶梯仓位
+                    st.markdown("##### 保守阶段参数")
+                    conservative_base_ratio = st.number_input(
+                        "保守基础比例（%）", min_value=0.0, max_value=100.0, value=30.0, step=5.0,
+                        help="保守模式下使用的资金比例"
+                    )
+
+                    st.markdown("##### 阶梯切换阈值")
+                    aggressive_threshold_pct = st.number_input(
+                        "激进阈值（%）", min_value=100.0, max_value=500.0, value=150.0, step=10.0,
+                        help="资金达到初始本金的此百分比时进入激进模式"
+                    )
+                    conservative_threshold_pct = st.number_input(
+                        "保守阈值（%）", min_value=100.0, max_value=200.0, value=110.0, step=5.0,
+                        help="激进模式下，资金跌破此百分比时回到保守模式（滞后切换）"
+                    )
+
+                    use_aggressive_mode_only_profit = st.checkbox(
+                        "激进模式只用盈利部分", value=True,
+                        help="启用后激进模式只用盈利部分开仓，保护本金"
+                    )
+
+                    # 阶梯仓位模式下也需要设置这些值用于向后兼容
+                    allocation_pct = conservative_base_ratio
+                    fixed_amount = 1000.0
             with c2:
                 contract_multiplier = st.number_input("合约倍数", min_value=0.0, value=1.0, step=0.5)
                 slippage_pct = st.number_input("滑点百分比", min_value=0.0, max_value=10.0, value=0.05, step=0.01)
@@ -253,12 +304,19 @@ def render_execute(
                 trigger_order = st.selectbox("触发顺序", ["保守（先不利）", "乐观（先有利）"], index=0)
 
             funds_cfg = {
+                "position_mode": str(position_mode),
                 "initial_equity": float(initial_equity),
                 "allocation_pct": float(allocation_pct),
+                "fixed_amount": float(fixed_amount),
                 "contract_multiplier": float(contract_multiplier),
                 "slippage_pct": float(slippage_pct),
                 "force_close_pct": float(force_close_pct),
                 "trigger_order": str(trigger_order),
+                # 阶梯仓位策略参数
+                "conservative_base_ratio": float(conservative_base_ratio),
+                "aggressive_threshold_pct": float(aggressive_threshold_pct),
+                "conservative_threshold_pct": float(conservative_threshold_pct),
+                "use_aggressive_mode_only_profit": bool(use_aggressive_mode_only_profit),
             }
 
     if st.button("开始回测", type="primary"):
@@ -445,6 +503,8 @@ def render_execute(
             if funds_cfg is None:
                 st.error("请先填写资金回测参数")
                 return
+            # 初始化仓位状态
+            position_state = {"is_aggressive": False}
             for i, row in enumerate(to_run):
                 result_row, equity = engine.run_one_task_with_funds(
                     base_url=base_url,
@@ -457,12 +517,22 @@ def render_execute(
                     defaults=defaults,
                     initial_equity=float(funds_cfg["initial_equity"]),
                     equity_before=float(equity) if equity is not None else float(funds_cfg["initial_equity"]),
+                    position_mode=str(funds_cfg.get("position_mode", "固定百分比")),
                     allocation_pct=float(funds_cfg["allocation_pct"]),
+                    fixed_amount=float(funds_cfg.get("fixed_amount", 1000.0)),
                     contract_multiplier=float(funds_cfg["contract_multiplier"]),
                     slippage_pct=float(funds_cfg["slippage_pct"]),
                     force_close_pct=float(funds_cfg["force_close_pct"]),
                     trigger_order=str(funds_cfg["trigger_order"]),
+                    # 阶梯仓位策略参数
+                    position_state=position_state,
+                    conservative_base_ratio=float(funds_cfg.get("conservative_base_ratio", 30.0)),
+                    aggressive_threshold_pct=float(funds_cfg.get("aggressive_threshold_pct", 150.0)),
+                    conservative_threshold_pct=float(funds_cfg.get("conservative_threshold_pct", 110.0)),
+                    use_aggressive_mode_only_profit=bool(funds_cfg.get("use_aggressive_mode_only_profit", True)),
                 )
+                # 更新仓位状态
+                position_state["is_aggressive"] = result_row.get("_is_aggressive", False)
                 handle_one_result(result_row)
                 if float(cfg["task_delay"]) > 0 and i < len(to_run) - 1:
                     time.sleep(float(cfg["task_delay"]))

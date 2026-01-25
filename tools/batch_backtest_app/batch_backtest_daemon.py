@@ -38,12 +38,19 @@ DEFAULT_CONFIG = {
     "default_ai_version": "original",
     "default_data_method": "to_end",
     "initial_equity": 10000.0,
+    "position_mode": "固定百分比",
     "allocation_pct": 100.0,
+    "fixed_amount": 1000.0,
     "contract_multiplier": 1.0,
     "slippage_pct": 0.05,
     "force_close_pct": 5.0,
     "trigger_order": "保守（先不利）",
     "output_path": os.path.join("tools", "backtest_results.csv"),
+    # 阶梯仓位策略参数
+    "conservative_base_ratio": 30.0,
+    "aggressive_threshold_pct": 150.0,
+    "conservative_threshold_pct": 110.0,
+    "use_aggressive_mode_only_profit": True,
 }
 
 
@@ -143,6 +150,7 @@ def run_one_task(
     backtest_mode: str,
     funds_cfg: Optional[Dict[str, Any]],
     equity: Optional[float],
+    position_state: Optional[Dict[str, Any]] = None,
 ) -> tuple[Dict[str, Any], Optional[float]]:
     base_url = engine.normalize_base_url(str(config["backend_url"]))
     analyze_path = str(config["analyze_path"])
@@ -175,11 +183,19 @@ def run_one_task(
                 defaults=defaults,
                 initial_equity=float(funds_cfg["initial_equity"]),
                 equity_before=float(equity) if equity is not None else float(funds_cfg["initial_equity"]),
+                position_mode=str(funds_cfg.get("position_mode", "固定百分比")),
                 allocation_pct=float(funds_cfg["allocation_pct"]),
+                fixed_amount=float(funds_cfg.get("fixed_amount", 1000.0)),
                 contract_multiplier=float(funds_cfg["contract_multiplier"]),
                 slippage_pct=float(funds_cfg["slippage_pct"]),
                 force_close_pct=float(funds_cfg["force_close_pct"]),
                 trigger_order=str(funds_cfg["trigger_order"]),
+                # 阶梯仓位策略参数
+                position_state=position_state,
+                conservative_base_ratio=float(funds_cfg.get("conservative_base_ratio", 30.0)),
+                aggressive_threshold_pct=float(funds_cfg.get("aggressive_threshold_pct", 150.0)),
+                conservative_threshold_pct=float(funds_cfg.get("conservative_threshold_pct", 110.0)),
+                use_aggressive_mode_only_profit=bool(funds_cfg.get("use_aggressive_mode_only_profit", True)),
             )
         else:
             result_row = engine.run_one_task(
@@ -252,6 +268,8 @@ def run_one_task(
             error_row["平仓原因"] = "执行失败"
             error_row["本次盈亏"] = "+0.00"
             error_row["本次盈亏百分比"] = "N/A"
+            # 添加仓位状态到错误行（异常情况下保持当前状态）
+            error_row["_is_aggressive"] = position_state.get("is_aggressive", False) if position_state else False
 
         try:
             engine.append_output_row(output_csv, core.OUTPUT_FIELDNAMES, error_row)
@@ -287,15 +305,23 @@ def run_daemon() -> None:
     if config.get("backtest_mode") == "带资金回测":
         backtest_mode = "带资金回测"
         funds_cfg = {
+            "position_mode": str(config.get("position_mode", "固定百分比")),
             "initial_equity": float(config.get("initial_equity", 10000.0)),
             "allocation_pct": float(config.get("allocation_pct", 100.0)),
+            "fixed_amount": float(config.get("fixed_amount", 1000.0)),
             "contract_multiplier": float(config.get("contract_multiplier", 1.0)),
             "slippage_pct": float(config.get("slippage_pct", 0.05)),
             "force_close_pct": float(config.get("force_close_pct", 5.0)),
             "trigger_order": str(config.get("trigger_order", "保守（先不利）")),
+            # 阶梯仓位策略参数
+            "conservative_base_ratio": float(config.get("conservative_base_ratio", 30.0)),
+            "aggressive_threshold_pct": float(config.get("aggressive_threshold_pct", 150.0)),
+            "conservative_threshold_pct": float(config.get("conservative_threshold_pct", 110.0)),
+            "use_aggressive_mode_only_profit": bool(config.get("use_aggressive_mode_only_profit", True)),
         }
 
     equity = funds_cfg["initial_equity"] if funds_cfg else None
+    position_state = {"is_aggressive": False}  # 初始化仓位状态
 
     stats_wins = 0
     stats_losses = 0
@@ -328,10 +354,11 @@ def run_daemon() -> None:
                 batch_name = task.get("_batch_name", "未知批次")
                 logger.info(f"开始处理新批次: {batch_name}")
 
-                # 如果是资金回测模式，新批次开始时重置资金
+                # 如果是资金回测模式，新批次开始时重置资金和仓位状态
                 if current_backtest_mode == "带资金回测" and current_funds_cfg:
                     try:
                         equity = float(current_funds_cfg["initial_equity"])
+                        position_state = {"is_aggressive": False}  # 重置仓位状态
                         logger.info(f"批次 {batch_id} (资金回测) 开始，重置初始资金为: {equity}")
                     except Exception as e:
                         logger.error(f"重置资金失败: {e}")
@@ -362,7 +389,10 @@ def run_daemon() -> None:
             )
 
             try:
-                result_row, equity = run_one_task(config, task, output_csv, current_backtest_mode, current_funds_cfg, equity)
+                result_row, equity = run_one_task(config, task, output_csv, current_backtest_mode, current_funds_cfg, equity, position_state)
+
+                # 更新仓位状态
+                position_state["is_aggressive"] = result_row.get("_is_aggressive", False)
 
                 is_correct = core.classify_is_correct(result_row.get("is_correct"))
                 if is_correct == "True":
