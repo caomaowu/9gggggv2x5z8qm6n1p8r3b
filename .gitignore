@@ -57,3 +57,6 @@ backtest_results.csv
 tools/**/*.csv
 tools/data/batch_backtest_progress.json
 tools/data/batch_backtest_status.json
+tools/data/batch_backtest_progress.json
+tools/data/batch_backtest_queue.json
+tools/data/batch_backtest_status.json

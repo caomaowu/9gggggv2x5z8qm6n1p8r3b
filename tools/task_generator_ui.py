@@ -6,6 +6,7 @@ import random
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+import concurrent.futures
 import requests
 from dotenv import load_dotenv
 
@@ -253,8 +254,9 @@ class TaskGeneratorApp:
         scrollbar = ttk.Scrollbar(right_frame, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscroll=scrollbar.set)
         
-        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # 调整 pack 顺序：先放置滚动条在右侧，再放置表格填满剩余空间
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
     def _on_tf_mode_changed(self):
         if self.is_multi_tf.get():
@@ -778,52 +780,78 @@ class TaskGeneratorApp:
             return
             
         self.btn_verify.config(state="disabled", text="验证中...")
-        t = threading.Thread(target=self._run_verification)
+        
+        # 收集数据以免在多线程中访问Tkinter控件
+        items = self.tree.get_children()
+        tasks_data = []
+        for i, item_id in enumerate(items):
+            values = self.tree.item(item_id, 'values')
+            tasks_data.append((i, item_id, values))
+            self.tree.item(item_id, tags=('checking',))
+            
+        t = threading.Thread(target=self._run_verification, args=(tasks_data,))
         t.daemon = True
         t.start()
 
-    def _run_verification(self):
-        """后台验证循环"""
-        items = self.tree.get_children()
-        total = len(items)
+    def _run_verification(self, tasks_data):
+        """后台验证循环 (并行版)"""
+        total = len(tasks_data)
+        completed_count = 0
         
-        for i, item_id in enumerate(items):
+        def verify_single(idx, item_id, values):
             try:
-                values = self.tree.item(item_id, 'values')
                 # cols: task_id, asset, timeframe, end_date, end_time, ...
-                # indices: 0, 1, 2, 3, 4
                 asset = values[1]
                 tf = values[2]
                 end_date = values[3]
                 end_time = values[4]
                 
-                # Update status to checking
-                self.root.after(0, lambda i=item_id: self.tree.item(i, tags=('checking',)))
-                
                 is_valid = self._check_data_availability(asset, tf, end_date, end_time)
-                
-                status_text = "Valid" if is_valid else "Invalid"
-                tag = "valid" if is_valid else "invalid"
-                
-                # Update UI
-                def update_row(iid=item_id, s=status_text, t=tag, idx=i):
-                    # 获取当前值并更新最后一列
-                    curr_vals = list(self.tree.item(iid, 'values'))
-                    if len(curr_vals) >= 10:
-                        curr_vals[9] = s
-                    else:
-                        curr_vals.append(s)
-                    self.tree.item(iid, values=curr_vals, tags=(t,))
-                    self.preview_info.config(text=f"验证进度: {idx+1}/{total}")
-                
-                self.root.after(0, update_row)
-                
-                # 更新内部数据
-                if i < len(self.generated_tasks):
-                    self.generated_tasks[i]["status"] = status_text
-                    
+                return idx, item_id, values, is_valid
             except Exception as e:
-                print(f"Error verifying row {i}: {e}")
+                print(f"Error checking {values}: {e}")
+                return idx, item_id, values, False
+
+        # 默认并发数 7
+        with concurrent.futures.ThreadPoolExecutor(max_workers=7) as executor:
+            futures = [executor.submit(verify_single, i, item_id, vals) for i, item_id, vals in tasks_data]
+            
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    idx, item_id, values, is_valid = future.result()
+                    completed_count += 1
+                    
+                    status_text = "Valid" if is_valid else "Invalid"
+                    tag = "valid" if is_valid else "invalid"
+                    
+                    def update_ui(iid=item_id, s=status_text, t=tag, v=values, ix=idx):
+                        if not self.tree.exists(iid):
+                            return
+                            
+                        # 更新 TreeView
+                        curr_vals = list(self.tree.item(iid, 'values'))
+                        if not curr_vals: 
+                            curr_vals = list(v)
+                            
+                        if len(curr_vals) >= 10:
+                            curr_vals[9] = s
+                        else:
+                            curr_vals.append(s)
+                            
+                        self.tree.item(iid, values=curr_vals, tags=(t,))
+                        self.preview_info.config(text=f"验证进度: {completed_count}/{total}")
+                        
+                        # 更新内存数据
+                        if ix < len(self.generated_tasks):
+                            task = self.generated_tasks[ix]
+                            # 校验 task_id 以确保对应正确
+                            if str(task.get("task_id")) == str(curr_vals[0]):
+                                task["status"] = s
+
+                    self.root.after(0, update_ui)
+                    
+                except Exception as e:
+                    print(f"Error getting future result: {e}")
 
         self.root.after(0, lambda: self.btn_verify.config(state="normal", text="验证所有任务"))
         self.root.after(0, lambda: self.preview_info.config(text=f"预览: {total} 条任务 (验证完成)"))
