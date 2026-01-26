@@ -5,7 +5,7 @@ Meta-Analyzer 是一个基于 AI 的交易复盘诊断工具。它扮演“交�
 ## 🎯 核心功能
 
 1.  **历史回测可视化**:
-    - 自动扫描 `backend/data/history/` 目录下的所有交易记录。
+    - 自动扫描历史交易记录。
     - 智能计算每笔交易的实际最大盈亏 (Max Profit / Max Drawdown)。
     - 使用 Plotly 交互式图表展示交易发生后的未来 K 线走势。
 
@@ -30,22 +30,33 @@ Meta-Analyzer 是一个基于 AI 的交易复盘诊断工具。它扮演“交�
 pip install streamlit plotly pandas python-dotenv langchain-openai
 ```
 
-### 2. 配置 LLM
+### 2. 配置 LLM (全新架构)
 
-Meta-Analyzer 使用独立的配置文件 `tools/meta_analyzer/.env`，以免影响主程序。
+Meta-Analyzer 现在使用完全独立的配置系统，支持所有兼容 OpenAI 协议的 LLM 提供商 (如 DeepSeek, iFlow, OpenRouter, OpenAI 等)。
 
-请在 `tools/meta_analyzer/` 目录下创建或修改 `.env` 文件：
+请在 `tools/meta_analyzer/` 目录下复制 `.env.example` 为 `.env` 并填入配置：
+
+```bash
+cp tools/meta_analyzer/.env.example tools/meta_analyzer/.env
+```
+
+`.env` 配置示例：
 
 ```ini
-# LLM Provider (支持 iflow, deepseek, openai, openrouter)
-AGENT_PROVIDER=iflow
-AGENT_MODEL=qwen3-max
-AGENT_TEMPERATURE=0.2
+# 必填: 您的 API Key
+LLM_API_KEY=sk-xxxxxxxxxxxxxxxx
 
-# API Keys (根据选择的 Provider 填写)
-IFLOW_API_KEY=sk-xxxxxxxx
-DEEPSEEK_API_KEY=sk-xxxxxxxx
-OPENAI_API_KEY=sk-xxxxxxxx
+# 必填: API Base URL (例如 DeepSeek)
+LLM_BASE_URL=https://api.deepseek.com/v1
+
+# 必填: 模型名称
+LLM_MODEL=deepseek-chat
+
+# 可选: 温度 (默认 0.2)
+LLM_TEMPERATURE=0.2
+
+# 可选: 自定义数据目录 (默认指向 ../../backend/data/history)
+# DATA_DIR=/path/to/custom/history
 ```
 
 ### 3. 启动应用
@@ -56,6 +67,13 @@ OPENAI_API_KEY=sk-xxxxxxxx
 streamlit run tools/meta_analyzer/app.py
 ```
 
+或者在 `tools/meta_analyzer` 目录下运行：
+
+```bash
+cd tools/meta_analyzer
+streamlit run app.py
+```
+
 访问浏览器地址: `http://localhost:8501`
 
 ## 📂 目录结构
@@ -63,9 +81,10 @@ streamlit run tools/meta_analyzer/app.py
 ```text
 tools/meta_analyzer/
 ├── app.py              # Streamlit 主程序入口
-├── diagnosis.py        # 诊断 Agent 核心逻辑 (LLM 交互)
+├── config.py           # 独立配置管理模块
+├── diagnosis.py        # 诊断 Agent 核心逻辑
 ├── loader.py           # 数据加载与 PnL 计算模块
-├── .env                # 独立配置文件
+├── .env                # 配置文件 (需手动创建)
 └── templates/
     └── critic_prompt.md # 诊断专用 Prompt 模板
 ```
@@ -76,7 +95,7 @@ tools/meta_analyzer/
 A: 这表示该历史记录 JSON 文件中缺少 `future_kline_data` 字段。这通常是因为在运行批量回测时未开启 `future_kline_count` 参数，或者是实盘实时分析的记录（尚未产生未来数据）。
 
 **Q: 如何切换诊断模型？**
-A: 修改 `tools/meta_analyzer/.env` 中的 `AGENT_PROVIDER` 和 `AGENT_MODEL` 即可。目前内置支持 `iflow`, `deepseek`, `openrouter` 等主流兼容 OpenAI 协议的接口。
+A: 修改 `tools/meta_analyzer/.env` 中的 `LLM_MODEL` 和 `LLM_BASE_URL` 即可即时生效 (需要重启 Streamlit)。
 
 **Q: 诊断报错 "LLM Client not initialized"?**
-A: 请检查 `.env` 文件是否存在且 API Key 是否正确。系统启动时会在控制台打印 "Loaded environment variables..." 日志。
+A: 请检查 `tools/meta_analyzer/.env` 文件是否存在且 `LLM_API_KEY` 是否正确配置。

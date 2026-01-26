@@ -4,31 +4,32 @@ import os
 import sys
 import plotly.graph_objects as go
 
-# 路径设置
+# Ensure current directory is in path for local imports if run directly
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# tools/meta_analyzer -> tools -> refactor_v2
-project_root = os.path.dirname(os.path.dirname(current_dir))
-backend_dir = os.path.join(project_root, "backend")
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
 
-if project_root not in sys.path:
-    sys.path.append(project_root)
-if backend_dir not in sys.path:
-    sys.path.append(backend_dir)
-
+# Import local modules with fallback
 try:
     from tools.meta_analyzer.loader import DataLoader
     from tools.meta_analyzer.diagnosis import MetaAgent
+    from tools.meta_analyzer.config import settings
 except ImportError:
-    # 尝试相对导入，如果在同一包内运行
     from loader import DataLoader
     from diagnosis import MetaAgent
+    from config import settings
 
 st.set_page_config(page_title="QuantAgent Meta-Analyzer", layout="wide", page_icon="🕵️")
 
-# --- 初始化 ---
+# --- Initialization ---
 @st.cache_resource
 def get_components():
-    history_dir = os.path.join(backend_dir, "data", "history")
+    # Use configured data directory
+    history_dir = settings.DATA_DIR
+    
+    if not os.path.exists(history_dir):
+        print(f"Warning: History directory not found at {history_dir}")
+        
     loader = DataLoader(history_dir)
     agent = MetaAgent()
     return loader, agent
@@ -49,7 +50,7 @@ if st.sidebar.button("🔄 Reload Data"):
 df = st.session_state.df
 
 if df.empty:
-    st.warning("No history data found in backend/data/history/")
+    st.warning(f"No history data found in {settings.DATA_DIR}. Please check your configuration.")
     st.stop()
 
 # 1. Date Filter
@@ -148,15 +149,15 @@ st.divider()
 # --- Diagnosis Section ---
 st.header("🕵️ AI Diagnosis")
 
-# 检查环境变量是否已加载
-if "AGENT_PROVIDER" not in os.environ:
-    st.warning("Environment variables not loaded. Using default settings or check console logs.")
+# Check configuration status
+valid_config, config_msg = settings.validate()
+if not valid_config:
+    st.warning(f"Configuration Warning: {config_msg}. AI features may be disabled.")
 
 if st.button("🚀 Start Diagnosis", type="primary"):
     if not meta_agent.llm:
-        st.error("LLM Client not initialized. Please check your .env configuration.")
+        st.error(f"LLM Client not initialized. Please check tools/meta_analyzer/.env. ({config_msg})")
     else:
         with st.spinner("Analyzing..."):
             response_stream = meta_agent.diagnose_case(case_detail)
             st.write_stream(response_stream)
-
