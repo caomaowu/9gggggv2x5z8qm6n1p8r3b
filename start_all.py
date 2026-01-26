@@ -4,11 +4,57 @@ import os
 import threading
 import time
 import shlex
+import platform
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 
 # 全局进程列表，用于退出时清理
 processes = []
+
+def kill_port(port):
+    """
+    跨平台端口清理函数 (支持 Windows 和 Linux/macOS)
+    """
+    system = platform.system()
+    
+    try:
+        if system == "Windows":
+            # Windows: 使用 netstat 查找 PID
+            # netstat -ano 输出示例: "  TCP    0.0.0.0:8000           0.0.0.0:0              LISTENING       12345"
+            cmd = f'netstat -ano | findstr :{port}'
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            
+            if result.returncode == 0 and result.stdout:
+                lines = result.stdout.strip().split('\n')
+                pids = set()
+                for line in lines:
+                    parts = line.strip().split()
+                    # 确保是 LISTENING 状态或者是相关连接，且有 PID
+                    if len(parts) >= 5 and str(port) in parts[1]: 
+                        pid = parts[-1]
+                        if pid.isdigit() and pid != "0":
+                            pids.add(pid)
+                
+                for pid in pids:
+                    print(f"🧹 [Windows] 发现端口 {port} 被进程 {pid} 占用，正在清理...")
+                    subprocess.run(f"taskkill /F /PID {pid}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    
+        else:
+            # Linux/macOS: 使用 lsof 或 fuser
+            # 优先尝试 lsof
+            cmd_check = f"lsof -t -i:{port}"
+            result = subprocess.run(cmd_check, shell=True, capture_output=True, text=True)
+            
+            if result.returncode == 0 and result.stdout:
+                pids = result.stdout.strip().split('\n')
+                for pid in pids:
+                    if pid.strip():
+                        print(f"🧹 [{system}] 发现端口 {port} 被进程 {pid} 占用，正在清理...")
+                        subprocess.run(f"kill -9 {pid}", shell=True)
+            
+    except Exception as e:
+        print(f"⚠️  尝试清理端口 {port} 时发生错误: {e}")
 
 def run_service(command_str, cwd, prefix, color_code, env_vars=None):
     """
@@ -98,8 +144,15 @@ def main():
     print("="*60)
     print(f" 🚀 QuantAgent 集成启动脚本 (VS Code 模式)")
     print(f" 📂 根目录: {project_root}")
+    print(f" 💻 系统: {platform.system()} | 🐍 Python: {sys.version.split()[0]}")
     print(f" ⌨️  请在下方终端查看日志。按 Ctrl+C 停止所有服务。")
     print("="*60)
+
+    # 1. 启动前强制清理端口
+    print("🔍 正在检查端口占用情况...")
+    kill_port(8000)  # Backend
+    kill_port(5173)  # Frontend
+    print("✅ 端口检查完毕\n")
 
     # 定义要启动的服务
     services = [
