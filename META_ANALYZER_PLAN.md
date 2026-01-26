@@ -2,106 +2,92 @@
 
 ## 1. 项目背景与目标
 
-当前 `batch_backtest_app` 已经能够高效地执行批量回测并生成统计结果（CSV），且 `backend/data/history/` 目录完整保存了每次分析的详细上下文（JSON），包括决策逻辑、指标报告、形态报告以及当时的未来 K 线数据。
+当前 `batch_backtest_app` 已经能够高效地执行批量回测并生成统计结果（CSV），且 `backend/data/history/` 目录完整保存了每次分析的详细上下文（JSON），包括决策逻辑、指标报告、形态报告、趋势报告以及当时的未来 K 线数据。
 
 **目标**：构建一个“元分析系统” (Meta-Analyzer)，利用上述数据进行**二次分析**。它不直接进行交易，而是充当“AI 交易教练”，通过复盘历史案例，自动诊断 Agent 的决策缺陷，并提供具体的优化建议（如 Prompt 调整、权重参数修正），从而实现系统的“自我进化”。
 
----
+## 2. 核心架构设计
 
-## 2. 系统架构
+系统采用 **ETL-RAG-Analysis** 架构，分为数据层、诊断层和优化层。
 
-本系统作为一个独立的工具模块存在，不干扰核心交易系统的运行。
+### 2.1 数据层 (Data Layer) - ETL
+负责将零散的回测结果与详细的上下文数据关联起来。
 
-### 2.1 目录结构
-建议在 `tools/` 目录下创建独立模块：
+*   **输入源**:
+    1.  **统计索引**: `tools/backtest_results.csv` (包含 result_id, 盈亏结果, 时间, 资产)。注意：如果文件不存在，需提示用户运行回测或仅支持手动加载 JSON。
+    2.  **上下文详情**: `backend/data/history/YYYY-MM-DD/{result_id}.json` (包含完整的 Agent 思维链、技术指标数据、未来K线验证数据)。
+*   **功能**:
+    *   **Data Loader**: 解析 CSV，提取高价值案例（如：大亏、大赚、踏空）。
+    *   **Context Fetcher**: 根据 result_id 自动定位并加载对应的 JSON 文件。
+    *   **Data Validation**: 检查 JSON 中是否包含必要的 `future_kline_data` (或 `future_kline`) 数据用于复盘验证。
+
+### 2.2 诊断层 (Diagnosis Layer) - Meta-Agent
+利用大模型（由用户决定配置）扮演“复盘专家”。
+
+*   **输入**:
+    *   **原始决策**: Agent 当时的分析报告（指标、形态、趋势、最终决策）。
+    *   **上帝视角**: 随后发生的真实 K 线走势（Future Data）。
+*   **Prompt 策略**:
+    *   **角色**: "你是一位无情的量化交易审计员。"
+    *   **任务**: "对比 Agent 的预测与实际市场走势，找出逻辑漏洞。"
+    *   **输出结构**:
+        1.  **归因 (Attribution)**: 错误原因（数据噪音 / 逻辑谬误 / 模型幻觉 / 风险控制缺失）。
+        2.  **关键缺失 (Missing Link)**: Agent 漏看了什么信号（如：忽视了 4H 级别的顶背离）。
+        3.  **评分 (Score)**: 对 Agent 当次表现打分 (0-100)。
+
+### 2.3 优化层 (Optimization Layer) - Evolution
+基于诊断结果生成可执行的优化建议。
+
+*   **聚合分析 (Aggregator)**:
+    *   统计错误模式分布（例如：80% 的亏损是因为抄底过早）。
+*   **进化顾问 (Advisor)**:
+    *   **Prompt Patching**: 针对性修改 System Prompt（例如：“建议在 Decision Agent 的 Prompt 中增加‘必须等待突破确认’的指令”）。
+    *   **Config Tuning**: 调整参数（例如：“建议将 `RISK_REWARD_RATIO` 从 1.5 提高到 2.0”）。
+
+## 3. 功能模块与目录结构
+
+建议在 `tools/` 下新建 `meta_analyzer` 模块：
 
 ```text
-tools/meta_analyzer/
-├── analyzer.py           # 核心分析引擎
-├── case_filter.py        # 案例筛选器 (筛选典型失败/成功案例)
-├── llm_judge.py          # LLM 诊断模块 (Prompt 工程)
-├── report_generator.py   # 报告生成器 (Markdown/HTML)
-└── templates/            # 报告模板
+refactor_v2/
+├── tools/
+│   ├── meta_analyzer/
+│   │   ├── __init__.py
+│   │   ├── app.py              # Streamlit Web UI 入口
+│   │   ├── loader.py           # 数据加载与关联模块
+│   │   ├── diagnosis.py        # 诊断 Agent 核心逻辑
+│   │   ├── aggregator.py       # 统计分析与建议生成
+│   │   └── templates/          # 诊断专用 Prompt 模板
+│   │       ├── critic_prompt.md    # 批评家 Prompt
+│   │       └── advisor_prompt.md   # 顾问 Prompt
 ```
 
-### 2.2 数据流向
+## 4. 用户界面 (Streamlit UI)
 
-1.  **输入层**:
-    *   **量化结果**: 读取 `batch_backtest_app` 生成的 CSV 文件（获取宏观胜率、盈亏比）。
-    *   **详细案卷**: 读取 `backend/data/history/YYYY-MM-DD/*.json`（获取微观的 Reasoning、Context、Future Kline）。
+设计一个交互式的复盘控制台：
 
-2.  **处理层**:
-    *   **Step 1 样本筛选**: 自动挑选具有“复盘价值”的案例。
-        *   *Type A (惨痛教训)*: 信心分 (Confidence) 高，但实际走势相反。
-        *   *Type B (踏空遗憾)*: 决策为 HOLD/SHORT，但实际大幅上涨。
-        *   *Type C (精准捕获)*: 决策正确且收益极高的案例（用于提取成功模式）。
-    *   **Step 2 深度诊断 (LLM Judge)**:
-        *   将当时的 **Input** (指标/形态/趋势报告) + **Output** (决策逻辑) + **Ground Truth** (未来实际 K 线) 投喂给高智商模型 (如 DeepSeek/GPT-4)。
-        *   **提问**: "Agent 当时认为要做空，理由是 RSI 超买。但实际上价格继续暴涨。请分析是哪个指标产生了误导？是形态识别错误，还是对趋势的权重判断不足？"
+1.  **侧边栏 (Sidebar)**:
+    *   **过滤器**: 按 资产 / 时间 / 盈亏结果 / 策略版本 筛选案例。
+    *   **快捷按钮**: “加载大亏案例”、“加载踏空案例”。
+2.  **主视图 (Main View)**:
+    *   **案例详情**: 左侧展示 Agent 原始分析，右侧展示实际走势图（标注买卖点）。
+    *   **AI 诊断报告**: 动态生成的复盘分析文本。
+    *   **全局洞察**: 统计图表（错误类型饼图、改进建议列表）。
 
-3.  **输出层**:
-    *   **进化报告**: 生成包含统计图表和文字建议的 Markdown 报告。
-    *   **Prompt 补丁**: 针对发现的共性问题，自动生成 System Prompt 的优化建议片段。
+## 5. 开发路线图 (Roadmap)
 
----
+1.  **Step 1: 原型搭建 (Prototype)**
+    *   创建 `loader.py`，实现 CSV 与 JSON 的关联读取。
+    *   搭建基础 Streamlit 界面，展示历史回测数据的列表与详情。
+2.  **Step 2: 诊断逻辑 (Diagnosis Logic)**
+    *   集成 LLM（需参考 `batch_backtest_app` 实现独立的 Client，或复用 `backend/app/core` 配置），实现单案例的 AI 复盘功能。
+    *   **Prompt Engineering**: 编写并优化 `critic_prompt.md`。
+3.  **Step 3: 批量分析 (Batch Analysis)**
+    *   实现对筛选出的数据集进行批量诊断，生成汇总报告。
+4.  **Step 4: 建议生成 (Advisory)**
+    *   根据汇总数据，生成具体的代码或配置修改建议。
 
-## 3. 核心功能模块详解
+## 6. 前置条件检查
 
-### 3.1 归因分析 (Root Cause Analysis)
-LLM Judge 将把错误案例归类为以下标签：
-
-*   `INDICATOR_NOISE`: 指标震荡导致的假信号（如金叉死叉频繁切换）。
-*   `PATTERN_HALLUCINATION`: 识别出了不存在的形态（幻觉）。
-*   `TREND_MISJUDGMENT`: 逆势交易（在强趋势中试图摸顶/抄底）。
-*   `CONSERVATIVE_MISS`: 过于保守导致踏空。
-
-### 3.2 优化建议生成 (Optimizer)
-根据归因统计，生成具体建议：
-
-*   **场景**: 如果发现 60% 的错误是因为“逆势摸顶”。
-*   **建议**: "建议在 Decision Agent 的 Prompt 中增加规则：*当趋势报告显示 Strong Bullish 时，禁止仅凭 RSI 超买信号做空*。"
-
-*   **场景**: 如果发现 Pattern Agent 经常识别错“头肩顶”。
-*   **建议**: "建议降低 Pattern Agent 在综合决策中的权重，或切换 Vision 模型版本。"
-
----
-
-## 4. 开发路线图 (Roadmap)
-
-### 第一阶段：MVP (最小可行性产品)
-- [ ] 实现 `case_filter.py`：支持从 CSV 中按“亏损幅度”和“信心分”筛选 Top 10 失败案例。
-- [ ] 实现 `llm_judge.py`：构建核心 Prompt，让 LLM 对单个 JSON 进行复盘。
-- [ ] 输出简单的 Markdown 报告，列出“错误原因总结”。
-
-### 第二阶段：批量化与统计
-- [ ] 支持批量分析数百个历史文件。
-- [ ] 统计错误类型的分布（饼图）。
-- [ ] 自动关联修改建议：将错误类型映射到具体的 Prompt 优化策略。
-
-### 第三阶段：闭环验证
-- [ ] 提供“一键回测”功能：修改 Prompt 后，自动重新跑这 10 个失败案例，看是否修正了决策。
-
----
-
-## 5. 预期效果示例
-
-**分析报告片段：**
-
-> **🔴 典型失败案例 #1 (BTC-4H)**
-> *   **决策**: SHORT (信心: High)
-> *   **实际**: 价格上涨 5%
-> *   **AI 诊断**:
->     *   Agent 过度依赖 **Stochastic 死叉** 信号。
->     *   忽视了 Trend Agent 报告中的 **"价格位于长期上升通道下轨"** 这一关键支撑信息。
->     *   **结论**: 权重分配错误，微观指标压倒了宏观趋势。
->
-> **💡 优化建议**:
-> *   修改 `decision_agent.py` 的 System Prompt，添加：
->     *   `"CRITICAL RULE: Never open a SHORT position solely based on oscillators if the Trend Report indicates price is at Major Support."`
-
----
-
-## 6. 讨论事项
-
-1.  **Token 消耗**: 批量分析需要消耗大量 Token，建议 MVP 阶段限制每次分析的案例数量（如每次只分析 5-10 个典型）。
-2.  **模型选择**: 建议使用推理能力最强的模型（如 DeepSeek-R1 或 Claude 3.5 Sonnet）作为“教练”，即使 Agent 本身使用的是成本较低的模型。
+*   **数据完整性**: 确保 `batch_backtest_app` 运行时开启了 `future_kline_count`，否则 JSON 中缺乏用于验证的未来数据，Meta-Analyzer 需要自行重新拉取行情。
+*   **API 成本**: 批量诊断会消耗大量 Token，需提供成本估算或限制分析数量的功能。
