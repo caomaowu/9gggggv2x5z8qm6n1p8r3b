@@ -47,7 +47,10 @@ refactor_v2/
 │   └── package.json        # 前端依赖
 │
 ├── tools/                  # 辅助工具
-│   └── auto_pdf.py         # HTML 转 PDF 自动化脚本
+│   ├── auto_pdf.py         # HTML 转 PDF 自动化脚本
+│   ├── batch_backtest_ui.py # 批量回测工具 (Streamlit)
+│   ├── task_generator_ui.py # 随机任务生成器 (Tkinter)
+│   └── batch_backtest_app/  # 批量回测核心逻辑
 │
 ├── exports/                # 分析报告输出目录 (按日期自动归档)
 │   ├── 2026-01-01/
@@ -145,7 +148,32 @@ python tools/auto_pdf.py
   - 前端支持查看最近的历史分析记录
   - 刷新页面可自动恢复上次未关闭的分析结果
 
-## 🔧 配置系统 (Configuration System)
+## �️ 辅助工具 (Tools)
+
+除了核心的 Web 应用外，项目还提供了一系列辅助工具来提升效率：
+
+### 1. 批量回测工具 (Batch Backtest Tool)
+- **入口**: `streamlit run tools/batch_backtest_ui.py`
+- **技术**: Streamlit (Web UI)
+- **功能**:
+  - 提供可视化的 Web 界面进行批量回测任务管理。
+  - 支持多资产、多策略的批量配置与运行。
+  - 自动管理回测状态与结果。
+
+### 2. 随机任务生成器 (Task Generator)
+- **入口**: `python tools/task_generator_ui.py`
+- **技术**: Tkinter (桌面应用)
+- **功能**:
+  - 生成用于测试或分析的随机交易任务。
+  - 支持筛选资产、设定时间范围。
+  - 自动从行情 API 获取数据辅助生成。
+
+### 3. PDF 自动化转换 (Auto PDF)
+- **入口**: `python tools/auto_pdf.py`
+- **技术**: Playwright
+- **功能**: 自动监控 `exports` 目录，将生成的 HTML 分析报告转换为 PDF 格式，便于分享与存档。
+
+## �🔧 配置系统 (Configuration System)
 
 ### 配置架构
 
