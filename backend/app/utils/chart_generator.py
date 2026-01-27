@@ -13,21 +13,14 @@ import mplfinance as mpf
 import numpy as np
 import pandas as pd
 from typing import Optional
-import platform
-
-# 设置中文字体
-system_name = platform.system()
-if system_name == "Windows":
-    plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial']  # 优先使用黑体
-elif system_name == "Darwin":
-    plt.rcParams['font.sans-serif'] = ['Arial Unicode MS', 'PingFang SC', 'Heiti SC']
-else:
-    plt.rcParams['font.sans-serif'] = ['WenQuanYi Micro Hei', 'SimHei', 'DejaVu Sans']
-
-plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示为方块的问题
 
 from .performance import performance_monitor, monitor_image_generation
-from .style_config import get_trading_style
+from .style_config import get_trading_style, get_compatible_font_list
+
+# 全局设置 matplotlib 字体
+# 这样不仅影响 mplfinance (通过 get_trading_style), 也影响直接使用 plt 的图表
+plt.rcParams['font.sans-serif'] = get_compatible_font_list()
+plt.rcParams['axes.unicode_minus'] = False  # 解决负号显示为方块的问题
 
 
 class ChartGenerator:

@@ -8,6 +8,35 @@ import mplfinance as mpf
 import matplotlib.pyplot as plt
 
 
+def get_compatible_font_list():
+    """
+    获取跨平台兼容的字体列表
+    优先使用中文字体，如果没有则回退到英文
+    """
+    # Windows 常用字体
+    windows_fonts = ['Microsoft YaHei', 'SimHei', 'SimSun', 'KaiTi']
+    
+    # Linux 常用字体 (涵盖常见发行版)
+    linux_fonts = [
+        'Noto Sans CJK SC', 'Noto Sans CJK',   # Google/Adobe 开源字体
+        'WenQuanYi Micro Hei',                 # 文泉驿微米黑
+        'WenQuanYi Zen Hei',                   # 文泉驿正黑
+        'Droid Sans Fallback',                 # 旧版Linux默认
+        'Source Han Sans CN',                  # 思源黑体
+        'Source Han Sans SC'
+    ]
+    
+    # Mac 常用字体
+    mac_fonts = ['PingFang SC', 'Heiti SC', 'STHeiti', 'Arial Unicode MS']
+    
+    # 英文/通用保底
+    fallback_fonts = ['Arial', 'Helvetica', 'DejaVu Sans', 'sans-serif']
+    
+    # 组合列表：优先把所有可能的中文字体都放进去
+    # Matplotlib 会按顺序查找，找到第一个可用的就停止
+    return windows_fonts + linux_fonts + mac_fonts + fallback_fonts
+
+
 def get_trading_style():
     """
     获取交易图表样式配置
@@ -28,7 +57,7 @@ def get_trading_style():
         'grid.alpha': 0.3,
         'axes.spines.top': False,
         'axes.spines.right': False,
-        'font.sans-serif': ['SimHei', 'Microsoft YaHei', 'Arial'],
+        'font.sans-serif': get_compatible_font_list(),
         'axes.unicode_minus': False,
     }
 
