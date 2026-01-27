@@ -3,6 +3,8 @@ import random
 import time
 import uuid
 import subprocess
+import platform
+import signal
 from datetime import datetime, timedelta
 from typing import Any, MutableMapping, Optional
 
@@ -243,16 +245,28 @@ def render_execute(
     if daemon_status and "pid" in daemon_status:
         try:
             pid = daemon_status["pid"]
-            # Check if process exists (Windows compatible tasklist check)
-            output = subprocess.check_output(f'tasklist /fi "PID eq {pid}"', shell=True).decode('gbk', errors='ignore')
-            if str(pid) in output:
-                is_daemon_running = True
+            is_windows = platform.system() == "Windows"
+            
+            if is_windows:
+                # Check if process exists (Windows compatible tasklist check)
+                output = subprocess.check_output(f'tasklist /fi "PID eq {pid}"', shell=True).decode('gbk', errors='ignore')
+                if str(pid) in output:
+                    is_daemon_running = True
             else:
-                # Cleanup stale status
+                # Linux/Unix check using ps
+                try:
+                    os.kill(pid, 0) # Check if signal can be sent
+                    is_daemon_running = True
+                except OSError:
+                    is_daemon_running = False
+
+            if not is_daemon_running:
+                 # Cleanup stale status if confirmed dead
                 if os.path.exists(store.DAEMON_STATUS_FILE):
                     os.remove(store.DAEMON_STATUS_FILE)
+                    
         except Exception:
-            # Fallback: assume running if status file is very recent (< 10s)
+            # Fallback: assume running if status file is very recent (< 30s)
             last_hb = daemon_status.get("last_heartbeat")
             if last_hb:
                 try:
@@ -302,7 +316,11 @@ def render_execute(
             col_mon1, col_mon2 = st.columns(2)
             if col_mon1.button("🛑 停止后台任务", type="primary"):
                 try:
-                    subprocess.call(f"taskkill /F /PID {daemon_status['pid']}", shell=True)
+                    if platform.system() == "Windows":
+                        subprocess.call(f"taskkill /F /PID {daemon_status['pid']}", shell=True)
+                    else:
+                        os.kill(daemon_status['pid'], signal.SIGTERM)
+                        
                     st.success("已发送停止信号")
                     if os.path.exists(store.DAEMON_STATUS_FILE):
                         os.remove(store.DAEMON_STATUS_FILE)
@@ -471,8 +489,19 @@ def render_execute(
             cmd = f'python "{script_path}"'
             
             try:
-                # Windows: CREATE_NEW_PROCESS_GROUP = 0x00000200
-                subprocess.Popen(cmd, shell=True, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+                if platform.system() == "Windows":
+                    # Windows: CREATE_NEW_PROCESS_GROUP = 0x00000200
+                    subprocess.Popen(cmd, shell=True, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+                else:
+                    # Linux: nohup ... &
+                    # Use setsid to create a new session group so it doesn't die when parent (Streamlit) dies
+                    subprocess.Popen(
+                        ['nohup', 'python', script_path],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        preexec_fn=os.setsid
+                    )
+                
                 st.success("后台任务已启动！正在切换到监控模式...")
                 time.sleep(2)
                 st.rerun()

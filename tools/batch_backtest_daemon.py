@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import traceback
+import signal
 from datetime import datetime
 from typing import Any, Dict, List
 
@@ -13,8 +14,28 @@ if CURRENT_DIR not in sys.path:
 
 from batch_backtest_app import core, engine, store
 
+def handle_signal(signum, frame):
+    print(f"[{datetime.now()}] Received signal {signum}, stopping...")
+    # Clean up status file
+    if os.path.exists(store.DAEMON_STATUS_FILE):
+        os.remove(store.DAEMON_STATUS_FILE)
+    
+    # Update progress to stopped
+    try:
+        p = store.load_daemon_progress()
+        p["status"] = "已停止"
+        p["is_running"] = False
+        store.save_daemon_progress(p)
+    except:
+        pass
+        
+    sys.exit(0)
 
 def main():
+    # Register signal handlers for Linux/Unix
+    signal.signal(signal.SIGTERM, handle_signal)
+    signal.signal(signal.SIGINT, handle_signal)
+    
     print(f"[{datetime.now()}] Daemon started, PID: {os.getpid()}")
     
     # 1. Update Status (Running)

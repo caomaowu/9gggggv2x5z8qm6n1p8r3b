@@ -23,14 +23,14 @@ else
     echo "○ 后端服务已在运行"
 fi
 
-# 启动 PDF 工具
-if ! systemctl is-active --quiet quant-pdf; then
-    echo "启动 PDF 自动转换工具..."
-    systemctl start quant-pdf
-    echo "✓ PDF 工具已启动"
-else
-    echo "○ PDF 工具已在运行"
-fi
+# 启动 PDF 工具 (已禁用)
+# if ! systemctl is-active --quiet quant-pdf; then
+#     echo "启动 PDF 自动转换工具..."
+#     systemctl start quant-pdf
+#     echo "✓ PDF 工具已启动"
+# else
+#     echo "○ PDF 工具已在运行"
+# fi
 
 echo "=========================================="
 echo "所有服务已启动"
