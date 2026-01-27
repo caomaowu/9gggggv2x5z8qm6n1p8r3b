@@ -1,8 +1,9 @@
 import mplfinance as mpf
+from .style_config import get_compatible_font_list
 
 font = {
     "font.family": "sans-serif",
-    "font.sans-serif": ["Helvetica Neue", "Arial", "DejaVu Sans"],
+    "font.sans-serif": get_compatible_font_list(),
     "font.weight": "normal",
     "font.size": 15,
 }

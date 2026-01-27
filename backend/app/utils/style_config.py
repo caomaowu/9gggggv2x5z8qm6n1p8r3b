@@ -6,6 +6,27 @@ Style Configuration - 图表样式配置
 
 import mplfinance as mpf
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
+import os
+
+
+def load_system_fonts():
+    """尝试加载系统中的常用中文字体"""
+    common_paths = [
+        '/usr/share/fonts/truetype/wqy/wqy-microhei.ttc',
+        '/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc',
+        '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+        '/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+    ]
+    for path in common_paths:
+        if os.path.exists(path):
+            try:
+                fm.fontManager.addfont(path)
+            except Exception:
+                pass
+
+# 模块加载时自动执行字体加载
+load_system_fonts()
 
 
 def get_compatible_font_list():

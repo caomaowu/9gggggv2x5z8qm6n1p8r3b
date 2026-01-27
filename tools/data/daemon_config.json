@@ -1,6 +1,6 @@
 {
-  "tasks_file": "C:\\Users\\gcb\\Desktop\\refactor_v2(1)(1)\\tools\\data\\temp_daemon_tasks.csv",
-  "output_file": "C:\\Users\\gcb\\Desktop\\refactor_v2(1)(1)\\tools\\backtest_results.csv",
+  "tasks_file": "/root/data/9gggggv2x5z8qm6n1p8r3b/tools/data/temp_daemon_tasks.csv",
+  "output_file": "/root/data/9gggggv2x5z8qm6n1p8r3b/tools/backtest_results.csv",
   "backend_url": "http://localhost:8000/api/v1",
   "analyze_path": "/analyze/",
   "concurrency": 6,
@@ -22,7 +22,7 @@
   "funds_cfg": {
     "position_mode": "固定百分比",
     "initial_equity": 10000.0,
-    "allocation_pct": 100.0,
+    "allocation_pct": 50.0,
     "fixed_amount": 1000.0,
     "contract_multiplier": 10.0,
     "slippage_pct": 0.05,
@@ -33,6 +33,6 @@
     "conservative_threshold_pct": 110.0,
     "use_aggressive_mode_only_profit": true
   },
-  "agent_model": "qwen3-max",
-  "graph_model": "qwen3-vl-plus"
+  "agent_model": "anthropic/claude-sonnet-4.5",
+  "graph_model": "anthropic/claude-sonnet-4.5"
 }
