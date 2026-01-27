@@ -66,6 +66,7 @@ PROVIDERS = {
         "agent_models": [
             "anthropic/claude-haiku-4.5",
             "anthropic/claude-sonnet-4.5",
+            "moonshotai/kimi-k2.5",
             "openai/gpt-5-mini",
             "openai/gpt-5.2",
             "google/gemini-3-flash-preview",
@@ -78,6 +79,7 @@ PROVIDERS = {
         "graph_models": [
             "anthropic/claude-haiku-4.5",
             "anthropic/claude-sonnet-4.5",
+            "moonshotai/kimi-k2.5",
             "openai/gpt-5-mini",
             "openai/gpt-5.2",
             "google/gemini-3-flash-preview",

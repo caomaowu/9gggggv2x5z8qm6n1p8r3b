@@ -737,10 +737,8 @@ class TaskGeneratorApp:
                             continue
                         
                         # Determine times to use for this day
-                        current_times = times_list
-                        if self.unique_daily_var.get() and len(times_list) > 1:
-                            # Randomly pick ONE time if unique_daily is ON
-                            current_times = [random.choice(times_list)]
+                        # Modified: Always pick ONE random time from the fixed list per day
+                        current_times = [random.choice(times_list)]
 
                         for t in current_times:
                             if self.unique_daily_var.get() and d in seen_dates_for_asset:
@@ -794,10 +792,8 @@ class TaskGeneratorApp:
                             continue
 
                         # Determine times to use for this day
-                        current_times = times_list
-                        if self.unique_daily_var.get() and len(times_list) > 1:
-                            # Randomly pick ONE time if unique_daily is ON
-                            current_times = [random.choice(times_list)]
+                        # Modified: Always pick ONE random time from the fixed list per day
+                        current_times = [random.choice(times_list)]
 
                         for t in current_times:
                             if self.unique_daily_var.get() and d in seen_dates_for_asset:
