@@ -1,22 +1,14 @@
 """
-决策智能体工厂模式实现
-支持根据配置动态创建不同版本的决策智能体
+决策智能体工厂模式实现 (简化版)
+支持根据配置动态创建不同版本的决策智能体，保留核心创建和降级功能，移除冗余统计。
 """
 
 import os
-import json
 from typing import Dict, Any, Optional
-from datetime import datetime
-
-# 哈雷酱的模块化导入！
-import sys
-from pathlib import Path
-# sys.path hack removed
 
 from .decision_configs import (
     DECISION_AGENT_VERSIONS,
     DEFAULT_DECISION_VERSION,
-    USAGE_TRACKING_CONFIG,
     get_version_info,
     is_valid_version,
     get_default_version
@@ -31,46 +23,12 @@ except ImportError as e:
     def create_final_trade_decider_original(llm):
         return lambda state: {"error": "原始版本决策智能体导入失败"}
 
-# 版本使用统计
-usage_stats = {
-    "version_counts": {},
-    "version_results": {},
-    "last_reset": datetime.now().isoformat()
-}
-
 class DecisionAgentFactory:
-    """决策智能体工厂类"""
+    """决策智能体工厂类 (精简版)"""
 
     SUPPORTED_VERSIONS = {
         "original": create_final_trade_decider_original
     }
-
-    def __init__(self):
-        """初始化工厂"""
-        self._validate_versions()
-        self._init_usage_stats()
-
-    def _validate_versions(self):
-        """验证支持的有效版本"""
-        valid_versions = set(DECISION_AGENT_VERSIONS.keys())
-        factory_versions = set(self.SUPPORTED_VERSIONS.keys())
-
-        missing_versions = valid_versions - factory_versions
-        if missing_versions:
-            print(f"警告：以下版本配置存在但工厂不支持: {missing_versions}")
-
-        extra_versions = factory_versions - valid_versions
-        if extra_versions:
-            print(f"警告：工厂支持但配置中不存在的版本: {extra_versions}")
-
-    def _init_usage_stats(self):
-        """初始化使用统计"""
-        global usage_stats
-        for version in DECISION_AGENT_VERSIONS.keys():
-            if version not in usage_stats["version_counts"]:
-                usage_stats["version_counts"][version] = 0
-            if version not in usage_stats["version_results"]:
-                usage_stats["version_results"][version] = []
 
     def create_agent(self, version: str = None, llm=None, **kwargs):
         """
@@ -88,21 +46,23 @@ class DecisionAgentFactory:
         if version is None:
             version = self._determine_version_from_env()
 
-        # 验证版本有效性
+        # 验证版本有效性，无效则回退到默认
         if not is_valid_version(version):
             print(f"警告：无效版本 '{version}'，使用默认版本 '{get_default_version()}'")
             version = get_default_version()
 
-        # 记录使用统计
-        if USAGE_TRACKING_CONFIG.get("enabled", True):
-            self._track_usage(version)
-
         # 创建智能体
         try:
-            creator_func = self.SUPPORTED_VERSIONS[version]
+            creator_func = self.SUPPORTED_VERSIONS.get(version)
+            if not creator_func:
+                # 再次检查，防止配置有但工厂未注册
+                print(f"警告：工厂不支持版本 '{version}'，回退到默认")
+                version = get_default_version()
+                creator_func = self.SUPPORTED_VERSIONS[version]
+
             agent = creator_func(llm, **kwargs)
 
-            # 包装智能体以添加版本信息
+            # 简单包装：仅添加版本信息，移除复杂的统计逻辑
             wrapped_agent = self._wrap_agent_with_version_info(agent, version)
 
             print(f"✅ 成功创建 {version} 版本决策智能体")
@@ -116,8 +76,8 @@ class DecisionAgentFactory:
                 if version != default_version:
                     print(f"🔄 尝试创建默认版本 {default_version}")
                     return self.create_agent(default_version, llm, **kwargs)
-            except:
-                pass
+            except Exception as fallback_error:
+                print(f"❌ 降级失败: {fallback_error}")
 
             # 最后的降级：返回错误处理智能体
             return lambda state: {
@@ -127,11 +87,9 @@ class DecisionAgentFactory:
 
     def _determine_version_from_env(self) -> str:
         """从环境变量确定版本"""
-        # 优先级：环境变量 > 配置文件 > 默认值
         env_version = os.getenv("DECISION_AGENT_VERSION")
         if env_version and is_valid_version(env_version):
             return env_version
-
         return get_default_version()
 
     def _wrap_agent_with_version_info(self, agent_func, version: str):
@@ -143,75 +101,14 @@ class DecisionAgentFactory:
             # 确保结果包含版本信息
             if isinstance(result, dict):
                 result["agent_version"] = version
-                result["agent_version_name"] = DECISION_AGENT_VERSIONS[version]["name"]
-                result["agent_version_description"] = DECISION_AGENT_VERSIONS[version]["description"]
-
-            # 记录结果统计
-            if USAGE_TRACKING_CONFIG.get("track_performance", True):
-                self._track_result(version, result)
+                # 从配置中获取元数据
+                config = DECISION_AGENT_VERSIONS.get(version, {})
+                result["agent_version_name"] = config.get("name", version)
+                result["agent_version_description"] = config.get("description", "")
 
             return result
 
         return wrapped_agent
-
-    def _track_usage(self, version: str):
-        """记录版本使用统计"""
-        global usage_stats
-        usage_stats["version_counts"][version] = usage_stats["version_counts"].get(version, 0) + 1
-
-    def _track_result(self, version: str, result: dict):
-        """记录版本结果统计"""
-        global usage_stats
-        if version not in usage_stats["version_results"]:
-            usage_stats["version_results"][version] = []
-
-        # 只记录关键信息，避免存储过多数据
-        result_summary = {
-            "timestamp": datetime.now().isoformat(),
-            "success": "error" not in result,
-            "decision": result.get("final_trade_decision", "")[:100]  # 只保存前100个字符
-        }
-
-        usage_stats["version_results"][version].append(result_summary)
-
-        # 限制历史记录数量
-        max_results = 1000
-        if len(usage_stats["version_results"][version]) > max_results:
-            usage_stats["version_results"][version] = usage_stats["version_results"][version][-max_results:]
-
-    def get_usage_stats(self) -> Dict[str, Any]:
-        """获取使用统计信息"""
-        global usage_stats
-        return usage_stats.copy()
-
-    def reset_usage_stats(self):
-        """重置使用统计"""
-        global usage_stats
-        usage_stats = {
-            "version_counts": {},
-            "version_results": {},
-            "last_reset": datetime.now().isoformat()
-        }
-        self._init_usage_stats()
-
-    def get_version_comparison(self) -> Dict[str, Any]:
-        """获取版本对比信息"""
-        comparison = {}
-        for version, config in DECISION_AGENT_VERSIONS.items():
-            usage_count = usage_stats["version_counts"].get(version, 0)
-            comparison[version] = {
-                "name": config["name"],
-                "description": config["description"],
-                "usage_count": usage_count,
-                "features": config.get("features", []),
-                "limitations": config.get("limitations", [])
-            }
-        return comparison
-
-    def recommend_version(self, market_conditions: Dict[str, Any] = None) -> str:
-        """基于市场条件推荐版本"""
-        # 由于只保留了 original 版本，直接返回默认版本
-        return get_default_version()
 
 # 全局工厂实例
 _factory_instance = None
@@ -227,12 +124,3 @@ def create_decision_agent(version: str = None, llm=None, **kwargs):
     """便捷函数：创建决策智能体"""
     factory = get_decision_agent_factory()
     return factory.create_agent(version, llm, **kwargs)
-
-def get_available_versions() -> Dict[str, str]:
-    """获取所有可用版本"""
-    return {version: info["name"] for version, info in DECISION_AGENT_VERSIONS.items()}
-
-def get_version_usage_stats() -> Dict[str, Any]:
-    """获取版本使用统计"""
-    factory = get_decision_agent_factory()
-    return factory.get_usage_stats()
