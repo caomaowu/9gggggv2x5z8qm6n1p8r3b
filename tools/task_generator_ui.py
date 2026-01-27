@@ -141,7 +141,11 @@ class TaskGeneratorApp:
 
         self.unique_random_date_var = tk.BooleanVar(value=False)
         self.unique_random_cb = ttk.Checkbutton(step2_frame, text="随机日期不重复", variable=self.unique_random_date_var)
-        self.unique_random_cb.grid(row=6, column=0, columnspan=2, sticky='w', pady=(0, 4))
+        self.unique_random_cb.grid(row=6, column=0, sticky='w', pady=(0, 4))
+
+        self.unique_daily_var = tk.BooleanVar(value=False)
+        self.unique_daily_cb = ttk.Checkbutton(step2_frame, text="同币种单日唯一", variable=self.unique_daily_var)
+        self.unique_daily_cb.grid(row=6, column=1, sticky='w', pady=(0, 4))
 
         self.date_mode_combo.bind("<<ComboboxSelected>>", self._on_date_mode_changed)
         self._on_date_mode_changed()
@@ -544,19 +548,42 @@ class TaskGeneratorApp:
                 "limit": 1,
                 "end_time": dt_str
             }
-            # Add timeout to prevent freezing UI for too long
-            resp = requests.get(url, params=params, headers=headers, timeout=3)
             
-            if resp.status_code == 200:
-                data = resp.json()
-                # Handle different API response structures
-                if isinstance(data, dict):
-                     if data.get("data") and len(data["data"]) > 0:
-                         return True
-                     if data.get("status") == "success" and data.get("data"):
-                         return True
-                elif isinstance(data, list) and len(data) > 0:
-                    return True
+            # Retry logic: 3 attempts
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    # Increase timeout to 10 seconds
+                    resp = requests.get(url, params=params, headers=headers, timeout=10)
+                    
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        # Handle different API response structures
+                        if isinstance(data, dict):
+                             if data.get("data") and len(data["data"]) > 0:
+                                 return True
+                             if data.get("status") == "success" and data.get("data"):
+                                 return True
+                        elif isinstance(data, list) and len(data) > 0:
+                            return True
+                    elif resp.status_code == 429:
+                        # Rate limit, wait a bit
+                        import time
+                        time.sleep(1)
+                        continue
+                        
+                    # If we got a response but it wasn't 200 or 429, break and return False (or handle error)
+                    # For now, if 404 or 500, we might want to retry 500 but not 404.
+                    if resp.status_code >= 500:
+                         continue
+                    
+                    break # Break if successful response logic processed or non-retriable error
+                    
+                except requests.exceptions.RequestException as e:
+                    if attempt == max_retries - 1:
+                        raise e # Re-raise last exception
+                    continue
+
             return False
         except Exception as e:
             print(f"Validation error for {symbol} at {dt_str}: {e}")
@@ -667,6 +694,8 @@ class TaskGeneratorApp:
             times_list = []
             if time_mode_value == "固定时间":
                 raw_times = self.fixed_times_var.get().strip()
+                # 支持中文逗号
+                raw_times = raw_times.replace('，', ',')
                 if not raw_times:
                     messagebox.showerror("错误", "时间模式为固定时间时，请输入至少一个时间")
                     return
@@ -693,17 +722,37 @@ class TaskGeneratorApp:
 
             tasks = []
             task_id = 1
+            
+            # Check validation var existence safely
+            should_validate = False
+            if hasattr(self, 'validate_data_var') and self.validate_data_var.get():
+                should_validate = True
+
             for asset in assets_list:
+                seen_dates_for_asset = set()
+
                 if date_mode_value == "连续日期":
                     for d in dates_list:
-                        for t in times_list:
+                        if self.unique_daily_var.get() and d in seen_dates_for_asset:
+                            continue
+                        
+                        # Determine times to use for this day
+                        current_times = times_list
+                        if self.unique_daily_var.get() and len(times_list) > 1:
+                            # Randomly pick ONE time if unique_daily is ON
+                            current_times = [random.choice(times_list)]
+
+                        for t in current_times:
+                            if self.unique_daily_var.get() and d in seen_dates_for_asset:
+                                continue
+
                             if t == "RANDOM":
                                 end_time_value = self._generate_random_time(tf)
                             else:
                                 end_time_value = t
                             
                             # 验证数据
-                            if self.validate_data_var.get():
+                            if should_validate:
                                 if not self._check_data_availability(asset, tf, d, end_time_value):
                                     print(f"Skipping invalid data: {asset} {d} {end_time_value}")
                                     continue
@@ -722,6 +771,10 @@ class TaskGeneratorApp:
                             }
                             tasks.append(task)
                             task_id += 1
+                            
+                            if self.unique_daily_var.get():
+                                seen_dates_for_asset.add(d)
+
                 else:
                     if use_unique_random:
                         indices = random.sample(range(total_days), random_days)
@@ -735,8 +788,21 @@ class TaskGeneratorApp:
                         for _ in range(random_days):
                             d = self._get_random_date(start_date, end_date)
                             dates_for_asset.append(d)
+                    
                     for d in dates_for_asset:
-                        for t in times_list:
+                        if self.unique_daily_var.get() and d in seen_dates_for_asset:
+                            continue
+
+                        # Determine times to use for this day
+                        current_times = times_list
+                        if self.unique_daily_var.get() and len(times_list) > 1:
+                            # Randomly pick ONE time if unique_daily is ON
+                            current_times = [random.choice(times_list)]
+
+                        for t in current_times:
+                            if self.unique_daily_var.get() and d in seen_dates_for_asset:
+                                continue
+
                             if t == "RANDOM":
                                 end_time_value = self._generate_random_time(tf)
                             else:
@@ -756,6 +822,9 @@ class TaskGeneratorApp:
                             }
                             tasks.append(task)
                             task_id += 1
+
+                            if self.unique_daily_var.get():
+                                seen_dates_for_asset.add(d)
 
             tasks.sort(key=lambda x: (x["end_date"], x["end_time"], x["asset"]))
 
@@ -812,8 +881,8 @@ class TaskGeneratorApp:
                 print(f"Error checking {values}: {e}")
                 return idx, item_id, values, False
 
-        # 默认并发数 7
-        with concurrent.futures.ThreadPoolExecutor(max_workers=7) as executor:
+        # 默认并发数 6
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
             futures = [executor.submit(verify_single, i, item_id, vals) for i, item_id, vals in tasks_data]
             
             for future in concurrent.futures.as_completed(futures):
