@@ -33,6 +33,6 @@
     "conservative_threshold_pct": 110.0,
     "use_aggressive_mode_only_profit": true
   },
-  "agent_model": "anthropic/claude-sonnet-4.5",
-  "graph_model": "anthropic/claude-sonnet-4.5"
+  "agent_model": "ark-code-latest",
+  "graph_model": "qwen3-vl-plus"
 }
