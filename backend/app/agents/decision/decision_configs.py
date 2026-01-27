@@ -34,22 +34,6 @@ VERSION_DESCRIPTIONS = {
     "original": "原始经典版：经过实战验证的HFT逻辑，英文Prompt，强制二选一"
 }
 
-# A/B测试配置（已禁用，仅支持单一版本）
-AB_TEST_CONFIG = {
-    "enabled": False,
-    "split_ratio": 1.0, 
-    "tracking_enabled": True,
-    "results_file": "ab_test_results.json"
-}
-
-# 版本使用统计配置
-USAGE_TRACKING_CONFIG = {
-    "enabled": True,
-    "track_performance": True,
-    "track_user_preferences": True,
-    "auto_cleanup_days": 30  # 30天后自动清理统计数据
-}
-
 def get_version_info(version: str) -> dict:
     """获取指定版本的详细信息"""
     return DECISION_AGENT_VERSIONS.get(version, {})
@@ -91,19 +75,6 @@ def recommend_version(market_complexity: str = "medium",
     """根据市场复杂度和用户偏好推荐版本"""
     # 由于只保留了 original 版本，直接返回默认版本
     return get_default_version()
-
-# 配置验证
-def validate_config() -> bool:
-    """验证配置的完整性"""
-    required_keys = ["name", "description", "characteristics", "features", "limitations"]
-
-    for version, config in DECISION_AGENT_VERSIONS.items():
-        for key in required_keys:
-            if key not in config:
-                print(f"配置验证失败：版本 {version} 缺少必需字段 {key}")
-                return False
-
-    return True
 
 # 风控参数配置
 risk_control = {
