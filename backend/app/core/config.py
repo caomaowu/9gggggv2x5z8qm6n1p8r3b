@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     IFLOW_API_KEY: str = ""
     IFLOW2_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
+    ARK_API_KEY: str = ""
     
     AGENT_PROVIDER: str = "modelscope"
     AGENT_MODEL: str = "Qwen/Qwen3-Next-80B-A3B-Instruct"

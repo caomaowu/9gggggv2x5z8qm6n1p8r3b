@@ -89,6 +89,17 @@ PROVIDERS = {
             "nvidia/nemotron-nano-12b-v2-vl:free",
         ],
     },
+    "ark": {
+        "name": "Ark",
+        "base_url": "https://ark.cn-beijing.volces.com/api/coding/v3",
+        "api_key_env": "ARK_API_KEY",
+        "agent_models": [
+            "ark-code-latest",
+        ],
+        "graph_models": [
+            "ark-code-latest",
+        ],
+    },
 }
 
 
