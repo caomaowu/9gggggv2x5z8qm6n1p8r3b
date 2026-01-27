@@ -2,13 +2,14 @@ import os
 import random
 import time
 import uuid
+import subprocess
 from datetime import datetime, timedelta
 from typing import Any, MutableMapping, Optional
 
 import pandas as pd
 import streamlit as st
 
-from batch_backtest_app import core, daemon_client, engine, store
+from batch_backtest_app import core, engine, store
 
 
 def render_task_source(
@@ -236,13 +237,101 @@ def render_execute(
 ) -> None:
     st.markdown("### 执行回测")
 
-    execute_mode = st.radio("执行模式", ["前台执行", "后台执行"], horizontal=True, help="前台执行：浏览器关闭会中断 | 后台执行：浏览器关闭不影响，任务继续运行")
+    # --- 后台任务监控 ---
+    daemon_status = store.load_daemon_status()
+    is_daemon_running = False
+    if daemon_status and "pid" in daemon_status:
+        try:
+            pid = daemon_status["pid"]
+            # Check if process exists (Windows compatible tasklist check)
+            output = subprocess.check_output(f'tasklist /fi "PID eq {pid}"', shell=True).decode('gbk', errors='ignore')
+            if str(pid) in output:
+                is_daemon_running = True
+            else:
+                # Cleanup stale status
+                if os.path.exists(store.DAEMON_STATUS_FILE):
+                    os.remove(store.DAEMON_STATUS_FILE)
+        except Exception:
+            # Fallback: assume running if status file is very recent (< 10s)
+            last_hb = daemon_status.get("last_heartbeat")
+            if last_hb:
+                try:
+                    dt = datetime.fromisoformat(last_hb)
+                    if (datetime.now() - dt).total_seconds() < 30:
+                        is_daemon_running = True
+                except:
+                    pass
 
+    if is_daemon_running:
+        st.info(f"🚀 后台任务正在运行中 (PID: {daemon_status['pid']})")
+        
+        progress = store.load_daemon_progress()
+        if progress and progress.get("is_running"):
+            total = progress.get("total_tasks", 1)
+            completed = progress.get("completed_count", 0)
+            
+            p_val = completed / total if total > 0 else 0.0
+            st.progress(p_val)
+            st.caption(f"进度: {completed}/{total} | 状态: {progress.get('status', '未知')}")
+            
+            m1, m2, m3, m4, m5 = st.columns(5)
+            m1.metric("胜场 (Wins)", progress.get("stats_wins", 0))
+            m2.metric("负场 (Losses)", progress.get("stats_losses", 0))
+            m3.metric("失败 (Failed)", progress.get("failed_count", 0))
+            
+            equity = progress.get("equity")
+            if equity is not None:
+                m4.metric("当前资金", f"{float(equity):.2f}")
+            else:
+                m4.metric("当前资金", "N/A")
+            
+            last_update = progress.get("last_update", "")
+            if last_update:
+                try:
+                    t_str = last_update.split('T')[-1][:8]
+                    m5.metric("更新时间", t_str)
+                except:
+                    m5.metric("更新时间", "刚刚")
+
+            # Detail expander
+            with st.expander("当前任务详情", expanded=True):
+                st.write(f"Task ID: {progress.get('current_task_id')}")
+                st.write(f"Asset: {progress.get('current_asset')} ({progress.get('current_timeframe')})")
+                st.write(f"End Date: {progress.get('current_end_date')} {progress.get('current_end_time')}")
+
+            col_mon1, col_mon2 = st.columns(2)
+            if col_mon1.button("🛑 停止后台任务", type="primary"):
+                try:
+                    subprocess.call(f"taskkill /F /PID {daemon_status['pid']}", shell=True)
+                    st.success("已发送停止信号")
+                    if os.path.exists(store.DAEMON_STATUS_FILE):
+                        os.remove(store.DAEMON_STATUS_FILE)
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"停止失败: {e}")
+                    
+            if col_mon2.button("🔄 刷新状态"):
+                st.rerun()
+                
+            # Auto refresh
+            time.sleep(3)
+            st.rerun()
+        else:
+            st.warning("正在等待后台进程启动或初始化...")
+            if st.button("刷新"):
+                st.rerun()
+            time.sleep(2)
+            st.rerun()
+            
+        return
+
+    # --- 配置面板 (仅当无后台任务时显示) ---
     col_run1, col_run2 = st.columns(2)
     with col_run1:
         output_path = st.text_input("结果输出路径", value=os.path.join("tools", "backtest_results.csv"))
     with col_run2:
-        rerun = st.checkbox("强制重跑", value=False, disabled=(execute_mode == "后台执行"))
+        rerun = st.checkbox("强制重跑", value=False)
 
     backtest_mode = st.radio("回测模式", ["普通回测", "带资金回测"], horizontal=True)
 
@@ -319,35 +408,13 @@ def render_execute(
                 "use_aggressive_mode_only_profit": bool(use_aggressive_mode_only_profit),
             }
 
+    st.markdown("---")
+    exec_mode = st.radio("🚀 运行模式", ["前台运行 (需保持浏览器开启)", "后台运行 (可关闭浏览器)"], horizontal=True)
+
     if st.button("开始回测", type="primary"):
         if not state.get("tasks"):
             st.error("当前没有任务，请先在「任务来源」上传或生成任务！")
             return
-
-        if execute_mode == "后台执行":
-            # 准备任务数据，注入配置
-            tasks_to_queue = []
-            for t in state["tasks"]:
-                t_copy = t.copy()
-                if backtest_mode == "带资金回测" and funds_cfg:
-                    t_copy["backtest_mode"] = "带资金回测"
-                    t_copy["funds_cfg"] = funds_cfg
-                else:
-                    t_copy["backtest_mode"] = "普通回测"
-                tasks_to_queue.append(t_copy)
-
-            batch_name = f"批次_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            success, message, added_count = daemon_client.add_tasks_to_queue(tasks_to_queue, batch_name)
-
-            if success:
-                st.success(f"{message}")
-                st.info(f"任务已添加到后台队列，请在「后台任务管理」页面查看执行状态")
-                state["tasks"] = []
-            else:
-                st.error(message)
-            return
-
-        st.warning("回测运行期间请勿切换左侧菜单页面，否则会导致进度视图丢失！")
 
         tasks = list(state["tasks"])
         base_url = engine.normalize_base_url(str(cfg["backend_url"]))
@@ -367,6 +434,55 @@ def render_execute(
         }
 
         output_csv = os.path.abspath(output_path)
+        
+        # --- 后台运行逻辑 ---
+        if "后台" in exec_mode:
+            agent_model, graph_model = store.load_env_models()
+            daemon_cfg = {
+                "tasks_file": "", # 稍后设置
+                "output_file": output_csv,
+                "backend_url": base_url,
+                "analyze_path": analyze_path,
+                "concurrency": int(cfg["concurrency"]),
+                "task_delay": float(cfg["task_delay"]),
+                "timeout": float(cfg["timeout"]),
+                "retries": int(cfg["retries"]),
+                "hold_threshold": float(cfg["hold_threshold"]),
+                "defaults": defaults,
+                "backtest_mode": backtest_mode,
+                "funds_cfg": funds_cfg,
+                "agent_model": agent_model,
+                "graph_model": graph_model,
+            }
+            
+            # 保存临时任务文件
+            temp_tasks_path = os.path.join(store._tools_dir(), "data", "temp_daemon_tasks.csv")
+            try:
+                pd.DataFrame(tasks).to_csv(temp_tasks_path, index=False)
+            except Exception as e:
+                st.error(f"保存任务文件失败: {e}")
+                return
+                
+            daemon_cfg["tasks_file"] = temp_tasks_path
+            store.save_daemon_config(daemon_cfg)
+            
+            # 启动进程
+            script_path = os.path.join(store._tools_dir(), "batch_backtest_daemon.py")
+            cmd = f'python "{script_path}"'
+            
+            try:
+                # Windows: CREATE_NEW_PROCESS_GROUP = 0x00000200
+                subprocess.Popen(cmd, shell=True, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+                st.success("后台任务已启动！正在切换到监控模式...")
+                time.sleep(2)
+                st.rerun()
+            except Exception as e:
+                st.error(f"启动后台进程失败: {e}")
+            return
+
+        # --- 前台运行逻辑 (保持原样) ---
+        st.warning("回测运行期间请勿切换左侧菜单页面，否则会导致进度视图丢失！")
+
         state["bt_last_output_csv"] = output_csv
         state["bt_last_summary"] = None
         state["bt_last_rows"] = []
@@ -409,7 +525,7 @@ def render_execute(
                 "total_duration_s": 0.0,
             }
             state["bt_last_summary"] = summary
-            state["next_page"] = "📊 结果"
+            state["next_page"] = "结果"
             st.rerun()
             return
 
@@ -589,7 +705,7 @@ def render_execute(
             "funds_pnl": funds_pnl,
             "funds_pnl_pct": funds_pnl_pct,
         }
-        state["next_page"] = "📊 结果"
+        state["next_page"] = "结果"
         st.rerun()
 
 
@@ -683,177 +799,6 @@ def render_results(*, cfg: dict[str, Any], state: MutableMapping[str, Any], core
             state["bt_last_output_csv"] = ""
             state["bt_last_summary"] = None
             state["bt_last_rows"] = []
-
-
-def render_daemon_management(
-    *,
-    cfg: dict[str, Any],
-    state: MutableMapping[str, Any],
-    core: Any,
-) -> None:
-    st.markdown("### 后台任务管理")
-
-    daemon_status = daemon_client.get_daemon_status()
-    is_running = daemon_status["is_running"]
-
-    col_status1, col_status2, col_status3 = st.columns(3)
-    with col_status1:
-        status_icon = "[运行中]" if is_running else "[未运行]"
-        status_text = "运行中" if is_running else "未运行"
-        st.metric("守护进程状态", f"{status_icon} {status_text}")
-
-    with col_status2:
-        if daemon_status["pid"]:
-            st.metric("进程 ID", daemon_status["pid"])
-        else:
-            st.metric("进程 ID", "-")
-
-    with col_status3:
-        if daemon_status["queue_size"] > 0:
-            st.metric("队列任务数", daemon_status["queue_size"])
-        else:
-            st.metric("队列任务数", "空闲")
-
-    st.markdown("---")
-
-    col_ctrl1, col_ctrl2, col_ctrl3 = st.columns(3)
-    with col_ctrl1:
-        if not is_running:
-            if st.button("启动守护进程", type="primary", use_container_width=True):
-                success, message = daemon_client.start_daemon(cfg)
-                if success:
-                    st.success(message)
-                    time.sleep(1)
-                    st.rerun()
-                else:
-                    st.error(message)
-        else:
-            if st.button("停止守护进程", type="secondary", use_container_width=True):
-                success, message = daemon_client.stop_daemon()
-                if success:
-                    st.success(message)
-                    time.sleep(1)
-                    st.rerun()
-                else:
-                    st.error(message)
-
-    with col_ctrl2:
-        if daemon_status["queue_size"] > 0:
-            if st.button("清空队列", type="secondary", use_container_width=True):
-                success, message, count = daemon_client.clear_queue()
-                if success:
-                    st.success(message)
-                    time.sleep(1)
-                    st.rerun()
-                else:
-                    st.error(message)
-        else:
-            st.button("清空队列", type="secondary", use_container_width=True, disabled=True)
-
-    with col_ctrl3:
-        if st.button("刷新状态", use_container_width=True):
-            st.rerun()
-
-    st.markdown("---")
-
-    st.markdown("#### 队列信息")
-    queue_status = daemon_client.get_queue_status()
-
-    if queue_status["queue_size"] > 0:
-        st.info(f"当前队列中有 {queue_status['queue_size']} 个任务待执行")
-
-        for batch in queue_status.get("batches", []):
-            with st.expander(f"[批次] {batch['name']} - {batch['count']} 个任务", expanded=False):
-                st.write(f"批次 ID: {batch['id']}")
-                st.write(f"任务数量: {batch['count']}")
-                if batch.get("first_task_time"):
-                    st.write(f"首次添加时间: {batch['first_task_time']}")
-    else:
-        st.info("队列为空，暂无待执行任务")
-
-    st.markdown("---")
-
-    st.markdown("#### 执行进度")
-    progress = daemon_client.get_progress()
-
-    if progress.get("is_running") and progress.get("current_task_id"):
-        st.info(f"当前正在执行任务: {progress.get('current_task_id', '未知')}")
-
-        col_prog1, col_prog2, col_prog3 = st.columns(3)
-        with col_prog1:
-            st.metric("已完成", f"{progress.get('completed_count', 0)}")
-        with col_prog2:
-            st.metric("总任务数", progress.get("total_tasks", 0))
-        with col_prog3:
-            st.metric("失败数", progress.get("failed_count", 0))
-
-        col_prog4, col_prog5 = st.columns(2)
-        with col_prog4:
-            st.metric("胜场", progress.get("stats_wins", 0))
-        with col_prog5:
-            st.metric("负场", progress.get("stats_losses", 0))
-
-        col_prog6, col_prog7 = st.columns(2)
-        with col_prog6:
-            st.metric("胜率", f"{progress.get('win_rate', 0.0):.2f}%")
-        with col_prog7:
-            equity = progress.get("equity")
-            if equity is not None:
-                st.metric("当前资金", f"{equity:.2f}")
-            else:
-                st.metric("当前资金", "-")
-
-        st.markdown("##### 当前任务详情")
-        col_detail1, col_detail2, col_detail3 = st.columns(3)
-        with col_detail1:
-            st.write(f"**资产**: {progress.get('current_asset', '-')}")
-        with col_detail2:
-            st.write(f"**周期**: {progress.get('current_timeframe', '-')}")
-        with col_detail3:
-            st.write(f"**日期**: {progress.get('current_end_date', '')} {progress.get('current_end_time', '')}")
-
-        if progress.get("elapsed_formatted"):
-            st.write(f"**运行时长**: {progress['elapsed_formatted']}")
-
-        if st.button("刷新进度"):
-            st.rerun()
-
-    else:
-        if is_running:
-            st.info("守护进程正在运行，但当前没有执行中的任务")
-        else:
-            st.info("守护进程未运行，暂无进度信息")
-
-    st.markdown("---")
-
-    st.markdown("#### 守护进程配置")
-    with st.expander("编辑守护进程配置", expanded=False):
-        config_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "daemon_config.json")
-        st.info(f"配置文件位置: {config_file}")
-        st.markdown("""
-        守护进程配置说明:
-        - `backend_url`: 后端接口地址
-        - `analyze_path`: 分析接口路径
-        - `concurrency`: 并发数（默认 6）
-        - `task_delay`: 任务启动间隔秒数（默认 1.6）
-        - `timeout`: 超时时间秒数（默认 180）
-        - `retries`: 重试次数（默认 2）
-        - `hold_threshold`: 观望阈值（默认 0.002）
-        - `default_kline_count`: 默认K线数量（默认 40）
-        - `default_future_kline_count`: 默认未来K线数量（默认 13）
-        - `default_ai_version`: 默认模型版本（默认 original）
-        - `default_data_method`: 默认数据方法（默认 to_end）
-        - `backtest_mode`: 回测模式（普通回测/带资金回测）
-        - `output_path`: 结果输出路径（默认 tools/backtest_results.csv）
-
-        带资金回测额外参数:
-        - `initial_equity`: 初始资金（默认 10000）
-        - `allocation_pct`: 仓位比例百分比（默认 100）
-        - `contract_multiplier`: 合约倍数（默认 1）
-        - `slippage_pct`: 滑点百分比（默认 0.05）
-        - `force_close_pct`: 强制平仓百分比（默认 5）
-        - `trigger_order`: 触发顺序（保守/乐观）
-        """)
 
 
 def _normalize_assets_input_state(state: MutableMapping[str, Any]) -> None:

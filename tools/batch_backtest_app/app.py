@@ -72,7 +72,7 @@ def run_app() -> None:
         }
     )
 
-    pages_list = ["任务来源", "执行回测", "结果", "后台任务管理"]
+    pages_list = ["任务来源", "执行回测", "结果"]
     if st.session_state.next_page:
         st.session_state.active_page = st.session_state.next_page
         st.session_state.next_page = None
@@ -85,5 +85,3 @@ def run_app() -> None:
         pages.render_execute(cfg=cfg, state=st.session_state, store=store, core=core)
     elif active_page == "结果":
         pages.render_results(cfg=cfg, state=st.session_state, core=core)
-    else:
-        pages.render_daemon_management(cfg=cfg, state=st.session_state, core=core)

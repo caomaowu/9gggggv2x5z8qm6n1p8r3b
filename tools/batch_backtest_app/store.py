@@ -16,6 +16,10 @@ FAV_ASSETS_FILE = os.path.join(_tools_dir(), "data", "favorite_assets.json")
 PRESETS_DIR = os.path.join(_tools_dir(), "data", "task_presets")
 ENV_PATH = os.path.join(_repo_root(), "backend", ".env")
 
+DAEMON_CONFIG_FILE = os.path.join(_tools_dir(), "data", "daemon_config.json")
+DAEMON_PROGRESS_FILE = os.path.join(_tools_dir(), "data", "batch_backtest_progress.json")
+DAEMON_STATUS_FILE = os.path.join(_tools_dir(), "data", "batch_backtest_status.json")
+
 
 def get_favorites() -> list[str]:
     if not os.path.exists(FAV_ASSETS_FILE):
@@ -88,3 +92,52 @@ def delete_preset(name: str) -> None:
     if os.path.exists(path):
         os.remove(path)
 
+
+# --- Daemon Helper Functions ---
+
+def save_daemon_config(config: dict[str, Any]) -> None:
+    with open(DAEMON_CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+
+
+def load_daemon_config() -> dict[str, Any]:
+    if not os.path.exists(DAEMON_CONFIG_FILE):
+        return {}
+    try:
+        with open(DAEMON_CONFIG_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_daemon_progress(progress: dict[str, Any]) -> None:
+    # Atomic write pattern to avoid reading partial file
+    temp_path = DAEMON_PROGRESS_FILE + ".tmp"
+    with open(temp_path, "w", encoding="utf-8") as f:
+        json.dump(progress, f, indent=2, ensure_ascii=False)
+    os.replace(temp_path, DAEMON_PROGRESS_FILE)
+
+
+def load_daemon_progress() -> dict[str, Any]:
+    if not os.path.exists(DAEMON_PROGRESS_FILE):
+        return {}
+    try:
+        with open(DAEMON_PROGRESS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_daemon_status(status: dict[str, Any]) -> None:
+    with open(DAEMON_STATUS_FILE, "w", encoding="utf-8") as f:
+        json.dump(status, f, indent=2, ensure_ascii=False)
+
+
+def load_daemon_status() -> dict[str, Any]:
+    if not os.path.exists(DAEMON_STATUS_FILE):
+        return {}
+    try:
+        with open(DAEMON_STATUS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
