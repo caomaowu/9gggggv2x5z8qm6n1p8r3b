@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     GRAPH_MODEL: str = "Qwen/Qwen3-VL-30B-A3B-Instruct"
     GRAPH_TEMPERATURE: float = 0.1
 
+    # 思考模式独立开关
+    INDICATOR_THINKING_MODE: bool = False
+    PATTERN_THINKING_MODE: bool = False
+    TREND_THINKING_MODE: bool = False
+    DECISION_THINKING_MODE: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -122,7 +128,7 @@ def reload_config():
     settings = Settings()
 
 
-def create_llm_client(role: str = "agent") -> ChatOpenAI:
+def create_llm_client(role: str = "agent", agent_name: str = None) -> ChatOpenAI:
     """创建 LLM 客户端"""
     if role == "agent":
         provider = settings.AGENT_PROVIDER
@@ -141,11 +147,30 @@ def create_llm_client(role: str = "agent") -> ChatOpenAI:
     if not api_key:
         raise ValueError(f"API Key not found for provider {provider}. Please set {cfg['api_key_env']} in .env file")
 
+    model_kwargs = {}
+    
+    # 判断是否开启思考模式
+    enable_thinking = False
+    if agent_name:
+        if agent_name == "indicator":
+            enable_thinking = settings.INDICATOR_THINKING_MODE
+        elif agent_name == "pattern":
+            enable_thinking = settings.PATTERN_THINKING_MODE
+        elif agent_name == "trend":
+            enable_thinking = settings.TREND_THINKING_MODE
+        elif agent_name == "decision":
+            enable_thinking = settings.DECISION_THINKING_MODE
+    
+    # 仅针对 OpenRouter 注入 reasoning 参数
+    if enable_thinking and provider == "openrouter":
+        model_kwargs["extra_body"] = {"reasoning": {"enabled": True}}
+
     return ChatOpenAI(
         model=model,
         temperature=temperature,
         api_key=api_key,
         base_url=cfg["base_url"],
+        model_kwargs=model_kwargs,
     )
 
 

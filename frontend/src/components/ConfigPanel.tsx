@@ -1,8 +1,19 @@
 import { useAppStore } from '../store/useAppStore';
 import type { AnalyzeRequest } from '../types';
 import styles from './ConfigPanel.module.css';
-import { clearSystemCache, clearExportsFiles, getLLMConfig, updateLLMConfig } from '../api/system';
-import type { LLMConfigCurrent, LLMProviderInfo } from '../api/system';
+import { 
+    clearSystemCache, 
+    clearExportsFiles, 
+    getLLMConfig, 
+    updateLLMConfig,
+    getThinkingModeConfig,
+    updateThinkingModeConfig
+} from '../api/system';
+import type { 
+    LLMConfigCurrent, 
+    LLMProviderInfo,
+    ThinkingModeConfig
+} from '../api/system';
 import { useState, useEffect } from 'react';
 
 export default function ConfigPanel() {
@@ -19,6 +30,9 @@ export default function ConfigPanel() {
   const [llmConfig, setLLMConfig] = useState<LLMConfigCurrent | null>(null);
   const [availableProviders, setAvailableProviders] = useState<Record<string, LLMProviderInfo>>({});
   const [isSavingLLM, setIsSavingLLM] = useState(false);
+  
+  // Thinking Mode State
+  const [thinkingConfig, setThinkingConfig] = useState<ThinkingModeConfig | null>(null);
 
   useEffect(() => {
       const fetchConfig = async () => {
@@ -26,12 +40,34 @@ export default function ConfigPanel() {
               const data = await getLLMConfig();
               setLLMConfig(data.current);
               setAvailableProviders(data.options.providers);
+              
+              // Fetch Thinking Mode
+              const thinkingData = await getThinkingModeConfig();
+              setThinkingConfig(thinkingData);
           } catch (error) {
               console.error("Failed to fetch LLM config:", error);
           }
       };
       fetchConfig();
   }, []);
+
+  const handleThinkingToggle = async (key: keyof ThinkingModeConfig) => {
+      if (!thinkingConfig) return;
+      
+      const newValue = !thinkingConfig[key];
+      const newConfig = { ...thinkingConfig, [key]: newValue };
+      setThinkingConfig(newConfig); // Optimistic update
+      
+      try {
+          await updateThinkingModeConfig({
+              [`${key}_thinking_mode`]: newValue
+          });
+      } catch (error) {
+          console.error("Failed to update thinking mode:", error);
+          setThinkingConfig(thinkingConfig); // Revert on error
+          alert("更新思考模式失败");
+      }
+  };
 
   const handleSaveLLMConfig = async () => {
       if (!llmConfig) return;
@@ -406,6 +442,78 @@ export default function ConfigPanel() {
                         </>
                     )}
                 </button>
+            </div>
+        </div>
+    )}
+
+    {/* Thinking Mode Configuration */}
+    {thinkingConfig && (
+        <div className={styles.panel}>
+            <h4 className={styles.panelTitle}>
+                <i className="fas fa-brain"></i> Thinking Mode (CoT)
+            </h4>
+            
+            <div className={styles.formGroup}>
+                <label className={styles.formLabel}>
+                    Enable Thinking Mode for Agents
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50">
+                        <input 
+                            type="checkbox" 
+                            id="indicator-thinking"
+                            checked={thinkingConfig.indicator}
+                            onChange={() => handleThinkingToggle('indicator')}
+                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="indicator-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
+                            Indicator Agent (技术指标)
+                        </label>
+                    </div>
+
+                    <div className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50">
+                        <input 
+                            type="checkbox" 
+                            id="pattern-thinking"
+                            checked={thinkingConfig.pattern}
+                            onChange={() => handleThinkingToggle('pattern')}
+                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="pattern-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
+                            Pattern Agent (形态识别)
+                        </label>
+                    </div>
+
+                    <div className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50">
+                        <input 
+                            type="checkbox" 
+                            id="trend-thinking"
+                            checked={thinkingConfig.trend}
+                            onChange={() => handleThinkingToggle('trend')}
+                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="trend-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
+                            Trend Agent (趋势分析)
+                        </label>
+                    </div>
+
+                    <div className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50">
+                        <input 
+                            type="checkbox" 
+                            id="decision-thinking"
+                            checked={thinkingConfig.decision}
+                            onChange={() => handleThinkingToggle('decision')}
+                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        />
+                        <label htmlFor="decision-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
+                            Decision Agent (决策汇总)
+                        </label>
+                    </div>
+                </div>
+                <small className={styles.textMuted}>
+                    <i className="fas fa-info-circle me-1"></i>
+                    开启思考模式会让模型在回答前进行更深度的推理（Chain of Thought），但这会显著增加延迟和Token消耗。目前仅支持 OpenRouter 的特定模型。
+                </small>
             </div>
         </div>
     )}

@@ -39,16 +39,33 @@ class TradingEngine:
             override_graph_temp = config.get("graph_llm_temperature")
 
         # Initialize LLMs using the simplified factory function
-        self.agent_llm = self._create_llm_client(
+        # Create specific LLM clients for each agent to support individual configuration (e.g. Thinking Mode)
+        self.indicator_llm = self._create_llm_client(
             role="agent",
+            agent_name="indicator",
             model=override_agent_model,
             temperature=override_agent_temp
         )
-        
-        self.graph_llm = self._create_llm_client(
+
+        self.pattern_llm = self._create_llm_client(
             role="graph",
+            agent_name="pattern",
             model=override_graph_model,
             temperature=override_graph_temp
+        )
+
+        self.trend_llm = self._create_llm_client(
+            role="graph",
+            agent_name="trend",
+            model=override_graph_model,
+            temperature=override_graph_temp
+        )
+        
+        self.decision_llm = self._create_llm_client(
+            role="agent",
+            agent_name="decision",
+            model=override_agent_model,
+            temperature=override_agent_temp
         )
 
         self.toolkit = TechnicalTools()
@@ -56,8 +73,10 @@ class TradingEngine:
 
         # Setup Graph
         self.graph_setup = SetGraph(
-            self.agent_llm,
-            self.graph_llm,
+            self.indicator_llm,
+            self.pattern_llm,
+            self.trend_llm,
+            self.decision_llm,
             self.toolkit,
             self.tool_nodes,
             self.decision_agent_version,
@@ -65,8 +84,33 @@ class TradingEngine:
         )
         self.graph = self.graph_setup.set_graph()
 
-    def _create_llm_client(self, role: str, model: Optional[str] = None, temperature: Optional[float] = None) -> ChatOpenAI:
+    def _create_llm_client(self, role: str, agent_name: str = None, model: Optional[str] = None, temperature: Optional[float] = None) -> ChatOpenAI:
         """创建 LLM 客户端"""
+        # We need to import the factory from config to access the new logic
+        from app.core.config import create_llm_client as create_llm_client_factory
+        
+        # Use the factory directly but allow overrides
+        # Since the factory reads from settings, we just need to handle overrides here if any
+        # However, the factory is static. 
+        # To support overrides + thinking mode properly, we should rely on the factory's logic 
+        # but maybe we need to update settings temporarily or pass overrides to factory?
+        # Actually, the factory in config.py uses settings directly.
+        
+        # To keep it simple and reuse the new factory logic:
+        # If no overrides, just call factory.
+        # If overrides, we might need to manually construct or hack.
+        
+        # But wait, the `create_llm_client` in config.py doesn't accept overrides.
+        # Let's modify the local helper to use the new logic we implemented in config.py
+        # Actually, I should have updated the _create_llm_client in this file to match config.py's logic
+        # OR better, delegate to config.py's factory.
+        
+        # Let's assume for now we use the factory in config.py but we need to pass overrides?
+        # The current _create_llm_client implementation in this file duplicates logic from config.py
+        
+        # I will update this method to implement the thinking mode logic locally as well, 
+        # matching what I did in config.py
+        
         if role == "agent":
             provider = settings.AGENT_PROVIDER
             default_model = settings.AGENT_MODEL
@@ -87,11 +131,30 @@ class TradingEngine:
         if not api_key:
             raise ValueError(f"API Key not found for provider {provider}. Please set {cfg['api_key_env']} in .env file")
 
+        model_kwargs = {}
+        
+        # 判断是否开启思考模式
+        enable_thinking = False
+        if agent_name:
+            if agent_name == "indicator":
+                enable_thinking = settings.INDICATOR_THINKING_MODE
+            elif agent_name == "pattern":
+                enable_thinking = settings.PATTERN_THINKING_MODE
+            elif agent_name == "trend":
+                enable_thinking = settings.TREND_THINKING_MODE
+            elif agent_name == "decision":
+                enable_thinking = settings.DECISION_THINKING_MODE
+        
+        # 仅针对 OpenRouter 注入 reasoning 参数
+        if enable_thinking and provider == "openrouter":
+            model_kwargs["extra_body"] = {"reasoning": {"enabled": True}}
+
         return ChatOpenAI(
             model=actual_model,
             temperature=actual_temperature,
             api_key=api_key,
             base_url=cfg["base_url"],
+            model_kwargs=model_kwargs,
         )
 
     def _set_tool_nodes(self) -> Dict[str, ToolNode]:

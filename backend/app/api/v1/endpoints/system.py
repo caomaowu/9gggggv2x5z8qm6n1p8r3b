@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Body
 from app.utils.temp_file_manager import cleanup_all_temp_files, cleanup_exports_files
 from app.core.config import settings, reload_config
 from app.core.providers import PROVIDERS, get_available_models
+from app.utils.env_manager import update_env_config
 from pydantic import BaseModel
 from typing import List, Optional
 import os
@@ -15,6 +16,48 @@ class LLMConfigUpdate(BaseModel):
     graph_provider: Optional[str] = None
     graph_model: Optional[str] = None
     graph_temperature: Optional[float] = None
+
+class ThinkingModeUpdate(BaseModel):
+    indicator_thinking_mode: Optional[bool] = None
+    pattern_thinking_mode: Optional[bool] = None
+    trend_thinking_mode: Optional[bool] = None
+    decision_thinking_mode: Optional[bool] = None
+
+@router.get("/thinking-mode")
+async def get_thinking_mode():
+    """获取思考模式配置"""
+    return {
+        "indicator": settings.INDICATOR_THINKING_MODE,
+        "pattern": settings.PATTERN_THINKING_MODE,
+        "trend": settings.TREND_THINKING_MODE,
+        "decision": settings.DECISION_THINKING_MODE
+    }
+
+@router.post("/thinking-mode")
+async def update_thinking_mode(config: ThinkingModeUpdate):
+    """更新思考模式配置"""
+    try:
+        updates = {}
+        if config.indicator_thinking_mode is not None:
+            updates["INDICATOR_THINKING_MODE"] = str(config.indicator_thinking_mode)
+        if config.pattern_thinking_mode is not None:
+            updates["PATTERN_THINKING_MODE"] = str(config.pattern_thinking_mode)
+        if config.trend_thinking_mode is not None:
+            updates["TREND_THINKING_MODE"] = str(config.trend_thinking_mode)
+        if config.decision_thinking_mode is not None:
+            updates["DECISION_THINKING_MODE"] = str(config.decision_thinking_mode)
+            
+        if updates:
+            update_env_config(updates)
+            reload_config()
+            
+        return {
+            "status": "success", 
+            "message": "思考模式配置已更新",
+            "current": await get_thinking_mode()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update thinking mode: {str(e)}")
 
 @router.get("/llm-config")
 async def get_llm_config():
@@ -53,25 +96,6 @@ async def update_llm_config(config: LLMConfigUpdate):
     更新 LLM 配置并保存到 .env 文件
     """
     try:
-        env_path = os.path.join(os.getcwd(), ".env")
-        if not os.path.exists(env_path):
-             # Try looking one level up if not found (development mode often runs from backend dir)
-            env_path_up = os.path.join(os.path.dirname(os.getcwd()), ".env")
-            if os.path.exists(env_path_up):
-                env_path = env_path_up
-            elif os.path.exists(os.path.join(os.getcwd(), "backend", ".env")):
-                 env_path = os.path.join(os.getcwd(), "backend", ".env")
-
-        if not os.path.exists(env_path):
-            raise HTTPException(status_code=404, detail=".env file not found")
-
-        # 读取现有的 .env 内容
-        with open(env_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-
-        new_lines = []
-        updated_keys = set()
-        
         # 准备要更新的键值对
         updates = {}
         if config.agent_provider is not None: updates["AGENT_PROVIDER"] = config.agent_provider
@@ -81,28 +105,10 @@ async def update_llm_config(config: LLMConfigUpdate):
         if config.graph_model is not None: updates["GRAPH_MODEL"] = config.graph_model
         if config.graph_temperature is not None: updates["GRAPH_TEMPERATURE"] = str(config.graph_temperature)
 
-        # 更新现有行
-        for line in lines:
-            key = line.split("=")[0].strip()
-            if key in updates:
-                new_lines.append(f"{key}={updates[key]}\n")
-                updated_keys.add(key)
-            else:
-                new_lines.append(line)
-        
-        # 如果有新的键不在文件中，添加它们 (虽然在这个场景下应该都在，但为了健壮性)
-        for key, value in updates.items():
-            if key not in updated_keys:
-                if new_lines and not new_lines[-1].endswith("\n"):
-                    new_lines.append("\n")
-                new_lines.append(f"{key}={value}\n")
-
-        # 写入文件
-        with open(env_path, "w", encoding="utf-8") as f:
-            f.writelines(new_lines)
-
-        # 重新加载配置
-        reload_config()
+        if updates:
+            update_env_config(updates)
+            # 重新加载配置
+            reload_config()
 
         return {
             "status": "success",
