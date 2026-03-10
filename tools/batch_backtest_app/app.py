@@ -50,7 +50,7 @@ def run_app() -> None:
     cfg = {
         "backend_url": st.sidebar.text_input("后端接口地址", value="http://localhost:8000/api/v1"),
         "analyze_path": st.sidebar.text_input("分析接口路径", value="/analyze/"),
-        "concurrency": st.sidebar.number_input("并发数", min_value=1, max_value=20, value=6),
+        "concurrency": st.sidebar.number_input("并发数", min_value=1, max_value=1000, value=6),
         "task_delay": st.sidebar.number_input(
             "任务启动间隔（秒）",
             min_value=0.0,
