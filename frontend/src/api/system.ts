@@ -63,3 +63,41 @@ export const updateLLMConfig = async (config: LLMConfigUpdate): Promise<any> => 
     const response = await apiClient.post('/system/llm-config', config);
     return response.data;
 };
+
+// Thinking Mode Types
+
+export interface ThinkingModeConfig {
+    indicator: boolean;
+    pattern: boolean;
+    trend: boolean;
+    decision: boolean;
+    
+    // 推理深度
+    indicator_effort?: string;
+    pattern_effort?: string;
+    trend_effort?: string;
+    decision_effort?: string;
+}
+
+export interface ThinkingModeUpdate {
+    indicator_thinking_mode?: boolean;
+    pattern_thinking_mode?: boolean;
+    trend_thinking_mode?: boolean;
+    decision_thinking_mode?: boolean;
+    
+    // 推理深度
+    indicator_reasoning_effort?: string;
+    pattern_reasoning_effort?: string;
+    trend_reasoning_effort?: string;
+    decision_reasoning_effort?: string;
+}
+
+export const getThinkingModeConfig = async (): Promise<ThinkingModeConfig> => {
+    const response = await apiClient.get<ThinkingModeConfig>('/system/thinking-mode');
+    return response.data;
+};
+
+export const updateThinkingModeConfig = async (config: ThinkingModeUpdate): Promise<any> => {
+    const response = await apiClient.post('/system/thinking-mode', config);
+    return response.data;
+};

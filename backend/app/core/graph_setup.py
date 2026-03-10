@@ -28,18 +28,22 @@ from app.agents.trend_agent import create_trend_agent
 class SetGraph:
     def __init__(
         self,
-        agent_llm: ChatOpenAI,
-        graph_llm: ChatOpenAI,
+        indicator_llm: ChatOpenAI,
+        pattern_llm: ChatOpenAI,
+        trend_llm: ChatOpenAI,
+        decision_llm: ChatOpenAI,
         toolkit: TechnicalTools,
         tool_nodes: Dict[str, ToolNode],
         decision_agent_version: str = "original",
         include_decision_agent: bool = True,
     ):
-        self.agent_llm = agent_llm
-        self.graph_llm = graph_llm
+        self.indicator_llm = indicator_llm
+        self.pattern_llm = pattern_llm
+        self.trend_llm = trend_llm
+        self.decision_llm = decision_llm
         self.toolkit = toolkit
         self.tool_nodes = tool_nodes
-        self.decision_agent_version = decision_agent_version  # 哈雷酱的AI版本功能！
+        self.decision_agent_version = decision_agent_version
         self.include_decision_agent = include_decision_agent
 
     def set_graph(self):
@@ -50,28 +54,28 @@ class SetGraph:
         # Create analyst nodes
         agent_nodes = {}
 
-        # create nodes for indicator agent - 哈雷酱修改：使用agent_model配置的模型！
-        agent_nodes["indicator"] = create_indicator_agent(self.agent_llm, self.toolkit)
+        # create nodes for indicator agent - 哈雷酱修改：使用独立的 indicator_llm
+        agent_nodes["indicator"] = create_indicator_agent(self.indicator_llm, self.toolkit)
 
         # create nodes for pattern agent
         agent_nodes["pattern"] = create_pattern_agent(
-            self.graph_llm, self.toolkit
+            self.pattern_llm, self.toolkit
         )
 
         # create nodes for trend agent
         agent_nodes["trend"] = create_trend_agent(
-            self.graph_llm, self.toolkit
+            self.trend_llm, self.toolkit
         )
 
         # create nodes for decision agent - 哈雷酱的AI版本功能！
         try:
             from app.agents.decision.decision_agent_factory import get_decision_agent_factory
             factory = get_decision_agent_factory()
-            decision_agent_node = factory.create_agent(self.decision_agent_version, self.agent_llm)
+            decision_agent_node = factory.create_agent(self.decision_agent_version, self.decision_llm)
             print(f"[AI版本] 图形设置使用决策智能体版本: {self.decision_agent_version}")
         except Exception as e:
             print(f"[AI版本] 使用决策智能体工厂失败，回退到原始版本: {e}")
-            decision_agent_node = create_final_trade_decider_original(self.agent_llm)
+            decision_agent_node = create_final_trade_decider_original(self.decision_llm)
 
         # create graph
         graph = StateGraph(IndicatorAgentState)
