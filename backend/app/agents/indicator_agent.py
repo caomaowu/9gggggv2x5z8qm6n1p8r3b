@@ -347,13 +347,19 @@ Avoid mechanical listing of all data. Focus on the critical signals that matter 
             ("human", indicators_text)
         ])
 
-        chain = analysis_prompt | llm
-        final_response = chain.invoke({})
-
+        try:
+            chain = analysis_prompt | llm
+            final_response = chain.invoke({})
+            indicator_report_content = final_response.content
+        except Exception as e:
+            print(f"❌ 技术指标 LLM 分析失败: {e}")
+            indicator_report_content = f"Technical indicator analysis failed (LLM Error): {str(e)}"
+            # 即使 LLM 失败，我们也返回计算出的指标数据
+            
         update_agent_progress("indicator", 100, "技术指标分析完成")
         return {
-            "messages": state.get("messages", []) + [final_response],
-            "indicator_report": final_response.content,
+            "messages": state.get("messages", []) + ([final_response] if 'final_response' in locals() else []),
+            "indicator_report": indicator_report_content,
             "indicator_data": multi_tf_indicators if is_multi_tf else indicator_results,
             "latest_price": latest_price,
             "price_info": price_info,

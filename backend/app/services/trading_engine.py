@@ -135,27 +135,59 @@ class TradingEngine:
         
         # 判断是否开启思考模式
         enable_thinking = False
+        reasoning_effort = "medium"
+        
         if agent_name:
             if agent_name == "indicator":
                 enable_thinking = settings.INDICATOR_THINKING_MODE
+                reasoning_effort = settings.INDICATOR_REASONING_EFFORT
             elif agent_name == "pattern":
                 enable_thinking = settings.PATTERN_THINKING_MODE
+                reasoning_effort = settings.PATTERN_REASONING_EFFORT
             elif agent_name == "trend":
                 enable_thinking = settings.TREND_THINKING_MODE
+                reasoning_effort = settings.TREND_REASONING_EFFORT
             elif agent_name == "decision":
                 enable_thinking = settings.DECISION_THINKING_MODE
+                reasoning_effort = settings.DECISION_REASONING_EFFORT
         
-        # 仅针对 OpenRouter 注入 reasoning 参数
-        if enable_thinking and provider == "openrouter":
-            model_kwargs["extra_body"] = {"reasoning": {"enabled": True}}
+        # 针对 OpenAI o1/o3/gpt-5 等推理模型处理
+        # 如果开启思考模式且模型名称包含推理模型特征
+        is_reasoning_model = actual_model.startswith(("o1", "o3", "gpt-o1", "gpt-o3", "gpt-5"))
+        
+        if enable_thinking:
+            logger.info(f"🧠 [TradingEngine] Thinking Mode Enabled for Agent: {agent_name} | Model: {actual_model}")
+            
+            if provider == "openrouter":
+                # OpenRouter 思考模式参数
+                logger.info(f"[TradingEngine] Injecting OpenRouter reasoning params (extra_body)")
+                model_kwargs["extra_body"] = {"reasoning": {"enabled": True}}
+            elif is_reasoning_model:
+                # OpenAI 原生推理模型参数
+                logger.info(f"[TradingEngine] Injecting OpenAI reasoning params: effort={reasoning_effort}")
+                model_kwargs["reasoning_effort"] = reasoning_effort
+            else:
+                logger.warning(f"[TradingEngine] Thinking Mode enabled but no specific params injected for provider {provider} and model {actual_model}. Standard behavior applies.")
 
-        return ChatOpenAI(
-            model=actual_model,
-            temperature=actual_temperature,
-            api_key=api_key,
-            base_url=cfg["base_url"],
-            model_kwargs=model_kwargs,
-        )
+        # 构建基础参数
+        client_kwargs = {
+            "model": actual_model,
+            "api_key": api_key,
+            "base_url": cfg["base_url"],
+            "model_kwargs": model_kwargs,
+            # 显式设置超时时间 (与 config.py 保持一致)
+            "request_timeout": settings.LLM_TIMEOUT,
+            # 增加最大重试次数
+            "max_retries": 3,
+            # 强制开启流式传输，以防止网关(Nginx/Kong)因长时间无响应而断开连接(504)
+            "streaming": True,
+        }
+
+        # 仅在非推理模型或明确需要 temperature 时才传入
+        if not (enable_thinking and is_reasoning_model):
+            client_kwargs["temperature"] = actual_temperature
+
+        return ChatOpenAI(**client_kwargs)
 
     def _set_tool_nodes(self) -> Dict[str, ToolNode]:
         return {

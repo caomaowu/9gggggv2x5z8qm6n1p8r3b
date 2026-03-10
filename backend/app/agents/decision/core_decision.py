@@ -78,17 +78,26 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
         
         # 4. Error handling and logging
         analysis_errors = []
-        if "error" in indicator_report and isinstance(indicator_report, dict):
+        if indicator_report and isinstance(indicator_report, dict) and "error" in indicator_report:
             analysis_errors.append(f"Technical indicator analysis failed: {indicator_report['error']}")
             indicator_report = "Technical indicator analysis failed"
+        elif indicator_report is None:
+            analysis_errors.append("Technical indicator analysis unavailable (None)")
+            indicator_report = "Technical indicator analysis unavailable"
 
-        if "error" in pattern_report and isinstance(pattern_report, dict):
+        if pattern_report and isinstance(pattern_report, dict) and "error" in pattern_report:
             analysis_errors.append(f"Pattern analysis failed: {pattern_report['error']}")
             pattern_report = "Pattern analysis failed"
+        elif pattern_report is None:
+            analysis_errors.append("Pattern analysis unavailable (None)")
+            pattern_report = "Pattern analysis unavailable"
 
-        if "error" in trend_report and isinstance(trend_report, dict):
+        if trend_report and isinstance(trend_report, dict) and "error" in trend_report:
             analysis_errors.append(f"Trend analysis failed: {trend_report['error']}")
             trend_report = "Trend analysis failed"
+        elif trend_report is None:
+            analysis_errors.append("Trend analysis unavailable (None)")
+            trend_report = "Trend analysis unavailable"
 
         print(f"🧠 {agent_name} 收到分析结果，正在为 {stock_name} ({time_frame}) 进行分析...")
         print(f"💰 当前价格信息: {price_summary}")

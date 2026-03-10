@@ -1,9 +1,12 @@
+import logging
 from typing import List, Dict, Any
 from pydantic import AnyHttpUrl, field_validator, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from langchain_openai import ChatOpenAI
 
 from app.core.providers import PROVIDERS, get_provider_config
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -31,6 +34,8 @@ class Settings(BaseSettings):
     IFLOW2_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
     ARK_API_KEY: str = ""
+    CODEX_API_KEY: str = ""
+    SOUL_API_KEY: str = ""
     
     AGENT_PROVIDER: str = "modelscope"
     AGENT_MODEL: str = "Qwen/Qwen3-Next-80B-A3B-Instruct"
@@ -40,11 +45,22 @@ class Settings(BaseSettings):
     GRAPH_MODEL: str = "Qwen/Qwen3-VL-30B-A3B-Instruct"
     GRAPH_TEMPERATURE: float = 0.1
 
+    # LLM Request Timeout (seconds)
+    # 默认增加到 5 分钟 (300s) 以适应慢速推理模型
+    LLM_TIMEOUT: float = 300.0
+
     # 思考模式独立开关
     INDICATOR_THINKING_MODE: bool = False
     PATTERN_THINKING_MODE: bool = False
     TREND_THINKING_MODE: bool = False
     DECISION_THINKING_MODE: bool = False
+
+    # 思考模式推理深度 (low, medium, high, extra_high)
+    # 默认为 medium
+    INDICATOR_REASONING_EFFORT: str = "medium"
+    PATTERN_REASONING_EFFORT: str = "medium"
+    TREND_REASONING_EFFORT: str = "medium"
+    DECISION_REASONING_EFFORT: str = "medium"
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -151,27 +167,60 @@ def create_llm_client(role: str = "agent", agent_name: str = None) -> ChatOpenAI
     
     # 判断是否开启思考模式
     enable_thinking = False
+    reasoning_effort = "medium"
+    
     if agent_name:
         if agent_name == "indicator":
             enable_thinking = settings.INDICATOR_THINKING_MODE
+            reasoning_effort = settings.INDICATOR_REASONING_EFFORT
         elif agent_name == "pattern":
             enable_thinking = settings.PATTERN_THINKING_MODE
+            reasoning_effort = settings.PATTERN_REASONING_EFFORT
         elif agent_name == "trend":
             enable_thinking = settings.TREND_THINKING_MODE
+            reasoning_effort = settings.TREND_REASONING_EFFORT
         elif agent_name == "decision":
             enable_thinking = settings.DECISION_THINKING_MODE
+            reasoning_effort = settings.DECISION_REASONING_EFFORT
     
-    # 仅针对 OpenRouter 注入 reasoning 参数
-    if enable_thinking and provider == "openrouter":
-        model_kwargs["extra_body"] = {"reasoning": {"enabled": True}}
+    # 针对 OpenAI o1/o3/gpt-5 等推理模型处理
+    # 如果开启思考模式且模型名称包含推理模型特征
+    is_reasoning_model = model.startswith(("o1", "o3", "gpt-o1", "gpt-o3", "gpt-5"))
+    
+    if enable_thinking:
+        logger.info(f"🧠 Thinking Mode Enabled for Agent: {agent_name} | Model: {model}")
+        
+        if provider == "openrouter":
+            # OpenRouter 思考模式参数
+            logger.info(f"Injecting OpenRouter reasoning params (extra_body)")
+            model_kwargs["extra_body"] = {"reasoning": {"enabled": True}}
+        elif is_reasoning_model:
+            # OpenAI 原生推理模型参数
+            logger.info(f"Injecting OpenAI reasoning params: effort={reasoning_effort}")
+            model_kwargs["reasoning_effort"] = reasoning_effort
+        else:
+            logger.warning(f"Thinking Mode enabled but no specific params injected for provider {provider} and model {model}. Standard behavior applies.")
+            
+    # 构建基础参数
+    client_kwargs = {
+        "model": model,
+        "api_key": api_key,
+        "base_url": cfg["base_url"],
+        "model_kwargs": model_kwargs,
+        # 显式设置超时时间
+        "request_timeout": settings.LLM_TIMEOUT,
+        # 增加最大重试次数
+        "max_retries": 3,
+        # 强制开启流式传输，以防止网关(Nginx/Kong)因长时间无响应而断开连接(504)
+        "streaming": True,
+    }
 
-    return ChatOpenAI(
-        model=model,
-        temperature=temperature,
-        api_key=api_key,
-        base_url=cfg["base_url"],
-        model_kwargs=model_kwargs,
-    )
+    # 仅在非推理模型或明确需要 temperature 时才传入
+    # 对于 o1/o3 模型，我们显式不传 temperature
+    if not (enable_thinking and is_reasoning_model):
+        client_kwargs["temperature"] = temperature
+
+    return ChatOpenAI(**client_kwargs)
 
 
 __all__ = ["settings", "reload_config", "create_llm_client"]

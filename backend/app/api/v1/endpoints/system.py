@@ -22,6 +22,12 @@ class ThinkingModeUpdate(BaseModel):
     pattern_thinking_mode: Optional[bool] = None
     trend_thinking_mode: Optional[bool] = None
     decision_thinking_mode: Optional[bool] = None
+    
+    # 推理深度配置
+    indicator_reasoning_effort: Optional[str] = None
+    pattern_reasoning_effort: Optional[str] = None
+    trend_reasoning_effort: Optional[str] = None
+    decision_reasoning_effort: Optional[str] = None
 
 @router.get("/thinking-mode")
 async def get_thinking_mode():
@@ -30,7 +36,12 @@ async def get_thinking_mode():
         "indicator": settings.INDICATOR_THINKING_MODE,
         "pattern": settings.PATTERN_THINKING_MODE,
         "trend": settings.TREND_THINKING_MODE,
-        "decision": settings.DECISION_THINKING_MODE
+        "decision": settings.DECISION_THINKING_MODE,
+        # 返回推理深度配置
+        "indicator_effort": settings.INDICATOR_REASONING_EFFORT,
+        "pattern_effort": settings.PATTERN_REASONING_EFFORT,
+        "trend_effort": settings.TREND_REASONING_EFFORT,
+        "decision_effort": settings.DECISION_REASONING_EFFORT
     }
 
 @router.post("/thinking-mode")
@@ -47,6 +58,16 @@ async def update_thinking_mode(config: ThinkingModeUpdate):
         if config.decision_thinking_mode is not None:
             updates["DECISION_THINKING_MODE"] = str(config.decision_thinking_mode)
             
+        # 更新推理深度
+        if config.indicator_reasoning_effort is not None:
+            updates["INDICATOR_REASONING_EFFORT"] = config.indicator_reasoning_effort
+        if config.pattern_reasoning_effort is not None:
+            updates["PATTERN_REASONING_EFFORT"] = config.pattern_reasoning_effort
+        if config.trend_reasoning_effort is not None:
+            updates["TREND_REASONING_EFFORT"] = config.trend_reasoning_effort
+        if config.decision_reasoning_effort is not None:
+            updates["DECISION_REASONING_EFFORT"] = config.decision_reasoning_effort
+
         if updates:
             update_env_config(updates)
             reload_config()

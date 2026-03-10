@@ -71,6 +71,12 @@ export interface ThinkingModeConfig {
     pattern: boolean;
     trend: boolean;
     decision: boolean;
+    
+    // 推理深度
+    indicator_effort?: string;
+    pattern_effort?: string;
+    trend_effort?: string;
+    decision_effort?: string;
 }
 
 export interface ThinkingModeUpdate {
@@ -78,6 +84,12 @@ export interface ThinkingModeUpdate {
     pattern_thinking_mode?: boolean;
     trend_thinking_mode?: boolean;
     decision_thinking_mode?: boolean;
+    
+    // 推理深度
+    indicator_reasoning_effort?: string;
+    pattern_reasoning_effort?: string;
+    trend_reasoning_effort?: string;
+    decision_reasoning_effort?: string;
 }
 
 export const getThinkingModeConfig = async (): Promise<ThinkingModeConfig> => {

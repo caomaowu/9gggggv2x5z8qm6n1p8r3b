@@ -102,6 +102,36 @@ PROVIDERS = {
             "ark-code-latest",
         ],
     },
+    "codex": {
+        "name": "Codex",
+        "base_url": "https://codex.caomaowu.lol/v1",
+        "api_key_env": "CODEX_API_KEY",
+        "agent_models": [
+            "gpt-5.2",
+            "gpt-5.2codex",
+        ],
+        "graph_models": [
+            "gpt-5.2",
+            "gpt-5.2codex",
+        ],
+    },
+    "soul": {
+        "name": "Soul",
+        "base_url": "https://api.souimagery.fun",
+        "api_key_env": "SOUL_API_KEY",
+        "agent_models": [
+            "gpt-5.2",
+            "gpt-5.3",
+            "gpt-5.4",
+            "gpt-5.3-codex",
+        ],
+        "graph_models": [
+            "gpt-5.2",
+            "gpt-5.3",
+            "gpt-5.4",
+            "gpt-5.3-codex",
+        ],
+    },
 }
 
 

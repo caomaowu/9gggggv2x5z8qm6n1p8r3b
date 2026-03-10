@@ -69,6 +69,25 @@ export default function ConfigPanel() {
       }
   };
 
+  const handleReasoningEffortChange = async (key: string, value: string) => {
+    if (!thinkingConfig) return;
+    
+    // Map key (e.g., "indicator") to config key (e.g., "indicator_effort")
+    const configKey = `${key}_effort` as keyof ThinkingModeConfig;
+    const newConfig = { ...thinkingConfig, [configKey]: value };
+    setThinkingConfig(newConfig); // Optimistic update
+    
+    try {
+        await updateThinkingModeConfig({
+            [`${key}_reasoning_effort`]: value
+        });
+    } catch (error) {
+        console.error("Failed to update reasoning effort:", error);
+        setThinkingConfig(thinkingConfig); // Revert on error
+        alert("更新推理深度失败");
+    }
+  };
+
   const handleSaveLLMConfig = async () => {
       if (!llmConfig) return;
       setIsSavingLLM(true);
@@ -457,62 +476,139 @@ export default function ConfigPanel() {
                 <label className={styles.formLabel}>
                     Enable Thinking Mode for Agents
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50">
-                        <input 
-                            type="checkbox" 
-                            id="indicator-thinking"
-                            checked={thinkingConfig.indicator}
-                            onChange={() => handleThinkingToggle('indicator')}
-                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                        />
-                        <label htmlFor="indicator-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
-                            Indicator Agent (技术指标)
-                        </label>
+                <div className="grid grid-cols-1 gap-4">
+                    {/* Indicator Agent */}
+                    <div className="p-3 border rounded hover:bg-gray-50">
+                        <div className="flex items-center gap-2 mb-2">
+                            <input 
+                                type="checkbox" 
+                                id="indicator-thinking"
+                                checked={thinkingConfig.indicator}
+                                onChange={() => handleThinkingToggle('indicator')}
+                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="indicator-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none flex-1">
+                                Indicator Agent (技术指标)
+                            </label>
+                        </div>
+                        {thinkingConfig.indicator && (
+                            <div className="ml-6 flex items-center gap-2">
+                                <label className="text-xs text-gray-500">Reasoning Effort:</label>
+                                <select 
+                                    className="text-xs border rounded p-1 font-medium"
+                                    style={{ color: 'red' }}
+                                    value={thinkingConfig.indicator_effort || "medium"}
+                                    onChange={(e) => handleReasoningEffortChange('indicator', e.target.value)}
+                                >
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="extra_high">Extra High</option>
+                                </select>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50">
-                        <input 
-                            type="checkbox" 
-                            id="pattern-thinking"
-                            checked={thinkingConfig.pattern}
-                            onChange={() => handleThinkingToggle('pattern')}
-                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                        />
-                        <label htmlFor="pattern-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
-                            Pattern Agent (形态识别)
-                        </label>
+                    {/* Pattern Agent */}
+                    <div className="p-3 border rounded hover:bg-gray-50">
+                        <div className="flex items-center gap-2 mb-2">
+                            <input 
+                                type="checkbox" 
+                                id="pattern-thinking"
+                                checked={thinkingConfig.pattern}
+                                onChange={() => handleThinkingToggle('pattern')}
+                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="pattern-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none flex-1">
+                                Pattern Agent (形态识别)
+                            </label>
+                        </div>
+                        {thinkingConfig.pattern && (
+                            <div className="ml-6 flex items-center gap-2">
+                                <label className="text-xs text-gray-500">Reasoning Effort:</label>
+                                <select 
+                                    className="text-xs border rounded p-1 font-medium"
+                                    style={{ color: 'red' }}
+                                    value={thinkingConfig.pattern_effort || "medium"}
+                                    onChange={(e) => handleReasoningEffortChange('pattern', e.target.value)}
+                                >
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="extra_high">Extra High</option>
+                                </select>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50">
-                        <input 
-                            type="checkbox" 
-                            id="trend-thinking"
-                            checked={thinkingConfig.trend}
-                            onChange={() => handleThinkingToggle('trend')}
-                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                        />
-                        <label htmlFor="trend-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
-                            Trend Agent (趋势分析)
-                        </label>
+                    {/* Trend Agent */}
+                    <div className="p-3 border rounded hover:bg-gray-50">
+                        <div className="flex items-center gap-2 mb-2">
+                            <input 
+                                type="checkbox" 
+                                id="trend-thinking"
+                                checked={thinkingConfig.trend}
+                                onChange={() => handleThinkingToggle('trend')}
+                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="trend-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none flex-1">
+                                Trend Agent (趋势分析)
+                            </label>
+                        </div>
+                        {thinkingConfig.trend && (
+                            <div className="ml-6 flex items-center gap-2">
+                                <label className="text-xs text-gray-500">Reasoning Effort:</label>
+                                <select 
+                                    className="text-xs border rounded p-1 font-medium"
+                                    style={{ color: 'red' }}
+                                    value={thinkingConfig.trend_effort || "medium"}
+                                    onChange={(e) => handleReasoningEffortChange('trend', e.target.value)}
+                                >
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="extra_high">Extra High</option>
+                                </select>
+                            </div>
+                        )}
                     </div>
 
-                    <div className="flex items-center gap-2 p-2 border rounded hover:bg-gray-50">
-                        <input 
-                            type="checkbox" 
-                            id="decision-thinking"
-                            checked={thinkingConfig.decision}
-                            onChange={() => handleThinkingToggle('decision')}
-                            className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                        />
-                        <label htmlFor="decision-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
-                            Decision Agent (决策汇总)
-                        </label>
+                    {/* Decision Agent */}
+                    <div className="p-3 border rounded hover:bg-gray-50">
+                        <div className="flex items-center gap-2 mb-2">
+                            <input 
+                                type="checkbox" 
+                                id="decision-thinking"
+                                checked={thinkingConfig.decision}
+                                onChange={() => handleThinkingToggle('decision')}
+                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                            />
+                            <label htmlFor="decision-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none flex-1">
+                                Decision Agent (决策汇总)
+                            </label>
+                        </div>
+                        {thinkingConfig.decision && (
+                            <div className="ml-6 flex items-center gap-2">
+                                <label className="text-xs text-gray-500">Reasoning Effort:</label>
+                                <select 
+                                    className="text-xs border rounded p-1 font-medium"
+                                    style={{ color: 'red' }}
+                                    value={thinkingConfig.decision_effort || "medium"}
+                                    onChange={(e) => handleReasoningEffortChange('decision', e.target.value)}
+                                >
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="extra_high">Extra High</option>
+                                </select>
+                            </div>
+                        )}
                     </div>
                 </div>
                 <small className={styles.textMuted}>
                     <i className="fas fa-info-circle me-1"></i>
-                    开启思考模式会让模型在回答前进行更深度的推理（Chain of Thought），但这会显著增加延迟和Token消耗。目前仅支持 OpenRouter 的特定模型。
+                    开启思考模式会让模型在回答前进行更深度的推理（Chain of Thought）。<br/>
+                    支持 OpenRouter (extra_body) 和 OpenAI o1/o3 (reasoning_effort)。
                 </small>
             </div>
         </div>
