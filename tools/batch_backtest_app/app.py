@@ -57,7 +57,7 @@ def run_app() -> None:
             value=1.6,
             help="每个任务启动之间的等待时间，用于缓解后端压力",
         ),
-        "timeout": st.sidebar.number_input("超时时间（秒）", min_value=1.0, value=180.0),
+        "timeout": st.sidebar.number_input("超时时间（秒）", min_value=1.0, value=600.0),
         "retries": st.sidebar.number_input("重试次数", min_value=0, value=2),
         "hold_threshold": st.sidebar.number_input("观望阈值", min_value=0.0, value=0.002, format="%.4f"),
     }

@@ -337,6 +337,8 @@ def append_output_row(output_csv: str, fieldnames: List[str], row: Dict[str, Any
             with open(output_csv, "a", encoding="utf-8", newline="") as f:
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writerow({k: row.get(k, "") for k in fieldnames})
+                f.flush()
+                os.fsync(f.fileno())
             return
         except PermissionError:
             if attempt < max_retries - 1:
