@@ -22,9 +22,9 @@
   "funds_cfg": {
     "position_mode": "固定百分比",
     "initial_equity": 10000.0,
-    "allocation_pct": 50.0,
+    "allocation_pct": 15.0,
     "fixed_amount": 1000.0,
-    "contract_multiplier": 10.0,
+    "contract_multiplier": 7.0,
     "slippage_pct": 0.05,
     "force_close_pct": 5.0,
     "trigger_order": "保守（先不利）",
@@ -33,6 +33,6 @@
     "conservative_threshold_pct": 110.0,
     "use_aggressive_mode_only_profit": true
   },
-  "agent_model": "ark-code-latest",
+  "agent_model": "qwen3-max",
   "graph_model": "qwen3-vl-plus"
 }
