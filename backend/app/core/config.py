@@ -211,8 +211,8 @@ def create_llm_client(role: str = "agent", agent_name: str = None) -> ChatOpenAI
         "request_timeout": settings.LLM_TIMEOUT,
         # 增加最大重试次数
         "max_retries": 3,
-        # 强制开启流式传输，以防止网关(Nginx/Kong)因长时间无响应而断开连接(504)
-        "streaming": True,
+        # 关闭流式传输
+        "streaming": False,
     }
 
     # 仅在非推理模型或明确需要 temperature 时才传入
