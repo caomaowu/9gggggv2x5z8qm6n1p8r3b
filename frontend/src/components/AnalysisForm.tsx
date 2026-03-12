@@ -2,6 +2,7 @@ import { useAppStore } from '../store/useAppStore';
 import { analyzeMarket } from '../api/analyze';
 import AssetAndTimeframePanel from './AssetAndTimeframePanel';
 import ConfigPanel from './ConfigPanel';
+import SystemMaintenance from './SystemMaintenance';
 import HistoryPanel from './HistoryPanel';
 import { useState, useEffect } from 'react';
 import type { AnalyzeRequest } from '../types';
@@ -146,6 +147,70 @@ export default function AnalysisForm() {
         }
     };
 
+    const renderRunControlsBlock = (checkboxId: string, sectionClassName?: string, showMaintenance = false) => (
+        <div className={`${styles.runControlsContainer} ${sectionClassName || ''}`.trim()}>
+            <div className={styles.continuousToggle}>
+                <input
+                    type="checkbox"
+                    id={checkboxId}
+                    checked={continuousMode}
+                    onChange={(e) => setContinuousMode(e.target.checked)}
+                    className={styles.continuousToggleInput}
+                />
+                <label htmlFor={checkboxId} className={styles.continuousToggleLabel}>
+                    连续分析模式 (后台运行，不跳转)
+                </label>
+            </div>
+
+            <button
+                className={styles.startAnalysisBtn}
+                onClick={handleStartAnalysis}
+                disabled={isLoading}
+            >
+                {isLoading ? (
+                    <>
+                        <i className="fas fa-spinner fa-spin"></i> Analyzing...
+                    </>
+                ) : (
+                    <>
+                        <i className="fas fa-play"></i> Start Analysis
+                    </>
+                )}
+            </button>
+
+            {statusMessage && (
+                <div
+                    className={styles.statusMessage}
+                    style={{ color: statusMessage.includes('❌') ? '#dc2626' : '#2563eb' }}
+                >
+                    {statusMessage}
+                </div>
+            )}
+
+            {isLoading && !continuousMode && (
+                <div className={styles.progressContainer}>
+                    <div className={styles.progressLabel}>
+                        <span className={styles.progressText}>Analysis Progress</span>
+                        <span className={styles.progressText}>{Math.round(progress)}%</span>
+                    </div>
+                    <div className={styles.progressBarTrack}>
+                        <div
+                            className={styles.progressBarFill}
+                            style={{ width: `${progress}%` }}
+                        ></div>
+                    </div>
+                    <div className={styles.progressSteps}>
+                        <span className={progress > 10 ? styles.stepActive : ""}>Fetching Data</span>
+                        <span className={progress > 40 ? styles.stepActive : ""}>AI Processing</span>
+                        <span className={progress > 80 ? styles.stepActive : ""}>Generating Report</span>
+                    </div>
+                </div>
+            )}
+
+            {showMaintenance && <SystemMaintenance />}
+        </div>
+    );
+
     return (
         <section id="analysis" className={styles.analysisSection}>
             <div className={styles.formContainer}>
@@ -153,79 +218,15 @@ export default function AnalysisForm() {
                     <h3 className={styles.sectionTitle}>
                         <i className="fas fa-cog"></i> 分析配置
                     </h3>
+
+                    {renderRunControlsBlock('continuousModeTop', styles.topRunControls)}
                     
                     <div className={styles.panelGroup}>
                         <AssetAndTimeframePanel />
                         <ConfigPanel />
                     </div>
 
-                    <div className={styles.runControlsContainer}>
-                        {/* Continuous Mode Toggle */}
-                        <div style={{ 
-                            marginBottom: '1rem', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center', 
-                            gap: '10px',
-                            padding: '10px',
-                            backgroundColor: 'var(--gray-50)',
-                            borderRadius: '8px'
-                        }}>
-                            <input 
-                                type="checkbox" 
-                                id="continuousMode"
-                                checked={continuousMode}
-                                onChange={(e) => setContinuousMode(e.target.checked)}
-                                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--etrade-purple)' }}
-                            />
-                            <label htmlFor="continuousMode" style={{ cursor: 'pointer', fontWeight: 500, userSelect: 'none', color: 'var(--gray-700)' }}>
-                                连续分析模式 (后台运行，不跳转)
-                            </label>
-                        </div>
-
-                         <button 
-                            className={styles.startAnalysisBtn}
-                            onClick={handleStartAnalysis}
-                            disabled={isLoading}
-                        >
-                            {isLoading ? (
-                                <>
-                                    <i className="fas fa-spinner fa-spin"></i> Analyzing...
-                                </>
-                            ) : (
-                                <>
-                                    <i className="fas fa-play"></i> Start Analysis
-                                </>
-                            )}
-                        </button>
-
-                        {/* Status Message for Continuous Mode */}
-                        {statusMessage && (
-                             <div style={{ marginTop: '1rem', textAlign: 'center', color: statusMessage.includes('❌') ? '#dc2626' : '#2563eb', fontWeight: 600 }}>
-                                 {statusMessage}
-                             </div>
-                        )}
-
-                        {isLoading && !continuousMode && (
-                            <div className={styles.progressContainer}>
-                                <div className={styles.progressLabel}>
-                                    <span className={styles.progressText}>Analysis Progress</span>
-                                    <span className={styles.progressText}>{Math.round(progress)}%</span>
-                                </div>
-                                <div className={styles.progressBarTrack}>
-                                    <div 
-                                        className={styles.progressBarFill} 
-                                        style={{ width: `${progress}%` }}
-                                    ></div>
-                                </div>
-                                <div className={styles.progressSteps}>
-                                    <span className={progress > 10 ? styles.stepActive : ""}>Fetching Data</span>
-                                    <span className={progress > 40 ? styles.stepActive : ""}>AI Processing</span>
-                                    <span className={progress > 80 ? styles.stepActive : ""}>Generating Report</span>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                    {renderRunControlsBlock('continuousModeBottom', styles.bottomRunControls, true)}
                 </div>
 
                 {/* History Panel */}
