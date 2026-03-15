@@ -14,6 +14,7 @@ export default function AnalysisForm() {
         dataMethod, klineCount, futureKlineCount,
         startDate, startTime, endDate, endTime, useCurrentTime,
         multiTimeframeMode, selectedTimeframes,
+        decisionAgentVersion,
         setAnalysisResult,
         setLatestResultId,
         continuousMode, setContinuousMode, triggerHistoryRefresh
@@ -67,7 +68,7 @@ export default function AnalysisForm() {
             kline_count: klineCount,
             future_kline_count: futureKlineCount,
             use_current_time: useCurrentTime,
-            ai_version: 'original',
+            ai_version: decisionAgentVersion,
             start_date: startDate || undefined,
             start_time: startTime || undefined,
             end_date: endDate || undefined,

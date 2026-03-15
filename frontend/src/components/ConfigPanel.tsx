@@ -18,7 +18,8 @@ export default function ConfigPanel() {
   const { 
       dataMethod, setDataMethod,
       startDate, startTime, endDate, endTime, useCurrentTime, setDateConfig,
-      klineCount, setKlineCount, futureKlineCount, setFutureKlineCount
+      klineCount, setKlineCount, futureKlineCount, setFutureKlineCount,
+      decisionAgentVersion, setDecisionAgentVersion
   } = useAppStore();
 
   
@@ -36,6 +37,13 @@ export default function ConfigPanel() {
           try {
               const data = await getLLMConfig();
               setLLMConfig(data.current);
+              
+              // Sync backend version to store if not set locally or different
+              // Ideally we want to prioritize backend config or sync them
+              if (data.current.decision_agent_version && data.current.decision_agent_version !== decisionAgentVersion) {
+                  setDecisionAgentVersion(data.current.decision_agent_version);
+              }
+
               setAvailableProviders(data.options.providers);
               if (data.options.decision_versions) {
                   setDecisionVersions(data.options.decision_versions);
@@ -92,7 +100,13 @@ export default function ConfigPanel() {
       if (!llmConfig) return;
       setIsSavingLLM(true);
       try {
-          await updateLLMConfig(llmConfig);
+          // Sync local decision version to config before saving
+          const configToSave = {
+              ...llmConfig,
+              decision_agent_version: decisionAgentVersion
+          };
+          
+          await updateLLMConfig(configToSave);
           alert("LLM 配置已保存并更新！");
       } catch (error) {
           console.error("Failed to save LLM config:", error);
@@ -413,8 +427,14 @@ export default function ConfigPanel() {
                     </label>
                     <select 
                         className={styles.formControl}
-                        value={llmConfig.decision_agent_version || 'original'}
-                        onChange={(e) => setLLMConfig({ ...llmConfig, decision_agent_version: e.target.value })}
+                        value={decisionAgentVersion}
+                        onChange={(e) => {
+                            const newVersion = e.target.value;
+                            setDecisionAgentVersion(newVersion);
+                            if (llmConfig) {
+                                setLLMConfig({ ...llmConfig, decision_agent_version: newVersion });
+                            }
+                        }}
                         style={{ fontSize: '0.8rem', padding: '0.25rem' }}
                     >
                         {decisionVersions.map(v => (
