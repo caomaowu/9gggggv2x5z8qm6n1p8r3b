@@ -138,14 +138,14 @@ PROVIDERS = {
         "api_key_env": "API302_API_KEY",
         "agent_models": [
             "qwen3.5-plus",
-            "kimi-k2.5",
+            "Pro/moonshotai/Kimi-K2.5",
             "grok-4-1-fast-reasoning",
             "grok-4-fast-non-reasoning",
             "qwen3.5-flash",
         ],
         "graph_models": [
             "qwen3.5-plus",
-            "kimi-k2.5",
+            "Pro/moonshotai/Kimi-K2.5",
             "grok-4-1-fast-reasoning",
             "grok-4-fast-non-reasoning",
             "qwen3.5-flash",
