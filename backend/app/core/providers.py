@@ -132,6 +132,25 @@ PROVIDERS = {
             "gpt-5.3-codex",
         ],
     },
+    "302ai": {
+        "name": "302AI",
+        "base_url": "https://api.302.ai",
+        "api_key_env": "API302_API_KEY",
+        "agent_models": [
+            "qwen3.5-plus",
+            "kimi-k2.5",
+            "grok-4-1-fast-reasoning",
+            "grok-4-fast-non-reasoning",
+            "qwen3.5-flash",
+        ],
+        "graph_models": [
+            "qwen3.5-plus",
+            "kimi-k2.5",
+            "grok-4-1-fast-reasoning",
+            "grok-4-fast-non-reasoning",
+            "qwen3.5-flash",
+        ],
+    },
 }
 
 

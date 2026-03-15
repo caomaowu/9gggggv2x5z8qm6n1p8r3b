@@ -23,11 +23,19 @@ except ImportError as e:
     def create_final_trade_decider_original(llm):
         return lambda state: {"error": "原始版本决策智能体导入失败"}
 
+try:
+    from .decision_agent_lite import create_final_trade_decider_lite
+except ImportError as e:
+    print(f"导入决策智能体模块失败: {e}")
+    def create_final_trade_decider_lite(llm):
+        return lambda state: {"error": "轻量版本决策智能体导入失败"}
+
 class DecisionAgentFactory:
     """决策智能体工厂类 (精简版)"""
 
     SUPPORTED_VERSIONS = {
-        "original": create_final_trade_decider_original
+        "original": create_final_trade_decider_original,
+        "lite": create_final_trade_decider_lite
     }
 
     def create_agent(self, version: str = None, llm=None, **kwargs):

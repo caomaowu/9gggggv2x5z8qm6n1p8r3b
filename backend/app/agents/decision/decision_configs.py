@@ -23,15 +23,35 @@ DECISION_AGENT_VERSIONS = {
             "❌ 不支持观望 (HOLD prohibited)",
             "❌ 不包含最新市场环境分类逻辑"
         ]
+    },
+    "lite": {
+        "name": "轻量极速版",
+        "description": "精简版 Prompt，利用大模型直觉进行快速综合判断，减少死板规则",
+        "characteristics": [
+            "决策范围：LONG/SHORT/HOLD",
+            "Prompt语言：英文 (Lite)",
+            "风险回报比：1.2-2.5",
+            "核心逻辑：大模型直觉 + 信号融合"
+        ],
+        "features": [
+            "🚀 速度极快",
+            "🧠 减少过度思考",
+            "🎯 更加灵活"
+        ],
+        "limitations": [
+            "❌ 可能牺牲部分严格性",
+            "❌ 依赖模型自身的逻辑能力"
+        ]
     }
 }
 
 # 默认配置
-DEFAULT_DECISION_VERSION = "original"
+DEFAULT_DECISION_VERSION = "lite"  # 默认使用轻量版以提高响应速度
 
 # 版本描述映射
 VERSION_DESCRIPTIONS = {
-    "original": "原始经典版：经过实战验证的HFT逻辑，英文Prompt，强制二选一"
+    "original": "原始经典版：经过实战验证的HFT逻辑，英文Prompt，强制二选一",
+    "lite": "轻量极速版：精简Prompt，利用大模型直觉，速度快，避免过度思考"
 }
 
 def get_version_info(version: str) -> dict:
