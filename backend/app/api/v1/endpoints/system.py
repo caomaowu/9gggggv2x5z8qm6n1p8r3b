@@ -16,6 +16,7 @@ class LLMConfigUpdate(BaseModel):
     graph_provider: Optional[str] = None
     graph_model: Optional[str] = None
     graph_temperature: Optional[float] = None
+    decision_agent_version: Optional[str] = None
 
 class ThinkingModeUpdate(BaseModel):
     indicator_thinking_mode: Optional[bool] = None
@@ -103,9 +104,14 @@ async def get_llm_config():
                 "graph_provider": settings.GRAPH_PROVIDER,
                 "graph_model": settings.GRAPH_MODEL,
                 "graph_temperature": settings.GRAPH_TEMPERATURE,
+                "decision_agent_version": settings.DECISION_AGENT_VERSION,
             },
             "options": {
-                "providers": providers_info
+                "providers": providers_info,
+                "decision_versions": [
+                    {"id": "original", "name": "Original (Classic HFT)"},
+                    {"id": "lite", "name": "Lite (Fast & Intuitive)"}
+                ]
             }
         }
     except Exception as e:
@@ -125,6 +131,7 @@ async def update_llm_config(config: LLMConfigUpdate):
         if config.graph_provider is not None: updates["GRAPH_PROVIDER"] = config.graph_provider
         if config.graph_model is not None: updates["GRAPH_MODEL"] = config.graph_model
         if config.graph_temperature is not None: updates["GRAPH_TEMPERATURE"] = str(config.graph_temperature)
+        if config.decision_agent_version is not None: updates["DECISION_AGENT_VERSION"] = config.decision_agent_version
 
         if updates:
             update_env_config(updates)
@@ -139,6 +146,7 @@ async def update_llm_config(config: LLMConfigUpdate):
                 "agent_model": settings.AGENT_MODEL,
                 "graph_provider": settings.GRAPH_PROVIDER,
                 "graph_model": settings.GRAPH_MODEL,
+                "decision_agent_version": settings.DECISION_AGENT_VERSION,
             }
         }
 

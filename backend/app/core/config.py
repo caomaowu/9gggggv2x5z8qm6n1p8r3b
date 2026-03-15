@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     TREND_REASONING_EFFORT: str = "medium"
     DECISION_REASONING_EFFORT: str = "medium"
 
+    # Decision Agent Version (original / lite)
+    DECISION_AGENT_VERSION: str = "lite"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

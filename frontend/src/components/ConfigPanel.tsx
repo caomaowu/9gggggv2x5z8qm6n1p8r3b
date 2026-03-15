@@ -25,6 +25,7 @@ export default function ConfigPanel() {
   // LLM Config State
   const [llmConfig, setLLMConfig] = useState<LLMConfigCurrent | null>(null);
   const [availableProviders, setAvailableProviders] = useState<Record<string, LLMProviderInfo>>({});
+  const [decisionVersions, setDecisionVersions] = useState<Array<{ id: string; name: string }>>([]);
   const [isSavingLLM, setIsSavingLLM] = useState(false);
   
   // Thinking Mode State
@@ -36,6 +37,9 @@ export default function ConfigPanel() {
               const data = await getLLMConfig();
               setLLMConfig(data.current);
               setAvailableProviders(data.options.providers);
+              if (data.options.decision_versions) {
+                  setDecisionVersions(data.options.decision_versions);
+              }
               
               // Fetch Thinking Mode
               const thinkingData = await getThinkingModeConfig();
@@ -400,6 +404,29 @@ export default function ConfigPanel() {
                     </div>
                 </div>
             </div>
+
+            {/* Decision Agent Version */}
+            {decisionVersions.length > 0 && (
+                <div className={styles.formGroup} style={{ marginTop: '1rem' }}>
+                    <label className={styles.formLabel} style={{ fontSize: '0.85rem' }}>
+                        Decision Agent Version
+                    </label>
+                    <select 
+                        className={styles.formControl}
+                        value={llmConfig.decision_agent_version || 'original'}
+                        onChange={(e) => setLLMConfig({ ...llmConfig, decision_agent_version: e.target.value })}
+                        style={{ fontSize: '0.8rem', padding: '0.25rem' }}
+                    >
+                        {decisionVersions.map(v => (
+                            <option key={v.id} value={v.id}>{v.name}</option>
+                        ))}
+                    </select>
+                    <small className={styles.textMuted}>
+                        <i className="fas fa-info-circle me-1"></i>
+                        Original: 经典HFT逻辑 (慢，严谨); Lite: 快速直觉模式 (快，灵活)
+                    </small>
+                </div>
+            )}
 
             <div className="mt-4 flex justify-end">
                 <button 

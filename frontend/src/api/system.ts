@@ -36,12 +36,14 @@ export interface LLMConfigCurrent {
     graph_provider: string;
     graph_model: string;
     graph_temperature: number;
+    decision_agent_version?: string;
 }
 
 export interface LLMConfigResponse {
     current: LLMConfigCurrent;
     options: {
         providers: Record<string, LLMProviderInfo>;
+        decision_versions?: Array<{ id: string; name: string }>;
     };
 }
 
@@ -52,6 +54,7 @@ export interface LLMConfigUpdate {
     graph_provider?: string;
     graph_model?: string;
     graph_temperature?: number;
+    decision_agent_version?: string;
 }
 
 export const getLLMConfig = async (): Promise<LLMConfigResponse> => {
