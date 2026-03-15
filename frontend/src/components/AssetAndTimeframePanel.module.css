@@ -1,8 +1,8 @@
 .panel {
     background: var(--white);
     border: 2px solid var(--gray-200);
-    border-radius: 16px;
-    padding: 1rem;
+    border-radius: 12px;
+    padding: 0.75rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
     transition: all 0.3s ease;
     position: relative;
@@ -20,17 +20,17 @@
 .panelTitle {
     color: var(--color-text-primary);
     font-weight: 600;
-    font-size: 1.05rem;
-    margin: 0.3rem 0 0.5rem 0;
-    padding-bottom: 0.3rem;
-    border-bottom: 2px solid var(--gray-100);
+    font-size: 0.95rem;
+    margin: 0 0 0.5rem 0;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid var(--gray-100);
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
 .panelTitle i {
-    font-size: 1.5rem;
+    font-size: 1.1rem;
     color: var(--etrade-purple-light);
     background: linear-gradient(135deg, var(--etrade-purple-light) 0%, var(--etrade-purple) 100%);
     -webkit-background-clip: text;
@@ -41,10 +41,10 @@
 
 .assetManagementPanel {
     background: linear-gradient(135deg, #F8F5FF 0%, #F3E8FF 100%);
-    border: 2px solid #E9D5FF;
-    border-radius: 12px;
-    padding: 1rem;
-    margin-bottom: 1rem;
+    border: 1px solid #E9D5FF;
+    border-radius: 8px;
+    padding: 0.5rem;
+    margin-bottom: 0.75rem;
 }
 
 .managementControls {
@@ -81,7 +81,7 @@
 }
 
 .formGroup {
-    margin-bottom: 1.5rem;
+    margin-bottom: 0.75rem;
 }
 
 .formLabel {
