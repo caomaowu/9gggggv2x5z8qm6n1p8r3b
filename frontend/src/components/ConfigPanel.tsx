@@ -2,8 +2,6 @@ import { useAppStore } from '../store/useAppStore';
 import type { AnalyzeRequest } from '../types';
 import styles from './ConfigPanel.module.css';
 import { 
-    clearSystemCache, 
-    clearExportsFiles, 
     getLLMConfig, 
     updateLLMConfig,
     getThinkingModeConfig,
@@ -20,15 +18,15 @@ export default function ConfigPanel() {
   const { 
       dataMethod, setDataMethod,
       startDate, startTime, endDate, endTime, useCurrentTime, setDateConfig,
-      klineCount, setKlineCount, futureKlineCount, setFutureKlineCount
+      klineCount, setKlineCount, futureKlineCount, setFutureKlineCount,
+      decisionAgentVersion, setDecisionAgentVersion
   } = useAppStore();
 
-  const [isCleaning, setIsCleaning] = useState(false);
-  const [isCleaningExports, setIsCleaningExports] = useState(false);
   
   // LLM Config State
   const [llmConfig, setLLMConfig] = useState<LLMConfigCurrent | null>(null);
   const [availableProviders, setAvailableProviders] = useState<Record<string, LLMProviderInfo>>({});
+  const [decisionVersions, setDecisionVersions] = useState<Array<{ id: string; name: string }>>([]);
   const [isSavingLLM, setIsSavingLLM] = useState(false);
   
   // Thinking Mode State
@@ -39,7 +37,17 @@ export default function ConfigPanel() {
           try {
               const data = await getLLMConfig();
               setLLMConfig(data.current);
+              
+              // Sync backend version to store if not set locally or different
+              // Ideally we want to prioritize backend config or sync them
+              if (data.current.decision_agent_version && data.current.decision_agent_version !== decisionAgentVersion) {
+                  setDecisionAgentVersion(data.current.decision_agent_version);
+              }
+
               setAvailableProviders(data.options.providers);
+              if (data.options.decision_versions) {
+                  setDecisionVersions(data.options.decision_versions);
+              }
               
               // Fetch Thinking Mode
               const thinkingData = await getThinkingModeConfig();
@@ -92,7 +100,13 @@ export default function ConfigPanel() {
       if (!llmConfig) return;
       setIsSavingLLM(true);
       try {
-          await updateLLMConfig(llmConfig);
+          // Sync local decision version to config before saving
+          const configToSave = {
+              ...llmConfig,
+              decision_agent_version: decisionAgentVersion
+          };
+          
+          await updateLLMConfig(configToSave);
           alert("LLM 配置已保存并更新！");
       } catch (error) {
           console.error("Failed to save LLM config:", error);
@@ -153,40 +167,6 @@ export default function ConfigPanel() {
 
   const handleDataMethodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
       setDataMethod(e.target.value as DataMethod);
-  };
-
-  const handleClearCache = async () => {
-      if (!confirm('确定要清理所有临时图表和缓存文件吗？')) {
-          return;
-      }
-      
-      setIsCleaning(true);
-      try {
-          const res = await clearSystemCache();
-          alert(`${res.message}`);
-      } catch (error) {
-          console.error("Failed to clear cache:", error);
-          alert("清理失败，请检查控制台");
-      } finally {
-          setIsCleaning(false);
-      }
-  };
-
-  const handleClearExports = async () => {
-      if (!confirm('警告：这将永久删除 exports 文件夹下的所有分析报告和文件！\n\n确定要继续吗？')) {
-          return;
-      }
-      
-      setIsCleaningExports(true);
-      try {
-          const res = await clearExportsFiles();
-          alert(`${res.message}`);
-      } catch (error) {
-          console.error("Failed to clear exports:", error);
-          alert("清理失败，请检查控制台");
-      } finally {
-          setIsCleaningExports(false);
-      }
   };
 
   // ------------------------------------------
@@ -379,29 +359,28 @@ export default function ConfigPanel() {
                 <i className="fas fa-robot"></i> LLM Configuration
             </h4>
             
-            <div className={styles.formGroup}>
-                <label className={styles.formLabel}>
-                    Agent Model (Logic & Analysis)
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Provider</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Agent Model */}
+                <div className={styles.formGroup} style={{ marginBottom: 0 }}>
+                    <label className={styles.formLabel} style={{ fontSize: '0.85rem' }}>
+                        Agent (Logic)
+                    </label>
+                    <div className="flex gap-2">
                         <select 
                             className={styles.formControl}
                             value={llmConfig.agent_provider}
                             onChange={handleAgentProviderChange}
+                            style={{ width: '35%', fontSize: '0.8rem', padding: '0.25rem' }}
                         >
                             {Object.entries(availableProviders).map(([key, info]) => (
                                 <option key={key} value={key}>{info.name}</option>
                             ))}
                         </select>
-                    </div>
-                    <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Model</label>
                         <select 
                             className={styles.formControl}
                             value={llmConfig.agent_model}
                             onChange={(e) => setLLMConfig({ ...llmConfig, agent_model: e.target.value })}
+                            style={{ width: '65%', fontSize: '0.8rem', padding: '0.25rem' }}
                         >
                             {availableProviders[llmConfig.agent_provider]?.agent_models?.map(model => (
                                 <option key={model} value={model}>{model}</option>
@@ -409,31 +388,28 @@ export default function ConfigPanel() {
                         </select>
                     </div>
                 </div>
-            </div>
 
-            <div className={`${styles.formGroup} mt-4`}>
-                <label className={styles.formLabel}>
-                    Graph Model (Vision & Pattern)
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                         <label className="text-xs text-gray-500 mb-1 block">Provider</label>
+                {/* Graph Model */}
+                <div className={styles.formGroup} style={{ marginBottom: 0 }}>
+                    <label className={styles.formLabel} style={{ fontSize: '0.85rem' }}>
+                        Graph (Vision)
+                    </label>
+                    <div className="flex gap-2">
                         <select 
                             className={styles.formControl}
                             value={llmConfig.graph_provider}
                             onChange={handleGraphProviderChange}
+                            style={{ width: '35%', fontSize: '0.8rem', padding: '0.25rem' }}
                         >
                             {Object.entries(availableProviders).map(([key, info]) => (
                                 <option key={key} value={key}>{info.name}</option>
                             ))}
                         </select>
-                    </div>
-                    <div>
-                        <label className="text-xs text-gray-500 mb-1 block">Model</label>
                         <select 
                             className={styles.formControl}
                             value={llmConfig.graph_model}
                             onChange={(e) => setLLMConfig({ ...llmConfig, graph_model: e.target.value })}
+                            style={{ width: '65%', fontSize: '0.8rem', padding: '0.25rem' }}
                         >
                             {availableProviders[llmConfig.graph_provider]?.graph_models?.map(model => (
                                 <option key={model} value={model}>{model}</option>
@@ -442,6 +418,35 @@ export default function ConfigPanel() {
                     </div>
                 </div>
             </div>
+
+            {/* Decision Agent Version */}
+            {decisionVersions.length > 0 && (
+                <div className={styles.formGroup} style={{ marginTop: '1rem' }}>
+                    <label className={styles.formLabel} style={{ fontSize: '0.85rem' }}>
+                        Decision Agent Version
+                    </label>
+                    <select 
+                        className={styles.formControl}
+                        value={decisionAgentVersion}
+                        onChange={(e) => {
+                            const newVersion = e.target.value;
+                            setDecisionAgentVersion(newVersion);
+                            if (llmConfig) {
+                                setLLMConfig({ ...llmConfig, decision_agent_version: newVersion });
+                            }
+                        }}
+                        style={{ fontSize: '0.8rem', padding: '0.25rem' }}
+                    >
+                        {decisionVersions.map(v => (
+                            <option key={v.id} value={v.id}>{v.name}</option>
+                        ))}
+                    </select>
+                    <small className={styles.textMuted}>
+                        <i className="fas fa-info-circle me-1"></i>
+                        Original: 经典HFT逻辑 (慢，严谨); Lite: 快速直觉模式 (快，灵活)
+                    </small>
+                </div>
+            )}
 
             <div className="mt-4 flex justify-end">
                 <button 
@@ -476,134 +481,50 @@ export default function ConfigPanel() {
                 <label className={styles.formLabel}>
                     Enable Thinking Mode for Agents
                 </label>
-                <div className="grid grid-cols-1 gap-4">
-                    {/* Indicator Agent */}
-                    <div className="p-3 border rounded hover:bg-gray-50">
-                        <div className="flex items-center gap-2 mb-2">
-                            <input 
-                                type="checkbox" 
-                                id="indicator-thinking"
-                                checked={thinkingConfig.indicator}
-                                onChange={() => handleThinkingToggle('indicator')}
-                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                            />
-                            <label htmlFor="indicator-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none flex-1">
-                                Indicator Agent (技术指标)
-                            </label>
-                        </div>
-                        {thinkingConfig.indicator && (
-                            <div className="ml-6 flex items-center gap-2">
-                                <label className="text-xs text-gray-500">Reasoning Effort:</label>
-                                <select 
-                                    className="text-xs border rounded p-1 font-medium"
-                                    style={{ color: 'red' }}
-                                    value={thinkingConfig.indicator_effort || "medium"}
-                                    onChange={(e) => handleReasoningEffortChange('indicator', e.target.value)}
-                                >
-                                    <option value="low">Low</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="high">High</option>
-                                    <option value="extra_high">Extra High</option>
-                                </select>
-                            </div>
-                        )}
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {[
+                        { key: 'indicator', label: 'Indicator (技术)' },
+                        { key: 'pattern', label: 'Pattern (形态)' },
+                        { key: 'trend', label: 'Trend (趋势)' },
+                        { key: 'decision', label: 'Decision (决策)' }
+                    ].map(item => {
+                        const key = item.key as keyof ThinkingModeConfig;
+                        const isEnabled = thinkingConfig[key] as boolean;
+                        const effortKey = `${key}_effort` as keyof ThinkingModeConfig;
+                        const effortValue = thinkingConfig[effortKey] as string;
 
-                    {/* Pattern Agent */}
-                    <div className="p-3 border rounded hover:bg-gray-50">
-                        <div className="flex items-center gap-2 mb-2">
-                            <input 
-                                type="checkbox" 
-                                id="pattern-thinking"
-                                checked={thinkingConfig.pattern}
-                                onChange={() => handleThinkingToggle('pattern')}
-                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                            />
-                            <label htmlFor="pattern-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none flex-1">
-                                Pattern Agent (形态识别)
-                            </label>
-                        </div>
-                        {thinkingConfig.pattern && (
-                            <div className="ml-6 flex items-center gap-2">
-                                <label className="text-xs text-gray-500">Reasoning Effort:</label>
-                                <select 
-                                    className="text-xs border rounded p-1 font-medium"
-                                    style={{ color: 'red' }}
-                                    value={thinkingConfig.pattern_effort || "medium"}
-                                    onChange={(e) => handleReasoningEffortChange('pattern', e.target.value)}
-                                >
-                                    <option value="low">Low</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="high">High</option>
-                                    <option value="extra_high">Extra High</option>
-                                </select>
+                        return (
+                            <div key={key} className="p-2 border rounded hover:bg-gray-50 flex flex-col justify-between" style={{ minHeight: '60px' }}>
+                                <div className="flex items-center gap-2">
+                                    <input 
+                                        type="checkbox" 
+                                        id={`${key}-thinking`}
+                                        checked={isEnabled}
+                                        onChange={() => handleThinkingToggle(key)}
+                                        className="w-3 h-3 text-blue-600 rounded focus:ring-blue-500"
+                                    />
+                                    <label htmlFor={`${key}-thinking`} className="text-xs font-medium text-gray-700 cursor-pointer select-none flex-1 truncate" title={item.label}>
+                                        {item.label}
+                                    </label>
+                                </div>
+                                {isEnabled && (
+                                    <div className="mt-1 flex items-center justify-end gap-1">
+                                        <select 
+                                            className="text-[10px] border rounded px-1 py-0.5 font-medium"
+                                            style={{ color: 'red' }}
+                                            value={effortValue || "medium"}
+                                            onChange={(e) => handleReasoningEffortChange(item.key, e.target.value)}
+                                        >
+                                            <option value="low">Low</option>
+                                            <option value="medium">Medium</option>
+                                            <option value="high">High</option>
+                                            <option value="extra_high">Max</option>
+                                        </select>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
-
-                    {/* Trend Agent */}
-                    <div className="p-3 border rounded hover:bg-gray-50">
-                        <div className="flex items-center gap-2 mb-2">
-                            <input 
-                                type="checkbox" 
-                                id="trend-thinking"
-                                checked={thinkingConfig.trend}
-                                onChange={() => handleThinkingToggle('trend')}
-                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                            />
-                            <label htmlFor="trend-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none flex-1">
-                                Trend Agent (趋势分析)
-                            </label>
-                        </div>
-                        {thinkingConfig.trend && (
-                            <div className="ml-6 flex items-center gap-2">
-                                <label className="text-xs text-gray-500">Reasoning Effort:</label>
-                                <select 
-                                    className="text-xs border rounded p-1 font-medium"
-                                    style={{ color: 'red' }}
-                                    value={thinkingConfig.trend_effort || "medium"}
-                                    onChange={(e) => handleReasoningEffortChange('trend', e.target.value)}
-                                >
-                                    <option value="low">Low</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="high">High</option>
-                                    <option value="extra_high">Extra High</option>
-                                </select>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Decision Agent */}
-                    <div className="p-3 border rounded hover:bg-gray-50">
-                        <div className="flex items-center gap-2 mb-2">
-                            <input 
-                                type="checkbox" 
-                                id="decision-thinking"
-                                checked={thinkingConfig.decision}
-                                onChange={() => handleThinkingToggle('decision')}
-                                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                            />
-                            <label htmlFor="decision-thinking" className="text-sm font-medium text-gray-700 cursor-pointer select-none flex-1">
-                                Decision Agent (决策汇总)
-                            </label>
-                        </div>
-                        {thinkingConfig.decision && (
-                            <div className="ml-6 flex items-center gap-2">
-                                <label className="text-xs text-gray-500">Reasoning Effort:</label>
-                                <select 
-                                    className="text-xs border rounded p-1 font-medium"
-                                    style={{ color: 'red' }}
-                                    value={thinkingConfig.decision_effort || "medium"}
-                                    onChange={(e) => handleReasoningEffortChange('decision', e.target.value)}
-                                >
-                                    <option value="low">Low</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="high">High</option>
-                                    <option value="extra_high">Extra High</option>
-                                </select>
-                            </div>
-                        )}
-                    </div>
+                        );
+                    })}
                 </div>
                 <small className={styles.textMuted}>
                     <i className="fas fa-info-circle me-1"></i>
@@ -614,53 +535,7 @@ export default function ConfigPanel() {
         </div>
     )}
 
-    {/* System Maintenance */}
-    <div className={styles.panel}>
-        <h4 className={styles.panelTitle}>
-            <i className="fas fa-tools"></i> System Maintenance
-        </h4>
-        
-        <div className={styles.formGroup}>
-            <div className="flex gap-4">
-                <button 
-                    type="button" 
-                    className={styles.cleanBtn}
-                    onClick={handleClearCache}
-                    disabled={isCleaning}
-                >
-                    {isCleaning ? (
-                        <>
-                            <i className="fas fa-spinner fa-spin"></i> Cleaning Cache...
-                        </>
-                    ) : (
-                        <>
-                            <i className="fas fa-trash-alt"></i> Clean Temp Files
-                        </>
-                    )}
-                </button>
 
-                <button 
-                    type="button" 
-                    className={styles.cleanExportsBtn}
-                    onClick={handleClearExports}
-                    disabled={isCleaningExports}
-                >
-                    {isCleaningExports ? (
-                        <>
-                            <i className="fas fa-spinner fa-spin"></i> Cleaning...
-                        </>
-                    ) : (
-                        <>
-                            <i className="fas fa-folder-minus"></i> Clean Exports Files
-                        </>
-                    )}
-                </button>
-            </div>
-            <small className={styles.textMuted}>
-                清理缓存图表和导出的报告文件。
-            </small>
-        </div>
-    </div>
     </>
   );
 }

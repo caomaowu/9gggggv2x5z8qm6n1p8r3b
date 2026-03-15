@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     ARK_API_KEY: str = ""
     CODEX_API_KEY: str = ""
     SOUL_API_KEY: str = ""
+    API302_API_KEY: str = ""
     
     AGENT_PROVIDER: str = "modelscope"
     AGENT_MODEL: str = "Qwen/Qwen3-Next-80B-A3B-Instruct"
@@ -61,6 +62,9 @@ class Settings(BaseSettings):
     PATTERN_REASONING_EFFORT: str = "medium"
     TREND_REASONING_EFFORT: str = "medium"
     DECISION_REASONING_EFFORT: str = "medium"
+
+    # Decision Agent Version (original / lite)
+    DECISION_AGENT_VERSION: str = "lite"
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -211,8 +215,8 @@ def create_llm_client(role: str = "agent", agent_name: str = None) -> ChatOpenAI
         "request_timeout": settings.LLM_TIMEOUT,
         # 增加最大重试次数
         "max_retries": 3,
-        # 强制开启流式传输，以防止网关(Nginx/Kong)因长时间无响应而断开连接(504)
-        "streaming": True,
+        # 关闭流式传输
+        "streaming": False,
     }
 
     # 仅在非推理模型或明确需要 temperature 时才传入

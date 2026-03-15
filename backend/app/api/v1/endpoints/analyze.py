@@ -27,7 +27,8 @@ async def analyze_market(
     market_service: MarketDataService = Depends(get_market_service),
     # trading_engine: TradingEngine = Depends(get_trading_engine) # Instantiating per request for config flexibility
 ):
-
+    import time
+    start_time = time.time()
     result_id = "UNKNOWN" # Default safe value for error handling
     try:
         # 1. Generate Result ID
@@ -445,11 +446,13 @@ async def analyze_market(
         except Exception as e:
              logger.error(f"[{result_id}] Failed to save JSON history: {e}")
 
-        logger.info("Analysis completed successfully")
-        update_analysis_progress("completed", 100, "Analysis completed")
+        elapsed_time = time.time() - start_time
+        logger.info(f"分析任务执行成功 - 总耗时: {elapsed_time:.2f}秒")
+        update_analysis_progress("completed", 100, f"分析完成 (耗时: {elapsed_time:.2f}秒)")
         
         # Format response to match expected frontend structure if needed
         # For now return raw result
+        result['total_analysis_time'] = f"{elapsed_time:.2f}秒"
         return result
         
     except HTTPException as e:

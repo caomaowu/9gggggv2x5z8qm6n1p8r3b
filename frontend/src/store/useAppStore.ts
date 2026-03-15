@@ -31,6 +31,9 @@ interface AppState {
   analysisResult: AnalysisResult | null;
   latestResultId: string | null;
 
+  // Decision Agent Version
+  decisionAgentVersion: string;
+
   // Continuous Analysis Mode
   continuousMode: boolean;
   historyRefreshTrigger: number;
@@ -55,6 +58,7 @@ interface AppState {
   setDateConfig: (config: Partial<AppState>) => void;
   setAnalysisResult: (result: AnalysisResult | null) => void;
   setLatestResultId: (id: string | null) => void;
+  setDecisionAgentVersion: (version: string) => void;
   setContinuousMode: (mode: boolean) => void;
   triggerHistoryRefresh: () => void;
   setAutoFocusResult: (autoFocus: boolean) => void;
@@ -107,10 +111,12 @@ export const useAppStore = create<AppState>()(
       startTime: '00:00',
       endDate: '',
       endTime: '23:59',
-      useCurrentTime: false,
+      useCurrentTime: true,
       
       analysisResult: null,
       latestResultId: null,
+
+      decisionAgentVersion: 'lite', // Default to lite
 
       continuousMode: false,
       historyRefreshTrigger: 0,
@@ -169,23 +175,15 @@ export const useAppStore = create<AppState>()(
       
       setAnalysisResult: (result) => set({ analysisResult: result }),
       setLatestResultId: (id) => set({ latestResultId: id }),
+      setDecisionAgentVersion: (version) => set({ decisionAgentVersion: version }),
       setContinuousMode: (mode) => set({ continuousMode: mode }),
       triggerHistoryRefresh: () => set((state) => ({ historyRefreshTrigger: state.historyRefreshTrigger + 1 })),
       setAutoFocusResult: (autoFocus) => set({ autoFocusResult: autoFocus }),
     }),
     {
-      name: 'quantagent-storage',
-      partialize: (state) => ({ 
-        assets: state.assets, 
-        assetIcons: state.assetIcons, // Persist custom icons
-        selectedTimeframe: state.selectedTimeframe,
-        multiTimeframeMode: state.multiTimeframeMode,
-        selectedTimeframes: state.selectedTimeframes,
-        klineCount: state.klineCount,
-        latestResultId: state.latestResultId,
-        continuousMode: state.continuousMode,
-        autoFocusResult: state.autoFocusResult,
-      }),
+      name: 'quant-agent-storage-v2', // unique name
+      // blacklist 'analysisResult' from persistence if needed
+      // partialize: (state) => ({ ...state, analysisResult: null }) 
     }
   )
 );
