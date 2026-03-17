@@ -551,6 +551,12 @@ def render_execute(
                 "wins": 0,
                 "losses": 0,
                 "win_rate": 0.0,
+                "wins_1": 0,
+                "losses_1": 0,
+                "win_rate_1": 0.0,
+                "wins_2": 0,
+                "losses_2": 0,
+                "win_rate_2": 0.0,
                 "total_duration_s": 0.0,
             }
             state["bt_last_summary"] = summary
@@ -574,14 +580,16 @@ def render_execute(
 
         completed = 0
         start_time = time.time()
-        stats_wins = 0
-        stats_losses = 0
+        stats_wins_1 = 0
+        stats_losses_1 = 0
+        stats_wins_2 = 0
+        stats_losses_2 = 0
         failed = 0
 
         equity = float(funds_cfg["initial_equity"]) if funds_cfg else None
 
         def handle_one_result(result_row: dict[str, Any]) -> None:
-            nonlocal completed, stats_wins, stats_losses, failed
+            nonlocal completed, stats_wins_1, stats_losses_1, stats_wins_2, stats_losses_2, failed
 
             agent_model, graph_model = store.load_env_models()
             if agent_model:
@@ -591,17 +599,28 @@ def render_execute(
 
             result_row["回测模式"] = backtest_mode
 
-            is_correct = core.classify_is_correct(result_row.get("is_correct"))
-            if is_correct == "True":
-                stats_wins += 1
-            elif is_correct == "False":
-                stats_losses += 1
-            elif is_correct == "Error":
+            is_correct_1 = core.classify_is_correct(result_row.get("is_correct_1"))
+            is_correct_2 = core.classify_is_correct(result_row.get("is_correct_2"))
+            if is_correct_1 == "True":
+                stats_wins_1 += 1
+            elif is_correct_1 == "False":
+                stats_losses_1 += 1
+
+            if is_correct_2 == "True":
+                stats_wins_2 += 1
+            elif is_correct_2 == "False":
+                stats_losses_2 += 1
+
+            if is_correct_1 == "Error" or is_correct_2 == "Error":
                 failed += 1
 
-            total_valid = stats_wins + stats_losses
-            win_rate = (stats_wins / total_valid * 100.0) if total_valid > 0 else 0.0
-            result_row["cumulative_win_rate"] = f"{win_rate:.2f}%" if total_valid > 0 else "无"
+            total_valid_1 = stats_wins_1 + stats_losses_1
+            total_valid_2 = stats_wins_2 + stats_losses_2
+            win_rate_1 = (stats_wins_1 / total_valid_1 * 100.0) if total_valid_1 > 0 else 0.0
+            win_rate_2 = (stats_wins_2 / total_valid_2 * 100.0) if total_valid_2 > 0 else 0.0
+            result_row["cumulative_win_rate"] = f"{win_rate_2:.2f}%" if total_valid_2 > 0 else "无"
+            result_row["cumulative_win_rate_1"] = f"{win_rate_1:.2f}%" if total_valid_1 > 0 else "无"
+            result_row["cumulative_win_rate_2"] = f"{win_rate_2:.2f}%" if total_valid_2 > 0 else "无"
 
             try:
                 engine.append_output_row(output_csv, core.OUTPUT_FIELDNAMES, result_row)
@@ -621,17 +640,17 @@ def render_execute(
             if backtest_mode == "带资金回测":
                 c1, c2, c3, c4, c5 = metrics_placeholder.columns(5)
                 c1.metric("已完成", f"{completed}/{len(to_run)}")
-                c2.metric("胜场", stats_wins)
-                c3.metric("负场", stats_losses)
-                c4.metric("当前胜率", f"{win_rate:.2f}%")
+                c2.metric("K1胜率", f"{win_rate_1:.2f}%")
+                c3.metric("K2胜率", f"{win_rate_2:.2f}%")
+                c4.metric("K2胜场/负场", f"{stats_wins_2}/{stats_losses_2}")
                 eq_val = result_row.get("资金_当前")
                 c5.metric("当前资金", eq_val if eq_val not in (None, "") else "无")
             else:
                 c1, c2, c3, c4 = metrics_placeholder.columns(4)
                 c1.metric("已完成", f"{completed}/{len(to_run)}")
-                c2.metric("胜场", stats_wins)
-                c3.metric("负场", stats_losses)
-                c4.metric("当前胜率", f"{win_rate:.2f}%")
+                c2.metric("K1胜率", f"{win_rate_1:.2f}%")
+                c3.metric("K2胜率", f"{win_rate_2:.2f}%")
+                c4.metric("K2胜场/负场", f"{stats_wins_2}/{stats_losses_2}")
 
             state["bt_last_rows"].append(result_row)
             if len(state["bt_last_rows"]) > 200:
@@ -699,8 +718,10 @@ def render_execute(
         st.success("回测完成！")
         st.balloons()
 
-        total_valid = stats_wins + stats_losses
-        final_win_rate = (stats_wins / total_valid * 100.0) if total_valid > 0 else 0.0
+        total_valid_1 = stats_wins_1 + stats_losses_1
+        total_valid_2 = stats_wins_2 + stats_losses_2
+        final_win_rate_1 = (stats_wins_1 / total_valid_1 * 100.0) if total_valid_1 > 0 else 0.0
+        final_win_rate_2 = (stats_wins_2 / total_valid_2 * 100.0) if total_valid_2 > 0 else 0.0
         total_duration_s = round(time.time() - start_time, 3)
         funds_initial = None
         funds_final = None
@@ -725,9 +746,15 @@ def render_execute(
             "run_tasks": completed,
             "skipped_tasks": skipped_count,
             "failed": failed,
-            "wins": stats_wins,
-            "losses": stats_losses,
-            "win_rate": final_win_rate,
+            "wins": stats_wins_2,
+            "losses": stats_losses_2,
+            "win_rate": final_win_rate_2,
+            "wins_1": stats_wins_1,
+            "losses_1": stats_losses_1,
+            "win_rate_1": final_win_rate_1,
+            "wins_2": stats_wins_2,
+            "losses_2": stats_losses_2,
+            "win_rate_2": final_win_rate_2,
             "total_duration_s": total_duration_s,
             "funds_initial": funds_initial,
             "funds_final": funds_final,
@@ -762,6 +789,12 @@ def render_results(*, cfg: dict[str, Any], state: MutableMapping[str, Any], core
                         "wins": s["wins"],
                         "losses": s["losses"],
                         "win_rate": s["win_rate"],
+                        "wins_1": s.get("wins_1", 0),
+                        "losses_1": s.get("losses_1", 0),
+                        "win_rate_1": s.get("win_rate_1", 0.0),
+                        "wins_2": s.get("wins_2", s["wins"]),
+                        "losses_2": s.get("losses_2", s["losses"]),
+                        "win_rate_2": s.get("win_rate_2", s["win_rate"]),
                         "total_duration_s": 0.0,
                         "funds_initial": s.get("funds_initial"),
                         "funds_final": s.get("funds_final"),
@@ -787,8 +820,12 @@ def render_results(*, cfg: dict[str, Any], state: MutableMapping[str, Any], core
     col_r1.metric("本次运行", summary.get("run_tasks") if summary else "无")
     col_r2.metric("跳过", summary.get("skipped_tasks") if summary else "无")
     col_r3.metric("失败", summary.get("failed") if summary else "无")
-    col_r4.metric("胜率", f"{summary.get('win_rate', 0.0):.2f}%" if summary else "无")
-    col_r5.metric("总耗时", f"{summary.get('total_duration_s', 0.0):.1f}秒" if summary else "无")
+    col_r4.metric("K1胜率", f"{summary.get('win_rate_1', summary.get('win_rate', 0.0)):.2f}%" if summary else "无")
+    col_r5.metric("K2胜率", f"{summary.get('win_rate_2', summary.get('win_rate', 0.0)):.2f}%" if summary else "无")
+    col_r6, col_r7, col_r8 = st.columns(3)
+    col_r6.metric("K1胜场/负场", f"{summary.get('wins_1', 0)}/{summary.get('losses_1', 0)}" if summary else "无")
+    col_r7.metric("K2胜场/负场", f"{summary.get('wins_2', summary.get('wins', 0))}/{summary.get('losses_2', summary.get('losses', 0))}" if summary else "无")
+    col_r8.metric("总耗时", f"{summary.get('total_duration_s', 0.0):.1f}秒" if summary else "无")
 
     if summary:
         funds_initial = summary.get("funds_initial")

@@ -72,8 +72,10 @@ def main():
         # Initialize Stats
         total_tasks = len(tasks)
         completed = 0
-        stats_wins = 0
-        stats_losses = 0
+        stats_wins_1 = 0
+        stats_losses_1 = 0
+        stats_wins_2 = 0
+        stats_losses_2 = 0
         failed = 0
         
         funds_cfg = config.get("funds_cfg") or {}
@@ -95,6 +97,10 @@ def main():
             "current_end_time": "",
             "stats_wins": 0,
             "stats_losses": 0,
+            "stats_wins_1": 0,
+            "stats_losses_1": 0,
+            "stats_wins_2": 0,
+            "stats_losses_2": 0,
             "equity": equity,
             "status": "正在运行"
         }
@@ -195,17 +201,28 @@ def main():
                     res["回测模式"] = backtest_mode
                     
                     # Update Stats
-                    is_correct = core.classify_is_correct(res.get("is_correct"))
-                    if is_correct == "True":
-                        stats_wins += 1
-                    elif is_correct == "False":
-                        stats_losses += 1
-                    elif is_correct == "Error":
+                    is_correct_1 = core.classify_is_correct(res.get("is_correct_1"))
+                    is_correct_2 = core.classify_is_correct(res.get("is_correct_2"))
+                    if is_correct_1 == "True":
+                        stats_wins_1 += 1
+                    elif is_correct_1 == "False":
+                        stats_losses_1 += 1
+
+                    if is_correct_2 == "True":
+                        stats_wins_2 += 1
+                    elif is_correct_2 == "False":
+                        stats_losses_2 += 1
+
+                    if is_correct_1 == "Error" or is_correct_2 == "Error":
                         failed += 1
                     
-                    total_valid = stats_wins + stats_losses
-                    win_rate = (stats_wins / total_valid * 100.0) if total_valid > 0 else 0.0
-                    res["cumulative_win_rate"] = f"{win_rate:.2f}%" if total_valid > 0 else "无"
+                    total_valid_1 = stats_wins_1 + stats_losses_1
+                    total_valid_2 = stats_wins_2 + stats_losses_2
+                    win_rate_1 = (stats_wins_1 / total_valid_1 * 100.0) if total_valid_1 > 0 else 0.0
+                    win_rate_2 = (stats_wins_2 / total_valid_2 * 100.0) if total_valid_2 > 0 else 0.0
+                    res["cumulative_win_rate"] = f"{win_rate_2:.2f}%" if total_valid_2 > 0 else "无"
+                    res["cumulative_win_rate_1"] = f"{win_rate_1:.2f}%" if total_valid_1 > 0 else "无"
+                    res["cumulative_win_rate_2"] = f"{win_rate_2:.2f}%" if total_valid_2 > 0 else "无"
                     
                     # Write to CSV
                     engine.append_output_row(output_csv, core.OUTPUT_FIELDNAMES, res)
@@ -217,8 +234,12 @@ def main():
                         "current_task_index": i + 1,
                         "completed_count": completed,
                         "failed_count": failed,
-                        "stats_wins": stats_wins,
-                        "stats_losses": stats_losses,
+                        "stats_wins": stats_wins_2,
+                        "stats_losses": stats_losses_2,
+                        "stats_wins_1": stats_wins_1,
+                        "stats_losses_1": stats_losses_1,
+                        "stats_wins_2": stats_wins_2,
+                        "stats_losses_2": stats_losses_2,
                         "equity": current_equity,
                         "last_update": datetime.now().isoformat(),
                         "current_asset": res.get("asset", ""),
@@ -272,17 +293,28 @@ def main():
                 res["回测模式"] = backtest_mode
                 
                 # Update Stats
-                is_correct = core.classify_is_correct(res.get("is_correct"))
-                if is_correct == "True":
-                    stats_wins += 1
-                elif is_correct == "False":
-                    stats_losses += 1
-                elif is_correct == "Error":
+                is_correct_1 = core.classify_is_correct(res.get("is_correct_1"))
+                is_correct_2 = core.classify_is_correct(res.get("is_correct_2"))
+                if is_correct_1 == "True":
+                    stats_wins_1 += 1
+                elif is_correct_1 == "False":
+                    stats_losses_1 += 1
+
+                if is_correct_2 == "True":
+                    stats_wins_2 += 1
+                elif is_correct_2 == "False":
+                    stats_losses_2 += 1
+
+                if is_correct_1 == "Error" or is_correct_2 == "Error":
                     failed += 1
 
-                total_valid = stats_wins + stats_losses
-                win_rate = (stats_wins / total_valid * 100.0) if total_valid > 0 else 0.0
-                res["cumulative_win_rate"] = f"{win_rate:.2f}%" if total_valid > 0 else "无"
+                total_valid_1 = stats_wins_1 + stats_losses_1
+                total_valid_2 = stats_wins_2 + stats_losses_2
+                win_rate_1 = (stats_wins_1 / total_valid_1 * 100.0) if total_valid_1 > 0 else 0.0
+                win_rate_2 = (stats_wins_2 / total_valid_2 * 100.0) if total_valid_2 > 0 else 0.0
+                res["cumulative_win_rate"] = f"{win_rate_2:.2f}%" if total_valid_2 > 0 else "无"
+                res["cumulative_win_rate_1"] = f"{win_rate_1:.2f}%" if total_valid_1 > 0 else "无"
+                res["cumulative_win_rate_2"] = f"{win_rate_2:.2f}%" if total_valid_2 > 0 else "无"
 
                 # Write to CSV
                 engine.append_output_row(output_csv, core.OUTPUT_FIELDNAMES, res)
@@ -294,8 +326,12 @@ def main():
                     "current_task_index": completed, # Approximation for concurrent
                     "completed_count": completed,
                     "failed_count": failed,
-                    "stats_wins": stats_wins,
-                    "stats_losses": stats_losses,
+                    "stats_wins": stats_wins_2,
+                    "stats_losses": stats_losses_2,
+                    "stats_wins_1": stats_wins_1,
+                    "stats_losses_1": stats_losses_1,
+                    "stats_wins_2": stats_wins_2,
+                    "stats_losses_2": stats_losses_2,
                     "last_update": datetime.now().isoformat(),
                     "current_asset": res.get("asset", ""),
                     "current_timeframe": res.get("timeframe", ""),

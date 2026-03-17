@@ -18,9 +18,13 @@ OUTPUT_FIELDNAMES = [
     "未来第二根K线的价格",
     "ai_decision",
     "is_correct",
+    "is_correct_1",
+    "is_correct_2",
     "profit_pct_1",
     "profit_pct_2",
     "cumulative_win_rate",
+    "cumulative_win_rate_1",
+    "cumulative_win_rate_2",
     "duration_s",
     "result_id",
     "ai_version",
@@ -55,9 +59,13 @@ DEFAULT_EXECUTE_DISPLAY_COLS = [
     "end_time",
     "ai_decision",
     "is_correct",
+    "is_correct_1",
+    "is_correct_2",
     "profit_pct_1",
     "profit_pct_2",
     "cumulative_win_rate",
+    "cumulative_win_rate_1",
+    "cumulative_win_rate_2",
     "下单金额",
     "资金_当前",
     "本次盈亏百分比",
@@ -71,9 +79,13 @@ DEFAULT_RESULTS_DISPLAY_COLS = [
     "end_time",
     "ai_decision",
     "is_correct",
+    "is_correct_1",
+    "is_correct_2",
     "profit_pct_1",
     "profit_pct_2",
     "cumulative_win_rate",
+    "cumulative_win_rate_1",
+    "cumulative_win_rate_2",
     "下单金额",
     "资金_当前",
     "本次盈亏百分比",
@@ -176,6 +188,10 @@ def style_df(df: pd.DataFrame) -> Any:
     styler = df.style
     if "is_correct" in df.columns:
         styler = styler.apply(color_is_correct_col, subset=["is_correct"])
+    if "is_correct_1" in df.columns:
+        styler = styler.apply(color_is_correct_col, subset=["is_correct_1"])
+    if "is_correct_2" in df.columns:
+        styler = styler.apply(color_is_correct_col, subset=["is_correct_2"])
     if "profit_pct_1" in df.columns:
         styler = styler.apply(color_profit_col, subset=["profit_pct_1"])
     if "profit_pct_2" in df.columns:
@@ -320,8 +336,10 @@ def classify_is_correct(val: Any) -> str:
 
 
 def compute_summary_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    wins = 0
-    losses = 0
+    wins_1 = 0
+    losses_1 = 0
+    wins_2 = 0
+    losses_2 = 0
     failed = 0
     funds_initial = None
     funds_final = None
@@ -340,12 +358,23 @@ def compute_summary_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
             return None
 
     for row in rows:
-        v = classify_is_correct(row.get("is_correct"))
-        if v == "True":
-            wins += 1
-        elif v == "False":
-            losses += 1
-        elif v == "Error":
+        v1_raw = row.get("is_correct_1")
+        v2_raw = row.get("is_correct_2")
+
+        v1 = classify_is_correct(v1_raw if v1_raw not in (None, "") else row.get("is_correct"))
+        v2 = classify_is_correct(v2_raw if v2_raw not in (None, "") else row.get("is_correct"))
+
+        if v1 == "True":
+            wins_1 += 1
+        elif v1 == "False":
+            losses_1 += 1
+
+        if v2 == "True":
+            wins_2 += 1
+        elif v2 == "False":
+            losses_2 += 1
+
+        if v1 == "Error" or v2 == "Error":
             failed += 1
 
         init_val = _try_parse_float(row.get("资金_初始"))
@@ -355,8 +384,10 @@ def compute_summary_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
         if curr_val is not None:
             funds_final = curr_val
 
-    total_valid = wins + losses
-    win_rate = (wins / total_valid * 100.0) if total_valid > 0 else 0.0
+    total_valid_1 = wins_1 + losses_1
+    total_valid_2 = wins_2 + losses_2
+    win_rate_1 = (wins_1 / total_valid_1 * 100.0) if total_valid_1 > 0 else 0.0
+    win_rate_2 = (wins_2 / total_valid_2 * 100.0) if total_valid_2 > 0 else 0.0
     funds_pnl = None
     funds_pnl_pct = None
     if funds_initial is not None and funds_final is not None:
@@ -364,10 +395,16 @@ def compute_summary_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
         if funds_initial != 0:
             funds_pnl_pct = funds_pnl / funds_initial * 100.0
     return {
-        "wins": wins,
-        "losses": losses,
+        "wins": wins_2,
+        "losses": losses_2,
         "failed": failed,
-        "win_rate": win_rate,
+        "win_rate": win_rate_2,
+        "wins_1": wins_1,
+        "losses_1": losses_1,
+        "win_rate_1": win_rate_1,
+        "wins_2": wins_2,
+        "losses_2": losses_2,
+        "win_rate_2": win_rate_2,
         "funds_initial": funds_initial,
         "funds_final": funds_final,
         "funds_pnl": funds_pnl,

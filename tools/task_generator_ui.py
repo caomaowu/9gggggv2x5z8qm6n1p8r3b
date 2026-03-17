@@ -197,10 +197,15 @@ class TaskGeneratorApp:
         ttk.Label(step2_frame, text="Kline Count:", font=("Arial", 8)).grid(row=14, column=0, sticky='w', pady=(10,2))
         self.kline_count_var = tk.IntVar(value=40)
         ttk.Entry(step2_frame, textvariable=self.kline_count_var, width=10).grid(row=14, column=1, sticky='w')
+
+        ttk.Label(step2_frame, text="AI Version:", font=("Arial", 8)).grid(row=15, column=0, sticky='w', pady=2)
+        self.ai_version_var = tk.StringVar(value="lite")
+        self.ai_version_combo = ttk.Combobox(step2_frame, textvariable=self.ai_version_var, values=["lite", "original"], state="readonly", width=10)
+        self.ai_version_combo.grid(row=15, column=1, sticky='w')
         
-        ttk.Label(step2_frame, text="Future Kline:", font=("Arial", 8)).grid(row=15, column=0, sticky='w', pady=2)
+        ttk.Label(step2_frame, text="Future Kline:", font=("Arial", 8)).grid(row=16, column=0, sticky='w', pady=2)
         self.future_kline_var = tk.IntVar(value=13)
-        ttk.Entry(step2_frame, textvariable=self.future_kline_var, width=10).grid(row=15, column=1, sticky='w')
+        ttk.Entry(step2_frame, textvariable=self.future_kline_var, width=10).grid(row=16, column=1, sticky='w')
 
         # 3. 操作按钮
         btn_frame = ttk.Frame(left_scrollable)
@@ -727,6 +732,8 @@ class TaskGeneratorApp:
             should_validate = False
             if hasattr(self, 'validate_data_var') and self.validate_data_var.get():
                 should_validate = True
+            
+            ai_version = self.ai_version_var.get()
 
             for asset in assets_list:
                 seen_dates_for_asset = set()
@@ -763,7 +770,7 @@ class TaskGeneratorApp:
                                 "end_time": end_time_value,
                                 "kline_count": k_count,
                                 "future_kline_count": fut_count,
-                                "ai_version": "original",
+                                "ai_version": ai_version,
                                 "data_method": "to_end",
                                 "status": "Pending"
                             }
@@ -812,7 +819,7 @@ class TaskGeneratorApp:
                                 "end_time": end_time_value,
                                 "kline_count": k_count,
                                 "future_kline_count": fut_count,
-                                "ai_version": "original",
+                                "ai_version": ai_version,
                                 "data_method": "to_end",
                                 "status": "Pending"
                             }

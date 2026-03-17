@@ -177,39 +177,25 @@ def _normalize_action(action: Any) -> str:
     return text or "HOLD"
 
 
-def _judge_prediction_two_kline(
+def _judge_prediction_single_kline(
     action: str,
     analysis_price: Optional[float],
-    future_close_1: Optional[float],
-    future_close_2: Optional[float],
+    future_close: Optional[float],
 ) -> str:
     action = _normalize_action(action)
 
     if analysis_price is None or analysis_price == 0:
         return "NoBaselinePrice"
 
-    if future_close_1 is None or future_close_2 is None:
+    if future_close is None:
         return "NoFutureData"
 
     if action not in {"LONG", "SHORT"}:
         return "未知"
 
     if action == "LONG":
-        match_1 = future_close_1 > analysis_price
-        match_2 = future_close_2 > analysis_price
-        no_loss = future_close_2 >= analysis_price
-    else:
-        match_1 = future_close_1 < analysis_price
-        match_2 = future_close_2 < analysis_price
-        no_loss = future_close_2 <= analysis_price
-
-    if match_1 and match_2:
-        return "True"
-    if (not match_1) and match_2 and no_loss:
-        return "True"
-    if match_1 and (not match_2) and no_loss:
-        return "True"
-    return "False"
+        return "True" if future_close > analysis_price else "False"
+    return "True" if future_close < analysis_price else "False"
 
 
 def read_tasks(input_csv: str) -> List[Dict[str, str]]:
@@ -282,9 +268,13 @@ def migrate_output_csv_in_place(output_csv: str, fieldnames: List[str]) -> None:
         "未来第二根K线的价格",
         "ai_decision",
         "is_correct",
+        "is_correct_1",
+        "is_correct_2",
         "profit_pct_1",
         "profit_pct_2",
         "cumulative_win_rate",
+        "cumulative_win_rate_1",
+        "cumulative_win_rate_2",
         "duration_s",
         "result_id",
         "ai_version",
@@ -461,7 +451,8 @@ def run_one_task(
             if future_close_2 is not None:
                 change_2_pct = (future_close_2 - analysis_price) / analysis_price * 100.0
 
-        is_correct = _judge_prediction_two_kline(action, analysis_price, future_close_1, future_close_2)
+        is_correct_1 = _judge_prediction_single_kline(action, analysis_price, future_close_1)
+        is_correct_2 = _judge_prediction_single_kline(action, analysis_price, future_close_2)
 
         profit_pct_1_str = "N/A"
         profit_pct_2_str = "N/A"
@@ -498,9 +489,13 @@ def run_one_task(
                 else (f"{future_close_2:.6f}" if future_close_2 is not None else "N/A")
             ),
             "ai_decision": action,
-            "is_correct": is_correct if is_correct else "",
+            "is_correct": is_correct_2 if is_correct_2 else "",
+            "is_correct_1": is_correct_1 if is_correct_1 else "",
+            "is_correct_2": is_correct_2 if is_correct_2 else "",
             "profit_pct_1": profit_pct_1_str,
             "profit_pct_2": profit_pct_2_str,
+            "cumulative_win_rate_1": "",
+            "cumulative_win_rate_2": "",
             "duration_s": duration_s,
             "result_id": result.get("result_id", ""),
             "ai_version": ai_version,
@@ -522,8 +517,12 @@ def run_one_task(
             "未来第二根K线的价格": "N/A",
             "ai_decision": "ERROR",
             "is_correct": "Error",
+            "is_correct_1": "Error",
+            "is_correct_2": "Error",
             "profit_pct_1": "N/A",
             "profit_pct_2": "N/A",
+            "cumulative_win_rate_1": "",
+            "cumulative_win_rate_2": "",
             "duration_s": duration_s,
             "result_id": "",
             "ai_version": ai_version,
@@ -678,7 +677,8 @@ def run_one_task_with_funds(
             if future_close_2 is not None:
                 change_2_pct = (future_close_2 - analysis_price) / analysis_price * 100.0
 
-        is_correct = _judge_prediction_two_kline(action, analysis_price, future_close_1, future_close_2)
+        is_correct_1 = _judge_prediction_single_kline(action, analysis_price, future_close_1)
+        is_correct_2 = _judge_prediction_single_kline(action, analysis_price, future_close_2)
 
         profit_pct_1_str = "N/A"
         profit_pct_2_str = "N/A"
@@ -855,9 +855,13 @@ def run_one_task_with_funds(
                 else (f"{future_close_2:.6f}" if future_close_2 is not None else "N/A")
             ),
             "ai_decision": action,
-            "is_correct": is_correct if is_correct else "",
+            "is_correct": is_correct_2 if is_correct_2 else "",
+            "is_correct_1": is_correct_1 if is_correct_1 else "",
+            "is_correct_2": is_correct_2 if is_correct_2 else "",
             "profit_pct_1": profit_pct_1_str,
             "profit_pct_2": profit_pct_2_str,
+            "cumulative_win_rate_1": "",
+            "cumulative_win_rate_2": "",
             "duration_s": duration_s,
             "result_id": result.get("result_id", ""),
             "ai_version": ai_version,
@@ -898,8 +902,12 @@ def run_one_task_with_funds(
             "未来第二根K线的价格": "N/A",
             "ai_decision": "ERROR",
             "is_correct": "Error",
+            "is_correct_1": "Error",
+            "is_correct_2": "Error",
             "profit_pct_1": "N/A",
             "profit_pct_2": "N/A",
+            "cumulative_win_rate_1": "",
+            "cumulative_win_rate_2": "",
             "duration_s": duration_s,
             "result_id": "",
             "ai_version": ai_version,
