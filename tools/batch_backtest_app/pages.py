@@ -701,7 +701,7 @@ def render_execute(
                 if float(cfg["task_delay"]) > 0 and i < len(to_run) - 1:
                     time.sleep(float(cfg["task_delay"]))
         else:
-            for result_row in engine.run_tasks_concurrently(
+            result_iterator = engine.run_tasks_concurrently(
                 base_url,
                 analyze_path,
                 float(cfg["timeout"]),
@@ -712,7 +712,8 @@ def render_execute(
                 defaults,
                 max_workers=int(cfg["concurrency"]),
                 task_delay_s=float(cfg["task_delay"]),
-            ):
+            )
+            for result_row in result_iterator:
                 handle_one_result(result_row)
 
         st.success("回测完成！")

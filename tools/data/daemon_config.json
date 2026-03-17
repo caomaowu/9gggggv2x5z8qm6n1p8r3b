@@ -3,9 +3,9 @@
   "output_file": "/root/data/9gggggv2x5z8qm6n1p8r3b/tools/backtest_results.csv",
   "backend_url": "http://localhost:8000/api/v1",
   "analyze_path": "/analyze/",
-  "concurrency": 80,
+  "concurrency": 70,
   "task_delay": 1.6,
-  "timeout": 180.0,
+  "timeout": 600.0,
   "retries": 2,
   "hold_threshold": 0.002,
   "defaults": {
