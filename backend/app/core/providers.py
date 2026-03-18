@@ -117,7 +117,7 @@ PROVIDERS = {
     },
     "soul": {
         "name": "Soul",
-        "base_url": "https://api.souimagery.fun",
+        "base_url": "https://api.souimagery.fun/v1",
         "api_key_env": "SOUL_API_KEY",
         "agent_models": [
             "gpt-5.2",

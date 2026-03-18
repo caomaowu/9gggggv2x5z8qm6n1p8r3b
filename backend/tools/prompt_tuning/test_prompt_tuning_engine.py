@@ -223,6 +223,25 @@ class PromptTuningEngineTestCase(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self.assertTrue(any(result.status == "load_failed" for result in results))
 
+    def test_decision_runner_supports_unescaped_json_in_prompt_template(self):
+        file_path = self._write_history_file("json_prompt.json")
+        context = ContextLoader().load(file_path)
+        runner = DecisionRunner(llm_factory=SequenceLLMFactory(['{"decision":"LONG"}']))
+        prompt_template = (
+            '请分析 {stock_name} {time_frame}\n'
+            '{\n'
+            '  "forecast_horizon": "next N candles",\n'
+            '  "decision": "LONG | SHORT | HOLD",\n'
+            '  "indicator": "{indicator_report}"\n'
+            '}\n'
+        )
+
+        result = runner.run(context, prompt_template, "optimized")
+
+        self.assertEqual(result.status, "success")
+        self.assertIn('"forecast_horizon": "next N candles"', result.formatted_prompt)
+        self.assertIn('"indicator": "indicator direct"', result.formatted_prompt)
+
     def test_batch_runner_stops_submitting_new_tasks_after_cancel(self):
         for index in range(5):
             self._write_history_file(f"{index}.json")

@@ -6,6 +6,9 @@
 import sys
 from pathlib import Path
 
+from app.utils.llm_compat import invoke_llm_text
+from app.utils.prompt_template import render_prompt_template
+
 try:
     from app.core.progress import update_agent_progress
 except ImportError:
@@ -103,10 +106,10 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
         print(f"💰 当前价格信息: {price_summary}")
         
         # 5. 构建 Prompt
-        # 使用 safe_format 避免模板中存在的其他花括号导致报错（如 JSON 示例中的花括号）
-        # 但通常我们使用双花括号 {{ }} 来转义，所以直接 format 应该没问题，前提是模板里的 JSON 示例已经转义
+        # 仅替换允许的占位符，保留 JSON 示例中的普通花括号不变。
         try:
-            prompt = prompt_template.format(
+            prompt = render_prompt_template(
+                prompt_template,
                 stock_name=stock_name,
                 time_frame=time_frame,
                 price_summary=price_summary,
@@ -127,12 +130,14 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
         update_agent_progress("decision", 80, f"正在生成{agent_name}决策...")
         
         try:
-            response = llm.invoke(prompt)
-            content = response.content
+            content = invoke_llm_text(llm, prompt)
         except Exception as e:
             print(f"❌ LLM 调用失败: {e}")
             content = f'{{"error": "LLM call failed: {str(e)}", "decision": "HOLD"}}'
             # Construct a fake response object to maintain interface consistency
+            from langchain_core.messages import AIMessage
+            response = AIMessage(content=content)
+        else:
             from langchain_core.messages import AIMessage
             response = AIMessage(content=content)
 

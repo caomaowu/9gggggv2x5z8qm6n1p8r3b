@@ -17,8 +17,12 @@ backend_dir = Path(__file__).resolve().parent.parent.parent
 
 try:
     from app.core.config import create_llm_client
+    from app.utils.llm_compat import invoke_llm_text
+    from app.utils.prompt_template import render_prompt_template
 except ImportError:
     create_llm_client = None
+    invoke_llm_text = None
+    render_prompt_template = None
 
 
 VALID_DECISIONS = {"LONG", "SHORT", "HOLD"}
@@ -244,7 +248,10 @@ class DecisionRunner:
         )
 
         try:
-            prompt = template.format(
+            if render_prompt_template is None:
+                raise RuntimeError("Prompt template helper is not available.")
+            prompt = render_prompt_template(
+                template,
                 stock_name=context.stock_name,
                 time_frame=context.time_frame,
                 price_summary=context.price_summary,
@@ -263,9 +270,10 @@ class DecisionRunner:
         try:
             if self.llm_factory is None:
                 raise RuntimeError("LLM client factory is not available.")
+            if invoke_llm_text is None:
+                raise RuntimeError("LLM compatibility helper is not available.")
             llm = self.llm_factory(role="agent")
-            response = llm.invoke(prompt)
-            result.raw_response = getattr(response, "content", str(response))
+            result.raw_response = invoke_llm_text(llm, prompt)
         except Exception as exc:
             result.status = "llm_failed"
             result.error_message = str(exc)
@@ -650,7 +658,7 @@ class BatchBacktestRunner:
         return json_path, csv_path
 
     def _normalize_concurrency(self, concurrency: int) -> int:
-        return max(1, min(8, int(concurrency)))
+        return max(1, min(20, int(concurrency)))
 
     def _emit_event(
         self,

@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     GRAPH_PROVIDER: str = "modelscope"
     GRAPH_MODEL: str = "Qwen/Qwen3-VL-30B-A3B-Instruct"
     GRAPH_TEMPERATURE: float = 0.1
+    
+    OPTIMIZER_PROVIDER: str = "openrouter"
+    OPTIMIZER_MODEL: str = "openai/gpt-4o"
+    OPTIMIZER_TEMPERATURE: float = 0.7
+    OPTIMIZER_API_KEY: str = ""
 
     # LLM Request Timeout (seconds)
     # 默认增加到 5 分钟 (300s) 以适应慢速推理模型
@@ -133,6 +138,12 @@ class Settings(BaseSettings):
                 "name": self.GRAPH_PROVIDER,
                 "model": self.GRAPH_MODEL,
                 "temperature": self.GRAPH_TEMPERATURE,
+            },
+            "optimizer": {
+                "provider": self.OPTIMIZER_PROVIDER,
+                "name": self.OPTIMIZER_PROVIDER,
+                "model": self.OPTIMIZER_MODEL,
+                "temperature": self.OPTIMIZER_TEMPERATURE,
             },
             "available_providers": self.get_all_providers(),
             "agent_models": self.get_available_models(self.AGENT_PROVIDER, "agent"),
@@ -227,4 +238,32 @@ def create_llm_client(role: str = "agent", agent_name: str = None) -> ChatOpenAI
     return ChatOpenAI(**client_kwargs)
 
 
-__all__ = ["settings", "reload_config", "create_llm_client"]
+def create_optimizer_llm() -> ChatOpenAI:
+    """创建 Optimizer 专用的 LLM 客户端"""
+    provider = settings.OPTIMIZER_PROVIDER
+    model = settings.OPTIMIZER_MODEL
+    temperature = settings.OPTIMIZER_TEMPERATURE
+
+    cfg = get_provider_config(provider)
+    if not cfg:
+        raise ValueError(f"Unknown provider: {provider}")
+
+    # 优先使用 OPTIMIZER_API_KEY，如果没有则复用现有的 provider api key
+    api_key = settings.OPTIMIZER_API_KEY or getattr(settings, cfg["api_key_env"], "")
+    if not api_key:
+        raise ValueError(f"API Key not found for optimizer provider {provider}. Please set OPTIMIZER_API_KEY or {cfg['api_key_env']} in .env file")
+
+    client_kwargs = {
+        "model": model,
+        "api_key": api_key,
+        "base_url": cfg["base_url"],
+        "request_timeout": settings.LLM_TIMEOUT,
+        "max_retries": 3,
+        "streaming": False,
+        "temperature": temperature,
+    }
+
+    return ChatOpenAI(**client_kwargs)
+
+
+__all__ = ["settings", "reload_config", "create_llm_client", "create_optimizer_llm"]

@@ -6,11 +6,45 @@ import time
 import shlex
 import platform
 import re
+import locale
 from pathlib import Path
 from dotenv import load_dotenv
 
 # 全局进程列表，用于退出时清理
 processes = []
+
+
+def get_subprocess_encoding():
+    """
+    在 Windows 下优先使用系统本地编码读取 cmd/npm 输出，避免中文报错乱码。
+    其他平台保持 utf-8。
+    """
+    if sys.platform == "win32":
+        return locale.getpreferredencoding(False) or "gbk"
+    return "utf-8"
+
+
+def decode_output_line(raw_line):
+    """
+    Windows 下不同子进程可能混用 UTF-8 与本地代码页，按优先级回退解码。
+    """
+    if isinstance(raw_line, str):
+        return raw_line
+
+    encodings = ["utf-8"]
+    system_encoding = get_subprocess_encoding().lower()
+    if system_encoding not in encodings:
+        encodings.append(system_encoding)
+    if "gb18030" not in encodings:
+        encodings.append("gb18030")
+
+    for encoding in encodings:
+        try:
+            return raw_line.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+
+    return raw_line.decode(encodings[0], errors="replace")
 
 def kill_port(port):
     """
@@ -80,7 +114,6 @@ def run_service(command_str, cwd, prefix, color_code, env_vars=None):
         
     env["PYTHONUNBUFFERED"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
-    
     try:
         # 启动进程
         process = subprocess.Popen(
@@ -89,10 +122,7 @@ def run_service(command_str, cwd, prefix, color_code, env_vars=None):
             shell=use_shell,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT, # 将错误输出合并到标准输出
-            bufsize=1, # 行缓冲
-            text=True, # 文本模式处理流
-            encoding='utf-8', # 强制使用 utf-8
-            errors='replace', # 忽略编码错误
+            bufsize=0,
             env=env
         )
         
@@ -109,7 +139,8 @@ def run_service(command_str, cwd, prefix, color_code, env_vars=None):
                 break
             if line:
                 # 打印格式：[服务名] | 日志内容
-                print(f"{colored(prefix)} | {line.rstrip()}")
+                decoded_line = decode_output_line(line).rstrip()
+                print(f"{colored(prefix)} | {decoded_line}")
                 
         print(f"🛑 {prefix} 已停止 (代码: {process.returncode})")
         
@@ -154,6 +185,12 @@ def main():
     kill_port(5173)  # Frontend
     print("✅ 端口检查完毕\n")
 
+    frontend_dir = project_root / "frontend"
+    frontend_node_modules = frontend_dir / "node_modules"
+    if not frontend_node_modules.exists():
+        print("⚠️  未检测到 frontend/node_modules，前端依赖尚未安装。")
+        print(f"   请先在 {frontend_dir} 目录执行: npm install\n")
+
     # 定义要启动的服务
     services = [
         # 后端 (Cyan - 青色)
@@ -167,7 +204,7 @@ def main():
         {
             "name": "[Frontend]", 
             "cmd": "npm run dev",
-            "cwd": project_root / "frontend",
+            "cwd": frontend_dir,
             "color": "32" 
         },
         # PDF 工具 (Yellow - 黄色)

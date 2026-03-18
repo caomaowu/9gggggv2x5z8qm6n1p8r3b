@@ -12,7 +12,7 @@ if str(backend_dir) not in sys.path:
 from app.agents.decision.decision_agent_lite import LITE_PROMPT_TEMPLATE
 from app.agents.decision.decision_agent_original import ORIGINAL_PROMPT_TEMPLATE
 from app.core.config import reload_config
-from prompt_tuning_engine import ContextLoader, DecisionRunner
+from tools.prompt_tuning.prompt_tuning_engine import ContextLoader, DecisionRunner
 
 
 def test_decision_prompt(context_path: str, prompt_version: str = "original") -> None:

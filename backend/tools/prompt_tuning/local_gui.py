@@ -27,6 +27,7 @@ from prompt_tuning_engine import (
     DecisionRunner,
     PromptRunResult,
 )
+from auto_optimizer import AutoOptimizer
 
 
 class PromptTuningApp:
@@ -61,6 +62,10 @@ class PromptTuningApp:
         self.concurrency_var = tk.StringVar(value="3")
         self.batch_stats_var = tk.StringVar(value="批量统计：尚未开始")
 
+        self.optimizer_work_dir_var = tk.StringVar(value=str(Path(__file__).resolve().parent / "optimization_logs"))
+        self.optimizer_generations_var = tk.StringVar(value="5")
+        self.optimizer_stats_var = tk.StringVar(value="优化统计：尚未开始")
+
         self._build_layout()
         self.update_prompt_editor()
         self._update_mode_ui()
@@ -90,6 +95,13 @@ class PromptTuningApp:
                 variable=self.mode_var,
                 value="batch",
                 command=self._activate_batch_mode,
+            ),
+            ttk.Radiobutton(
+                top_frame,
+                text="自动化优化 (Auto-Optimizer)",
+                variable=self.mode_var,
+                value="optimizer",
+                command=self._activate_optimizer_mode,
             ),
         ]
         for button in self.mode_buttons:
@@ -121,6 +133,7 @@ class PromptTuningApp:
 
         self.single_controls = ttk.Frame(self.controls_container, padding=(10, 0, 10, 8))
         self.batch_controls = ttk.Frame(self.controls_container, padding=(10, 0, 10, 8))
+        self.optimizer_controls = ttk.Frame(self.controls_container, padding=(10, 0, 10, 8))
 
         self.load_single_button = ttk.Button(
             self.single_controls,
@@ -163,7 +176,7 @@ class PromptTuningApp:
         self.concurrency_spinbox = ttk.Spinbox(
             batch_row2,
             from_=1,
-            to=8,
+            to=20,
             width=6,
             textvariable=self.concurrency_var,
         )
@@ -207,6 +220,62 @@ class PromptTuningApp:
             maximum=1,
         )
         self.progress_bar.pack(fill=tk.X)
+
+        # --- optimizer controls ---
+        opt_row1 = ttk.Frame(self.optimizer_controls)
+        opt_row1.pack(fill=tk.X, pady=(0, 6))
+        self.select_opt_data_dir_btn = ttk.Button(
+            opt_row1, text="选择历史数据集文件夹", command=self.select_batch_folder
+        )
+        self.select_opt_data_dir_btn.pack(side=tk.LEFT)
+        ttk.Label(
+            opt_row1, textvariable=self.batch_folder_label_var, foreground="blue"
+        ).pack(side=tk.LEFT, padx=10)
+
+        opt_row2 = ttk.Frame(self.optimizer_controls)
+        opt_row2.pack(fill=tk.X, pady=(0, 6))
+        self.select_opt_work_dir_btn = ttk.Button(
+            opt_row2, text="选择工作目录(保存Prompt)", command=self.select_optimizer_work_dir
+        )
+        self.select_opt_work_dir_btn.pack(side=tk.LEFT)
+        ttk.Label(opt_row2, textvariable=self.optimizer_work_dir_var).pack(
+            side=tk.LEFT, padx=10
+        )
+
+        opt_row3 = ttk.Frame(self.optimizer_controls)
+        opt_row3.pack(fill=tk.X, pady=(0, 6))
+        ttk.Label(opt_row3, text="并发数：").pack(side=tk.LEFT)
+        self.opt_concurrency_spinbox = ttk.Spinbox(
+            opt_row3, from_=1, to=20, width=6, textvariable=self.concurrency_var
+        )
+        self.opt_concurrency_spinbox.pack(side=tk.LEFT, padx=(4, 12))
+
+        ttk.Label(opt_row3, text="世代数(Generations)：").pack(side=tk.LEFT)
+        self.opt_generations_spinbox = ttk.Spinbox(
+            opt_row3, from_=1, to=100, width=6, textvariable=self.optimizer_generations_var
+        )
+        self.opt_generations_spinbox.pack(side=tk.LEFT, padx=(4, 12))
+
+        opt_row4 = ttk.Frame(self.optimizer_controls)
+        opt_row4.pack(fill=tk.X, pady=(0, 6))
+        self.run_opt_button = ttk.Button(
+            opt_row4, text="启动自动优化", command=self.run_optimizer_test
+        )
+        self.run_opt_button.pack(side=tk.LEFT)
+
+        self.cancel_opt_button = ttk.Button(
+            opt_row4, text="取消自动优化", command=self.cancel_optimizer_run, state=tk.DISABLED
+        )
+        self.cancel_opt_button.pack(side=tk.LEFT, padx=8)
+
+        ttk.Label(opt_row4, textvariable=self.optimizer_stats_var).pack(
+            side=tk.LEFT, padx=10
+        )
+
+        self.opt_progress_bar = ttk.Progressbar(
+            self.optimizer_controls, mode="determinate", maximum=1
+        )
+        self.opt_progress_bar.pack(fill=tk.X)
 
         paned_window = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         paned_window.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -254,10 +323,13 @@ class PromptTuningApp:
     def _update_mode_ui(self) -> None:
         self.single_controls.pack_forget()
         self.batch_controls.pack_forget()
+        self.optimizer_controls.pack_forget()
         if self.mode_var.get() == "single":
             self.single_controls.pack(side=tk.TOP, fill=tk.X)
-        else:
+        elif self.mode_var.get() == "batch":
             self.batch_controls.pack(side=tk.TOP, fill=tk.X)
+        else:
+            self.optimizer_controls.pack(side=tk.TOP, fill=tk.X)
 
     def _activate_single_mode(self) -> None:
         self.mode_var.set("single")
@@ -268,7 +340,13 @@ class PromptTuningApp:
     def _activate_batch_mode(self) -> None:
         self.mode_var.set("batch")
         self._update_mode_ui()
-        if self.active_task is None:
+        if self.active_task is None and not self.batch_folder_path:
+            self.select_batch_folder()
+
+    def _activate_optimizer_mode(self) -> None:
+        self.mode_var.set("optimizer")
+        self._update_mode_ui()
+        if self.active_task is None and not self.batch_folder_path:
             self.select_batch_folder()
 
     def _set_running_state(self, task: str | None) -> None:
@@ -290,9 +368,32 @@ class PromptTuningApp:
             state=tk.NORMAL if task == "batch" else tk.DISABLED
         )
 
+        self.select_opt_data_dir_btn.configure(state=base_state)
+        self.select_opt_work_dir_btn.configure(state=base_state)
+        self.opt_concurrency_spinbox.configure(state=base_state)
+        self.opt_generations_spinbox.configure(state=base_state)
+        self.run_opt_button.configure(state=tk.DISABLED if running else tk.NORMAL)
+        self.cancel_opt_button.configure(
+            state=tk.NORMAL if task == "optimizer" else tk.DISABLED
+        )
+
     def _append_output(self, text: str) -> None:
-        self.output_viewer.insert(tk.END, text + "\n")
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        lines = text.splitlines() or [""]
+        for line in lines:
+            self.output_viewer.insert(tk.END, f"[{timestamp}] {line}\n")
         self.output_viewer.see(tk.END)
+
+    def _append_section(self, title: str, body: str) -> None:
+        self._append_output(title)
+        if body:
+            self._append_output(body)
+
+    def _truncate_text(self, text: str, max_chars: int = 700) -> str:
+        text = (text or "").strip()
+        if len(text) <= max_chars:
+            return text
+        return text[:max_chars].rstrip() + "\n...[truncated]"
 
     def _set_preview(self, payload: dict) -> None:
         self.context_viewer.delete("1.0", tk.END)
@@ -355,6 +456,16 @@ class PromptTuningApp:
         if folder_path:
             self.export_dir_var.set(folder_path)
 
+    def select_optimizer_work_dir(self) -> None:
+        current = Path(self.optimizer_work_dir_var.get())
+        initial_dir = current.parent if current.suffix else current
+        folder_path = filedialog.askdirectory(
+            initialdir=initial_dir if initial_dir.exists() else backend_dir,
+            title="选择优化器工作目录",
+        )
+        if folder_path:
+            self.optimizer_work_dir_var.set(folder_path)
+
     def run_single_test(self) -> None:
         if self.active_task is not None:
             return
@@ -389,9 +500,9 @@ class PromptTuningApp:
             return
 
         try:
-            concurrency = max(1, min(8, int(self.concurrency_var.get())))
+            concurrency = max(1, min(20, int(self.concurrency_var.get())))
         except ValueError:
-            messagebox.showerror("参数错误", "并发数必须是 1 到 8 的整数。")
+            messagebox.showerror("参数错误", "并发数必须是 1 到 20 的整数。")
             return
 
         template = self.prompt_editor.get("1.0", tk.END).strip()
@@ -456,6 +567,59 @@ class PromptTuningApp:
         self.cancel_batch_button.configure(state=tk.DISABLED)
         self._append_output("[批量] 已请求取消，将停止提交新的任务。")
 
+    def run_optimizer_test(self) -> None:
+        if self.active_task is not None:
+            return
+        if not self.batch_folder_path:
+            messagebox.showwarning("提示", "请先选择历史数据集文件夹。")
+            return
+
+        try:
+            concurrency = max(1, min(20, int(self.concurrency_var.get())))
+            generations = max(1, int(self.optimizer_generations_var.get()))
+        except ValueError:
+            messagebox.showerror("参数错误", "并发数和世代数必须是整数。")
+            return
+
+        work_dir = self.optimizer_work_dir_var.get().strip()
+
+        self.output_viewer.delete("1.0", tk.END)
+        self.opt_progress_bar.configure(maximum=generations, value=0)
+        self.optimizer_stats_var.set("优化统计：运行中...")
+        self.cancel_event = threading.Event()
+        self._set_running_state("optimizer")
+
+        self.worker_thread = threading.Thread(
+            target=self._optimizer_worker,
+            args=(
+                self.batch_folder_path,
+                work_dir,
+                generations,
+                concurrency,
+            ),
+            daemon=True,
+        )
+        self.worker_thread.start()
+
+    def _optimizer_worker(self, data_dir: str, work_dir: str, generations: int, concurrency: int) -> None:
+        try:
+            optimizer = AutoOptimizer(data_dir=data_dir, work_dir=work_dir)
+            optimizer.run_evolution_loop(
+                max_generations=generations,
+                concurrency=concurrency,
+                cancel_event=self.cancel_event,
+                event_callback=self.ui_queue.put,
+            )
+        except Exception as exc:
+            self.ui_queue.put({"type": "optimizer_failed", "error": str(exc)})
+
+    def cancel_optimizer_run(self) -> None:
+        if self.active_task != "optimizer" or self.cancel_event is None:
+            return
+        self.cancel_event.set()
+        self.cancel_opt_button.configure(state=tk.DISABLED)
+        self._append_output("[优化] 已请求取消，等待当前操作完成...")
+
     def _process_ui_events(self) -> None:
         while True:
             try:
@@ -494,6 +658,108 @@ class PromptTuningApp:
             self._set_running_state(None)
             self.worker_thread = None
             self._append_output(f"[批量] 运行失败：{event['error']}")
+        elif event_type == "opt_batch_started":
+            self._append_output(
+                f"[优化/回测] 本代批量开始：total_files={event['total_files']} | export_dir={event['export_dir']}"
+            )
+        elif event_type == "opt_file_started":
+            self._append_output(f"[优化/回测] 开始处理：{event['file_name']}")
+        elif event_type == "opt_file_completed":
+            self._append_output(
+                "[优化/回测] 完成 {file_name} | status={status} | decision={decision} | "
+                "K1={k1} | K2={k2} | elapsed={elapsed}ms | error={error}".format(
+                    file_name=event["file_name"],
+                    status=event["result"]["status"],
+                    decision=event["result"]["decision"] or "N/A",
+                    k1=event["result"]["k1_result"]["outcome"],
+                    k2=event["result"]["k2_result"]["outcome"],
+                    elapsed=event["result"]["elapsed_ms"],
+                    error=event["result"]["error_message"] or "None",
+                )
+            )
+        elif event_type == "opt_batch_completed":
+            summary = event["summary"]
+            self._append_output(
+                "[优化/回测] 本代批量完成 | total={total} | success={succeeded} | "
+                "skipped={backtest_skipped} | failed={failed} | "
+                "load_failed={load_failed} | llm_failed={llm_failed} | parse_failed={parse_failed}".format(
+                    **summary
+                )
+            )
+        elif event_type == "optimizer_log":
+            self._append_output(f"[优化] {event['message']}")
+        elif event_type == "optimizer_stream_status":
+            stage = event.get("stage")
+            if stage == "started":
+                self._append_output(
+                    f"[优化] 第 {event.get('generation', '?')} 代 Optimizer 已开始流式生成..."
+                )
+            elif stage == "first_chunk":
+                self._append_output(
+                    f"[优化] 第 {event.get('generation', '?')} 代已收到首个流式分块：{event.get('preview', '')}"
+                )
+            elif stage == "completed":
+                self._append_output(
+                    f"[优化] 第 {event.get('generation', '?')} 代流式生成完成 | chunks={event.get('chunks', 0)} | chars={event.get('chars', 0)}"
+                )
+        elif event_type == "optimizer_gen_start":
+            self.optimizer_stats_var.set(f"优化统计：正在运行第 {event['generation']} 世代...")
+        elif event_type == "optimizer_gen_metrics":
+            self.opt_progress_bar.step(1)
+            self.optimizer_stats_var.set(
+                "优化统计：第 {generation} 代 | K1 {k1_win_rate:.2%} | K2 {k2_win_rate:.2%} | "
+                "Parse {parse_rate:.2%} | L/S {ls_ratio:.2f} | LONG {long_count} SHORT {short_count} HOLD {hold_count}".format(
+                    **event
+                )
+            )
+            self._append_output(
+                "[优化] 第 {generation} 代详细统计 | prompt={prompt_version} | hash={prompt_hash} | "
+                "total={total} | success={succeeded} | skipped={backtest_skipped} | failed={failed} | "
+                "execution_failures(load={load_failed}, llm={llm_failed}, parse={parse_failed}) | "
+                "K1 Win Rate={k1_win_rate:.2%}({k1_win_count}) | K2 Win Rate={k2_win_rate:.2%}({k2_win_count}) | export={export_dir}".format(
+                    **event
+                )
+            )
+        elif event_type == "optimizer_prompt_snapshot":
+            self._append_section(
+                "[优化] 第 {generation} 代当前 Prompt | version={prompt_version} | hash={prompt_hash} | chars={prompt_chars}".format(
+                    **event
+                ),
+                self._truncate_text(event.get("preview", "")),
+            )
+        elif event_type == "optimizer_new_prompt":
+            self.prompt_editor.delete("1.0", tk.END)
+            self.prompt_editor.insert(tk.END, event["prompt"])
+            self._append_section(
+                "[优化] 第 {generation} 代候选新 Prompt | chars={prompt_chars}".format(
+                    generation=event.get("generation", "?"),
+                    prompt_chars=event.get("prompt_chars", len(event["prompt"])),
+                ),
+                self._truncate_text(event.get("preview", event["prompt"])),
+            )
+            reasoning_preview = event.get("reasoning_preview")
+            if reasoning_preview:
+                self._append_section(
+                    "[优化] 新 Prompt 生成理由预览",
+                    self._truncate_text(reasoning_preview, 500),
+                )
+        elif event_type == "optimizer_run_summary_exported":
+            self._append_output(
+                "[优化] 本次运行总代际 CSV 已导出：{path} | records={records}".format(
+                    path=event.get("path", ""),
+                    records=event.get("records", 0),
+                )
+            )
+        elif event_type == "optimizer_completed":
+            self._set_running_state(None)
+            self.worker_thread = None
+            self.optimizer_stats_var.set("优化统计：已完成")
+            self._append_output("[优化] 自动化优化循环结束。")
+        elif event_type == "optimizer_failed":
+            self._set_running_state(None)
+            self.worker_thread = None
+            self.optimizer_stats_var.set("优化统计：运行失败")
+            self._append_output(f"[优化] 运行失败：{event['error']}")
 
     def _handle_single_completed(self, result: PromptRunResult) -> None:
         self._set_running_state(None)
