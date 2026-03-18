@@ -124,12 +124,14 @@ PROVIDERS = {
             "gpt-5.3",
             "gpt-5.4",
             "gpt-5.3-codex",
+            "gpt-5.4-mini",
         ],
         "graph_models": [
             "gpt-5.2",
             "gpt-5.3",
             "gpt-5.4",
             "gpt-5.3-codex",
+            "gpt-5.4-mini",
         ],
     },
     "302ai": {
@@ -139,14 +141,12 @@ PROVIDERS = {
         "agent_models": [
             "qwen3.5-plus",
             "Pro/moonshotai/Kimi-K2.5",
-            "grok-4-1-fast-reasoning",
             "grok-4-fast-non-reasoning",
             "qwen3.5-flash",
         ],
         "graph_models": [
             "qwen3.5-plus",
             "Pro/moonshotai/Kimi-K2.5",
-            "grok-4-1-fast-reasoning",
             "grok-4-fast-non-reasoning",
             "qwen3.5-flash",
         ],
