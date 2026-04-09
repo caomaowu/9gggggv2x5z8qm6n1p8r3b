@@ -136,7 +136,7 @@ PROVIDERS = {
     },
     "302ai": {
         "name": "302AI",
-        "base_url": "https://api.302.ai",
+        "base_url": "https://api.302.ai/v1",
         "api_key_env": "API302_API_KEY",
         "agent_models": [
             "qwen3.5-plus",
