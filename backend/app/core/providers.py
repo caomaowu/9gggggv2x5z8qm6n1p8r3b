@@ -20,14 +20,12 @@ PROVIDERS = {
         "base_url": "https://api.deepseek.com/v1",
         "api_key_env": "DEEPSEEK_API_KEY",
         "agent_models": [
-            "deepseek-ai/DeepSeek-V3.2",
-            "deepseek-ai/DeepSeek-V3.2-Exp",
-            "deepseek-chat",
-      
+            "deepseek-v4-flash",
+            "deepseek-v4-pro",
         ],
         "graph_models": [
-            "deepseek-ai/DeepSeek-V3.2",
-    
+            "deepseek-v4-flash",
+            "deepseek-v4-pro",
         ],
     },
     "iflow": {
@@ -143,12 +141,16 @@ PROVIDERS = {
             "Pro/moonshotai/Kimi-K2.5",
             "grok-4-fast-non-reasoning",
             "qwen3.5-flash",
+            "deepseek-v4-flash",
+            "deepseek-v4-pro",
         ],
         "graph_models": [
             "qwen3.5-plus",
             "Pro/moonshotai/Kimi-K2.5",
             "grok-4-fast-non-reasoning",
             "qwen3.5-flash",
+            "deepseek-v4-flash",
+            "deepseek-v4-pro",
         ],
     },
 }
