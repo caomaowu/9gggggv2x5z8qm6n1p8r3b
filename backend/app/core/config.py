@@ -25,7 +25,7 @@ class Settings(BaseSettings):
             return v
         raise ValueError(v)
 
-    MARKET_DATA_API_URL: str = "https://caomao.xyz"
+    MARKET_DATA_API_URL: str = "https://webui.caomaowu.lol"
     MARKET_DATA_API_TOKEN: SecretStr = SecretStr("")
     
     MODELSCOPE_API_KEY: str = ""

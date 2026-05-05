@@ -238,6 +238,6 @@ models = settings.get_available_models(provider="openrouter", role="agent")
 
 ## ⚠️ 注意事项
 
-- 本项目依赖外部行情 API (如 caomao.xyz) 和 LLM API，请确保 `.env` 中的 Token 和 Key 配置正确。
+- 本项目依赖外部行情 API (如 webui.caomaowu.lol) 和 LLM API，请确保 `.env` 中的 Token 和 Key 配置正确。
 - 首次运行时，前端需要下载依赖，请保持网络通畅。
 - 配置系统已重构，确保 `.env` 文件中包含所有必需的环境变量。

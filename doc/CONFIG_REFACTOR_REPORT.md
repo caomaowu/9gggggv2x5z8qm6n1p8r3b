@@ -295,7 +295,7 @@ API_V1_STR=/api/v1
 BACKEND_CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 
 # 市场数据 API
-MARKET_DATA_API_URL=https://caomao.xyz
+MARKET_DATA_API_URL=https://webui.caomaowu.lol
 MARKET_DATA_API_TOKEN=your_token_here
 
 # LLM API Keys（从原 config.py 移除）

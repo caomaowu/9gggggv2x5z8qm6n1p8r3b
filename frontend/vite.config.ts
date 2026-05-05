@@ -15,10 +15,10 @@ export default defineConfig({
     port: 5173,
     // 在 Windows 本地开发时关闭 HTTPS 以解决加载缓慢问题，在 VPS (Linux) 上自动开启
     https: process.platform !== 'win32' && 
-           fs.existsSync(path.resolve(__dirname, '../caomao.xyz-ssl-bundle/private.key.pem')) && 
-           fs.existsSync(path.resolve(__dirname, '../caomao.xyz-ssl-bundle/domain.cert.pem')) ? {
-      key: fs.readFileSync(path.resolve(__dirname, '../caomao.xyz-ssl-bundle/private.key.pem')),
-      cert: fs.readFileSync(path.resolve(__dirname, '../caomao.xyz-ssl-bundle/domain.cert.pem'))
+           fs.existsSync(path.resolve(__dirname, '../caomaowu.lol-ssl-bundle/private.key.pem')) && 
+           fs.existsSync(path.resolve(__dirname, '../caomaowu.lol-ssl-bundle/domain.cert.pem')) ? {
+      key: fs.readFileSync(path.resolve(__dirname, '../caomaowu.lol-ssl-bundle/private.key.pem')),
+      cert: fs.readFileSync(path.resolve(__dirname, '../caomaowu.lol-ssl-bundle/domain.cert.pem'))
     } : undefined
   }
 })

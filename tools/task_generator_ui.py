@@ -19,7 +19,7 @@ DEFAULT_OUTPUT_DIR = os.path.dirname(__file__)
 # 加载环境变量
 env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'backend', '.env')
 load_dotenv(env_path)
-API_URL = os.getenv("MARKET_DATA_API_URL", "https://caomao.xyz")
+API_URL = os.getenv("MARKET_DATA_API_URL", "https://webui.caomaowu.lol")
 API_TOKEN = os.getenv("MARKET_DATA_API_TOKEN", "")
 
 class TaskGeneratorApp:
