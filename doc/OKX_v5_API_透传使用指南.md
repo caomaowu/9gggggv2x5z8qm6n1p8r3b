@@ -301,3 +301,161 @@ OKX 自身的业务错误码会包含在 200 响应体的 `code` 和 `msg` 字�
 2. **私有接口签名由客户端负责** — 代理层不接触你的 OKX API 密钥
 3. **限流是代理层 + OKX 双重限制** — 建议客户端也做适当频率控制
 4. **POST 请求需要设置 `Content-Type: application/json`**
+
+---
+
+## 📌 实战经验：`market/candles` vs `market/history-candles`
+
+> 记录日期：2026-05-06
+> 问题：批量回测工具对较早日期返回空数据（0条K线）
+
+### 发现
+
+OKX 有两个蜡烛图端点，**对历史数据的支持能力完全不同**：
+
+| 端点 | 用途 | `after` 翻页范围 | 适用场景 |
+|------|------|------------------|----------|
+| `/api/v5/market/candles` | 实时查询 | **~500 条** (1H≈21天) | `latest` 模式、实时行情 |
+| `/api/v5/market/history-candles` | 历史查询 | **不受限** (500天+) | `to_end` / `date_range` 回测模式 |
+
+### 测试数据（2026-05-06 实测）
+
+| after 回溯天数 | candles | history-candles |
+|---------------|---------|-----------------|
+| 30天 | 40条 ✅ | 40条 ✅ |
+| 60天 | **0条 ❌** | 40条 ✅ |
+| 180天 | 0条 ❌ | 40条 ✅ |
+| 500天 | 0条 ❌ | 40条 ✅ |
+
+### 按K线周期的影响
+
+`market/candles` 的 ~500 条限制对不同周期的影响：
+
+| 周期 | 500条约覆盖 | 实际影响 |
+|------|------------|---------|
+| 1m | ~8小时 | 严重受限 |
+| 15m | ~5天 | 严重受限 |
+| 1h | ~21天 | 受限 |
+| 4h | ~83天 | 基本够用 |
+| 1d | ~500天 | 充裕 |
+
+### 最佳实践
+
+```python
+# ✅ 正确：根据查询类型选择端点
+if start_date or end_date:
+    endpoint = "market/history-candles"  # 历史查询，全量数据
+else:
+    endpoint = "market/candles"          # 实时查询，更快
+
+data = proxy.call(endpoint, params)
+```
+
+### 链式翻页也受同样的限制
+
+即使通过多次请求链式翻页（用上一批最早时间戳作为下一批的 `after`），`market/candles` 最多也只能拿到 ~500 条。要突破限制，必须切到 `market/history-candles`。
+
+### 与 v1 API (`/api/v1/ohlcv`) 的关系
+
+反代的 v1 `/api/v1/ohlcv` 能拿到长历史数据，推测是因为 v1 内部调用的也是 `market/history-candles` 端点（而非 `market/candles`）。
+
+
+---
+
+
+## 📌 实战经验：衍生品/情绪数据端点能力
+
+> 记录日期：2026-05-06 | 修正日期：2026-05-06
+> 目的：测试各端点对历史数据的回溯能力和 `after` 翻页支持
+
+### 端点能力总览（修正版）
+
+| 端点 | `after`翻页 | 数据窗口 | 最长回溯 | 粒度 |
+|------|:--:|------|------|------|
+| `market/history-candles` | ✅ | 300条/次 | **730天+** | 任意周期 |
+| `public/funding-rate-history` | ✅ | 50条/次 | **~90天** | 每8h |
+| `rubik/.../open-interest-volume` | ❌ | 5m:576 / 1H:720 / 1D:180 | 2天/30天/180天 | 5m/1H/1D |
+| `rubik/.../long-short-account-ratio` | ❌ | 1H:720 / 1D:180 | 30天/180天 | 1H/1D |
+| `rubik/stat/margin/loan-ratio` | 待测 | 180条 | 待验证 | 1D |
+| `public/liquidation-orders` | ❌ | ~16条 | 仅最近 | 实时 |
+| `public/open-interest` | ❌ | 1条 | 无(快照) | — |
+| `public/funding-rate` | ❌ | 1条 | 无(快照) | — |
+
+### ⚠️ 关键发现：rubik 端点忽略 `after` 参数
+
+**rubik 统计端点返回固定数量的最新数据，`after` 参数完全无效**。
+
+实测验证：
+```
+多空比 1D, after=  7d: 180条, 最早=2025-11-07  ← 最新180条，非7天前
+多空比 1D, after=365d: 180条, 最早=2025-11-07  ← after完全没变！
+OI 1D,    after=  7d: 180条, 最早=2025-11-07  ← 同上
+OI 1D,    after=365d: 180条, 最早=2025-11-07  ← 同上
+```
+
+结论：无论 `after` 传什么值，rubik 端点永远返回最新的 180 条（1D）或 720 条（1H）。
+
+只有 `funding-rate-history` 和 `market/history-candles` 这两个端点真正支持 `after` 翻页。
+
+### 各端点详细说明
+
+#### 1. OI 持仓量 (`rubik/stat/contracts/open-interest-volume`)
+
+```bash
+curl -H "Authorization: Bearer <token>" \
+  "https://webui.caomaowu.lol/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=1D&limit=100"
+```
+
+- **参数**：`ccy` 必填（如 `BTC`），`period` 支持 `5m`/`1H`/`1D`（不支持 4H）
+- **after**：❌ 忽略，永远返回最新固定条数
+- **时间戳**：周期结束时间，精确到整点（分钟和秒为 `:00`）
+- **1D 时间戳示例**：`2026-05-05 16:00:00 UTC`（= 北京时间次日 00:00，是 UTC+8 的日线收盘时间）
+- **数据格式**：`[ts, oi, vol]`，倒序排列（最新在前）
+
+#### 2. 多空比 (`rubik/stat/contracts/long-short-account-ratio`)
+
+```bash
+curl -H "Authorization: Bearer <token>" \
+  "https://webui.caomaowu.lol/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1D&limit=100"
+```
+
+规则同 OI，`after` 同样被忽略。
+
+#### 3. 资金费率 (`public/funding-rate-history`)
+
+```bash
+curl -H "Authorization: Bearer <token>" \
+  "https://webui.caomaowu.lol/api/v5/public/funding-rate-history?instId=BTC-USDT-SWAP&limit=50&after=<ts>"
+```
+
+- **after**：✅ 支持，可翻页到 ~90 天前
+- 每次结算产生一条记录（每8h），约 200-300 条总数据
+
+#### 4. 清算订单 (`public/liquidation-orders`)
+
+```bash
+# ✅ 正确参数
+curl -H "Authorization: Bearer <token>" \
+  "https://webui.caomaowu.lol/api/v5/public/liquidation-orders?instType=SWAP&uly=BTC-USDT&state=filled&limit=100"
+```
+
+- **参数陷阱**：必须用 `uly` 或 `instFamily`（不能用 `instId`），必须有 `instType` 和 `state`
+- **after**：❌ 不支持，仅返回最近 ~16 条
+
+### 回测场景的实用建议
+
+| 回测周期 | OI | 多空比 | 资金费率 |
+|---------|-----|--------|---------|
+| 4H | 1H聚合(~30天) | 1H聚合(~30天) | ✅ 直接可用(~90天) |
+| 1D | ✅ 直接可用(180天) | ✅ 直接可用(180天) | ✅ 直接可用(~90天) |
+| 1H | ✅ 直接可用(30天) | ✅ 直接可用(30天) | ✅ 直接可用(~90天) |
+
+### 最佳实践：区分端点类型
+
+| 类型 | 特征 | `after` | 示例 |
+|------|------|:--:|------|
+| 历史端点 | 支持翻页，可回溯 | ✅ | `history-candles`, `funding-rate-history` |
+| rubik统计 | 固定窗口，不可翻页 | ❌ | `open-interest-volume`, `long-short-account-ratio` |
+| 快照端点 | 仅当前值 | N/A | `open-interest`, `funding-rate` |
+| 实时端点 | 仅最近事件 | ❌ | `liquidation-orders` |
+

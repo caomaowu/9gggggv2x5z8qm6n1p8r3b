@@ -172,7 +172,9 @@ class MarketDataService:
                     if after_ts is not None:
                         params["after"] = str(after_ts)  # OKX: after = return data BEFORE this timestamp
 
-                data = self._make_request("market/candles", params)
+                # 历史查询走 history-candles（不受 500 条缓存限制），实时查询走 candles
+                endpoint = "market/history-candles" if (start_date or end_date) else "market/candles"
+                data = self._make_request(endpoint, params)
                 return parse_v5_ohlcv_to_dataframe(data)
 
             # --- v1 path (backward compat) ---

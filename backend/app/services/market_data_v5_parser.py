@@ -200,6 +200,11 @@ def convert_symbol_for_v5(symbol: str, inst_type: str = "SWAP") -> str:
     if not symbol:
         return symbol
 
+    # 2.5 Handle bare USDT suffix (e.g. "DOGEUSDT" → "DOGE-USDT")
+    if symbol.endswith("USDT") and len(symbol) > 4 and "-" not in symbol:
+        base = symbol[:-4]
+        symbol = f"{base}-USDT"
+
     # 3. Already complete
     if symbol.endswith("-SWAP") or symbol.endswith("-SPOT"):
         return symbol
