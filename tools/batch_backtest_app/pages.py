@@ -462,7 +462,6 @@ def render_execute(
                 "backend_url": base_url,
                 "analyze_path": analyze_path,
                 "concurrency": int(cfg["concurrency"]),
-                "task_delay": float(cfg["task_delay"]),
                 "timeout": float(cfg["timeout"]),
                 "retries": int(cfg["retries"]),
                 "hold_threshold": float(cfg["hold_threshold"]),
@@ -573,6 +572,9 @@ def render_execute(
         except Exception as e:
             st.error(f"❌ 写入批次分隔行出错：{e}")
 
+        csv_writer = engine.CsvWriter(output_csv, core.OUTPUT_FIELDNAMES)
+        csv_writer.start()
+
         progress_bar = st.progress(0)
         status_text = st.empty()
         metrics_placeholder = st.empty()
@@ -623,9 +625,7 @@ def render_execute(
             result_row["cumulative_win_rate_2"] = f"{win_rate_2:.2f}%" if total_valid_2 > 0 else "无"
 
             try:
-                engine.append_output_row(output_csv, core.OUTPUT_FIELDNAMES, result_row)
-            except PermissionError:
-                st.error(f"❌ 写入失败！请立即关闭文件：{output_csv}（已重试多次）")
+                csv_writer.write(result_row)
             except Exception as e:
                 st.error(f"❌ 写入CSV出错：{e}")
 
@@ -698,8 +698,6 @@ def render_execute(
                 # 更新仓位状态
                 position_state["is_aggressive"] = result_row.get("_is_aggressive", False)
                 handle_one_result(result_row)
-                if float(cfg["task_delay"]) > 0 and i < len(to_run) - 1:
-                    time.sleep(float(cfg["task_delay"]))
         else:
             result_iterator = engine.run_tasks_concurrently(
                 base_url,
@@ -711,10 +709,11 @@ def render_execute(
                 to_run,
                 defaults,
                 max_workers=int(cfg["concurrency"]),
-                task_delay_s=float(cfg["task_delay"]),
             )
             for result_row in result_iterator:
                 handle_one_result(result_row)
+
+        csv_writer.stop()
 
         st.success("回测完成！")
         st.balloons()

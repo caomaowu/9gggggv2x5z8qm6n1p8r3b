@@ -145,6 +145,11 @@ PROVIDERS = {
             "qwen3.6-flash",
             "deepseek-v4-flash",
             "deepseek-v4-pro",
+            "glm-4.6v-flash",
+            "gemini-3.1-flash-lite-preview",
+            "step-3.5-flash",
+            "Doubao-Seed-2.0-mini",
+            "Doubao-Seed-2.0-lite",
         ],
         "graph_models": [
             "qwen3.5-plus",
@@ -155,6 +160,11 @@ PROVIDERS = {
             "qwen3.6-flash",
             "deepseek-v4-flash",
             "deepseek-v4-pro",
+            "glm-4.6v-flash",
+            "gemini-3.1-flash-lite-preview",
+            "step-3.5-flash",
+            "Doubao-Seed-2.0-mini",
+            "Doubao-Seed-2.0-lite",
         ],
     },
 }

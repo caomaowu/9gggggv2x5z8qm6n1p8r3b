@@ -69,6 +69,9 @@ def main():
         batch_row["error"] = f"=== 后台批次开始 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} (PID: {os.getpid()}) ==="
         engine.append_output_row(output_csv, core.OUTPUT_FIELDNAMES, batch_row)
 
+        csv_writer = engine.CsvWriter(output_csv, core.OUTPUT_FIELDNAMES)
+        csv_writer.start()
+
         # Initialize Stats
         total_tasks = len(tasks)
         completed = 0
@@ -225,7 +228,7 @@ def main():
                     res["cumulative_win_rate_2"] = f"{win_rate_2:.2f}%" if total_valid_2 > 0 else "无"
                     
                     # Write to CSV
-                    engine.append_output_row(output_csv, core.OUTPUT_FIELDNAMES, res)
+                    csv_writer.write(res)
                     
                     # Update Progress
                     completed += 1
@@ -248,12 +251,7 @@ def main():
                         "current_end_time": res.get("end_time", ""),
                     })
                     store.save_daemon_progress(progress)
-                    
-                    # Delay
-                    delay = config.get("task_delay", 0)
-                    if delay > 0:
-                        time.sleep(delay)
-                        
+
                 except Exception as e:
                     print(f"Task failed: {e}")
                     traceback.print_exc()
@@ -276,7 +274,6 @@ def main():
                 rows=tasks,
                 defaults=defaults,
                 max_workers=concurrency,
-                task_delay_s=config["task_delay"]
             )
             
             for i, res in enumerate(iterator):
@@ -317,7 +314,7 @@ def main():
                 res["cumulative_win_rate_2"] = f"{win_rate_2:.2f}%" if total_valid_2 > 0 else "无"
 
                 # Write to CSV
-                engine.append_output_row(output_csv, core.OUTPUT_FIELDNAMES, res)
+                csv_writer.write(res)
 
                 # Update Progress
                 completed += 1
@@ -339,6 +336,8 @@ def main():
                     "current_end_time": res.get("end_time", ""),
                 })
                 store.save_daemon_progress(progress)
+
+        csv_writer.stop()
 
         # 5. Finish
         progress["status"] = "已完成"

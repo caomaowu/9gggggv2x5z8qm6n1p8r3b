@@ -1,6 +1,8 @@
 import csv
 import os
+import queue
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -321,22 +323,57 @@ def ensure_output_header(output_csv: str, fieldnames: List[str]) -> None:
 
 
 def append_output_row(output_csv: str, fieldnames: List[str], row: Dict[str, Any]) -> None:
-    max_retries = 10
-    for attempt in range(max_retries):
-        try:
-            with open(output_csv, "a", encoding="utf-8", newline="") as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
-                writer.writerow({k: row.get(k, "") for k in fieldnames})
-                f.flush()
-                os.fsync(f.fileno())
-            return
-        except PermissionError:
-            if attempt < max_retries - 1:
-                time.sleep(1.0)
-            else:
-                raise
-        except Exception:
-            raise
+    with open(output_csv, "a", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writerow({k: row.get(k, "") for k in fieldnames})
+        f.flush()
+
+
+class CsvWriter:
+    """线程安全CSV写入器，使用单线程队列模式避免多线程I/O争抢"""
+
+    def __init__(self, output_csv: str, fieldnames: List[str]):
+        self.output_csv = output_csv
+        self.fieldnames = fieldnames
+        self._queue: queue.Queue = queue.Queue()
+        self._thread: Optional[threading.Thread] = None
+        self._running = False
+
+    def start(self) -> None:
+        os.makedirs(os.path.dirname(os.path.abspath(self.output_csv)), exist_ok=True)
+        self._running = True
+        self._thread = threading.Thread(target=self._writer_loop, daemon=True)
+        self._thread.start()
+
+    def _writer_loop(self) -> None:
+        with open(self.output_csv, "a", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+            while self._running:
+                try:
+                    row = self._queue.get(timeout=1.0)
+                    if row is None:
+                        continue
+                    writer.writerow({k: row.get(k, "") for k in self.fieldnames})
+                    f.flush()
+                except queue.Empty:
+                    continue
+            while True:
+                try:
+                    row = self._queue.get_nowait()
+                    if row is None:
+                        continue
+                    writer.writerow({k: row.get(k, "") for k in self.fieldnames})
+                    f.flush()
+                except queue.Empty:
+                    break
+
+    def write(self, row: Dict[str, Any]) -> None:
+        self._queue.put(row)
+
+    def stop(self) -> None:
+        self._running = False
+        if self._thread:
+            self._thread.join(timeout=5.0)
 
 
 def _post_with_retry(
@@ -946,25 +983,21 @@ def run_tasks_concurrently(
     defaults: Dict[str, Any],
     *,
     max_workers: int,
-    task_delay_s: float,
 ):
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = []
-        for i, row in enumerate(rows):
-            futures.append(
-                executor.submit(
-                    run_one_task,
-                    base_url,
-                    analyze_path,
-                    timeout_s,
-                    retries,
-                    backoff_s,
-                    hold_threshold,
-                    row,
-                    defaults,
-                )
+        futures = [
+            executor.submit(
+                run_one_task,
+                base_url,
+                analyze_path,
+                timeout_s,
+                retries,
+                backoff_s,
+                hold_threshold,
+                row,
+                defaults,
             )
-            if i < len(rows) - 1 and task_delay_s > 0:
-                time.sleep(task_delay_s)
+            for row in rows
+        ]
         for fut in as_completed(futures):
             yield fut.result()
