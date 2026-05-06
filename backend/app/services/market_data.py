@@ -1,19 +1,25 @@
 import requests
 import logging
 import time
-import json
 import pandas as pd
 from typing import Dict, Optional, Any, List
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from app.core.config import settings
+from app.services.market_data_v5_parser import (
+    is_v5_success,
+    parse_v5_ohlcv_to_dataframe,
+    convert_timeframe_v1_to_v5,
+    convert_symbol_for_v5,
+    build_v5_ohlcv_params,
+)
 
 logger = logging.getLogger(__name__)
 
 class MarketDataService:
     """
-    Service for fetching market data from the Quant API.
-    Refactored from core/quant_api_client.py
+    Service for fetching market data via OKX v5 transparent proxy.
+    Defaults to v5 API with v1 fallback via MARKET_DATA_API_VERSION env var.
     """
 
     def __init__(self):
@@ -21,7 +27,15 @@ class MarketDataService:
         self.api_token = settings.MARKET_DATA_API_TOKEN.get_secret_value()
         self.timeout = 15
         self.max_retries = 2
-        
+
+        # API version: "v1" or "v5" (default v5)
+        self.api_version = getattr(settings, 'MARKET_DATA_API_VERSION', 'v5')
+        self.okx_inst_type = getattr(settings, 'OKX_INSTRUMENT_TYPE', 'SWAP')
+
+        # v1 fallback mappings (kept for backward compat)
+        self.symbol_mapping = {"BTC":"BTC-USDT","ETH":"ETH-USDT","SOL":"SOL-USDT","BNB":"BNB-USDT","XRP":"XRP-USDT","ADA":"ADA-USDT","AVAX":"AVAX-USDT","DOT":"DOT-USDT","LINK":"LINK-USDT","MATIC":"MATIC-USDT"}
+        self.timeframe_mapping = {"1m":"1m","5m":"5m","15m":"15m","30m":"30m","1h":"1h","4h":"4h","1d":"1d","1w":"1w","1mo":"1w"}
+
         self.session = requests.Session()
         self.session.mount('https://', HTTPAdapter(
             max_retries=Retry(
@@ -32,37 +46,13 @@ class MarketDataService:
         ))
         self.session.verify = True
 
-        # Symbol mapping
-        self.symbol_mapping = {
-            "BTC": "BTC-USDT",
-            "ETH": "ETH-USDT",
-            "SOL": "SOL-USDT",
-            "BNB": "BNB-USDT",
-            "XRP": "XRP-USDT",
-            "ADA": "ADA-USDT",
-            "AVAX": "AVAX-USDT",
-            "DOT": "DOT-USDT",
-            "LINK": "LINK-USDT",
-            "MATIC": "MATIC-USDT"
-        }
-
-        # Timeframe mapping
-        self.timeframe_mapping = {
-            "1m": "1m",
-            "5m": "5m",
-            "15m": "15m",
-            "30m": "30m",
-            "1h": "1h",
-            "4h": "4h",
-            "1d": "1d",
-            "1w": "1w",
-            "1mo": "1w"
-        }
-
     def _make_request(self, endpoint: str, params: Dict = None) -> Dict[str, Any]:
-        url = f"{self.base_url}{endpoint}"
+        if self.api_version == "v5":
+            url = f"{self.base_url}/api/v5/{endpoint}"
+        else:
+            url = f"{self.base_url}{endpoint}"
         params = params or {}
-        
+
         headers = {
             "Authorization": f"Bearer {self.api_token}",
             "Content-Type": "application/json",
@@ -75,13 +65,24 @@ class MarketDataService:
                 response.raise_for_status()
                 data = response.json()
 
-                if data.get("status") == "success":
-                    return data
-                elif "exchanges" in data or "data" in data or isinstance(data, list):
-                    return {"status": "success", "data": data}
+                if self.api_version == "v5":
+                    if isinstance(data, dict) and is_v5_success(data):
+                        return data
+                    elif isinstance(data, list):
+                        return {"status": "success", "data": data}
+                    else:
+                        if isinstance(data, dict):
+                            logger.warning(f"V5 API returned error: code={data.get('code')}, msg={data.get('msg')}")
+                        return data
                 else:
-                    logger.warning(f"API returned error: {data}")
-            
+                    # v1 logic
+                    if data.get("status") == "success":
+                        return data
+                    elif "exchanges" in data or "data" in data or isinstance(data, list):
+                        return {"status": "success", "data": data}
+                    else:
+                        logger.warning(f"API returned error: {data}")
+
             except requests.exceptions.RequestException as e:
                 logger.warning(f"Request failed (attempt {attempt + 1}): {str(e)}")
                 if attempt < self.max_retries:
@@ -94,7 +95,10 @@ class MarketDataService:
     def check_health(self) -> Dict[str, Any]:
         try:
             start_time = time.time()
-            self._make_request("/api/v1/healthz")
+            if self.api_version == "v5":
+                self._make_request("public/instruments", {"instType": "SPOT", "instId": "BTC-USDT"})
+            else:
+                self._make_request("/api/v1/healthz")
             return {
                 "status": "healthy",
                 "response_time": time.time() - start_time
@@ -106,6 +110,9 @@ class MarketDataService:
             }
 
     def _convert_symbol(self, symbol: str) -> str:
+        if self.api_version == "v5":
+            return convert_symbol_for_v5(symbol, self.okx_inst_type)
+
         symbol = (symbol or "").strip()
         if not symbol:
             return symbol
@@ -129,12 +136,46 @@ class MarketDataService:
         return f"{symbol}-USDT"
 
     def _convert_timeframe(self, timeframe: str) -> str:
+        if self.api_version == "v5":
+            return convert_timeframe_v1_to_v5(timeframe)
         return self.timeframe_mapping.get(timeframe, "1h")
+
+    @staticmethod
+    def _date_str_to_unix_ms(date_str: str) -> int | None:
+        """Convert date string like '2025-01-01' or '2025-01-01 12:00:00' to Unix ms."""
+        try:
+            return int(pd.Timestamp(date_str).value // 1_000_000)
+        except Exception:
+            return None
 
     def get_ohlcv_data(self, symbol: str, timeframe: str = "1h",
                       limit: int = 100, exchange: str = "okx",
                       start_date: str = None, end_date: str = None) -> Optional[pd.DataFrame]:
         try:
+            if self.api_version == "v5":
+                # --- v5 path ---
+                api_symbol = self._convert_symbol(symbol)
+                api_timeframe = self._convert_timeframe(timeframe)
+
+                params = build_v5_ohlcv_params(
+                    instId=api_symbol,
+                    bar=api_timeframe,
+                    limit=min(limit, 300),
+                )
+
+                if start_date:
+                    before_ts = self._date_str_to_unix_ms(start_date)
+                    if before_ts is not None:
+                        params["before"] = str(before_ts)  # OKX: before = return data AFTER this timestamp
+                if end_date:
+                    after_ts = self._date_str_to_unix_ms(end_date)
+                    if after_ts is not None:
+                        params["after"] = str(after_ts)  # OKX: after = return data BEFORE this timestamp
+
+                data = self._make_request("market/candles", params)
+                return parse_v5_ohlcv_to_dataframe(data)
+
+            # --- v1 path (backward compat) ---
             api_symbol = self._convert_symbol(symbol)
             api_timeframe = self._convert_timeframe(timeframe)
 
@@ -221,6 +262,8 @@ class MarketDataService:
         return f"{self.base_url.replace('http', 'ws')}/ws/realtime?exchange={exchange}&symbols={symbols_str}"
 
     def get_exchanges(self) -> List[str]:
+        if self.api_version == "v5":
+            return ["okx"]
         try:
             data = self._make_request("/api/v1/exchanges")
             return data.get("data", [])

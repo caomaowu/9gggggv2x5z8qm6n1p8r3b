@@ -93,9 +93,22 @@ curl -H "Authorization: Bearer <token>" \
 ### K线
 
 ```bash
+# 获取最新 100 根 1 小时 K 线
 curl -H "Authorization: Bearer <token>" \
      "https://webui.caomaowu.lol/api/v5/market/candles?instId=BTC-USDT-SWAP&bar=1H&limit=100"
+
+# 获取 2026-05-01 12:00 之前的 3 根 K 线（历史回测场景）
+# ⚠️ 注意：OKX 原生语义中 after 返回指定时间之前的数据
+curl -H "Authorization: Bearer <token>" \
+     "https://webui.caomaowu.lol/api/v5/market/candles?instId=BTC-USDT-SWAP&bar=1H&limit=3&after=1777612800000"
 ```
+
+> **⚠️ `after` / `before` 参数说明**：
+> OKX 原生 API 的分页参数语义如下，与直觉相反：
+> - `after`：返回指定时间**之前**的 K 线（用于"获取某时间为止的 N 根 K 线"）
+> - `before`：返回指定时间**之后**的 K 线
+> 
+> 如需更直观的 `start_time` / `end_time`（ISO8601 格式），可使用 `/api/v1/ohlcv`。
 
 ### Ticker（24hr 行情）
 

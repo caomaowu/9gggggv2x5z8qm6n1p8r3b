@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     MARKET_DATA_API_URL: str = "https://webui.caomaowu.lol"
     MARKET_DATA_API_TOKEN: SecretStr = SecretStr("")
     
+    OKX_INSTRUMENT_TYPE: str = "SWAP"  # SWAP for perpetuals, SPOT for spot
+    
     MODELSCOPE_API_KEY: str = ""
     DEEPSEEK_API_KEY: str = ""
     IFLOW_API_KEY: str = ""

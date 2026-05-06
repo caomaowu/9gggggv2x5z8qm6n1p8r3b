@@ -545,14 +545,15 @@ class TaskGeneratorApp:
             dt_str = f"{end_date} {end_time}"
         
         try:
-            url = f"{API_URL.rstrip('/')}/api/v1/ohlcv"
+            url = f"{API_URL.rstrip('/')}/api/v5/market/candles"
             headers = {"Authorization": f"Bearer {API_TOKEN}"} if API_TOKEN else {}
             params = {
-                "symbol": symbol,
-                "timeframe": tf,
+                "instId": symbol,
+                "bar": tf.upper() if tf.endswith(('h','d','w','mo')) else tf,
                 "limit": 1,
-                "end_time": dt_str
+                "before": str(int(pd.Timestamp(dt_str).value // 1_000_000)) if dt_str else None
             }
+            params = {k: v for k, v in params.items() if v is not None}
             
             # Retry logic: 3 attempts
             max_retries = 3
@@ -563,12 +564,12 @@ class TaskGeneratorApp:
                     
                     if resp.status_code == 200:
                         data = resp.json()
-                        # Handle different API response structures
+                        # Handle v5 API response: code=="0" and data has header+rows
                         if isinstance(data, dict):
-                             if data.get("data") and len(data["data"]) > 0:
-                                 return True
-                             if data.get("status") == "success" and data.get("data"):
-                                 return True
+                             if data.get("code") == "0" and data.get("data"):
+                                 d = data["data"]
+                                 if isinstance(d, list) and len(d) > 1:
+                                     return True
                         elif isinstance(data, list) and len(data) > 0:
                             return True
                     elif resp.status_code == 429:
