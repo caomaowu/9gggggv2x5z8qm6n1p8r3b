@@ -148,7 +148,6 @@ class TaskGeneratorApp:
         self.unique_daily_cb.grid(row=6, column=1, sticky='w', pady=(0, 4))
 
         self.date_mode_combo.bind("<<ComboboxSelected>>", self._on_date_mode_changed)
-        self._on_date_mode_changed()
         
         # 时间周期
         ttk.Label(step2_frame, text="时间周期 (Timeframe):").grid(row=7, column=0, sticky='w', pady=(10,2))
@@ -177,12 +176,15 @@ class TaskGeneratorApp:
 
         ttk.Label(step2_frame, text="时间模式:").grid(row=8, column=0, sticky='w', pady=(10,2))
         self.time_mode_var = tk.StringVar(value="随机时间")
-        self.time_mode_combo = ttk.Combobox(step2_frame, textvariable=self.time_mode_var, values=["随机时间", "固定时间"], state="readonly", width=10)
+        self.time_mode_combo = ttk.Combobox(step2_frame, textvariable=self.time_mode_var, values=["随机时间", "固定时间", "连续周期"], state="readonly", width=10)
         self.time_mode_combo.grid(row=8, column=1, sticky='w', pady=2)
+        self.time_mode_combo.bind("<<ComboboxSelected>>", self._on_time_mode_changed)
 
-        ttk.Label(step2_frame, text="固定时间(HH:MM，逗号分隔):", font=("Arial", 8)).grid(row=9, column=0, columnspan=2, sticky='w', pady=(5,2))
+        self.fixed_times_label = ttk.Label(step2_frame, text="固定时间(HH:MM，逗号分隔):", font=("Arial", 8))
+        self.fixed_times_label.grid(row=9, column=0, columnspan=2, sticky='w', pady=(5,2))
         self.fixed_times_var = tk.StringVar(value="03:55,15:55")
-        ttk.Entry(step2_frame, textvariable=self.fixed_times_var, width=20).grid(row=10, column=0, columnspan=2, sticky='w')
+        self.fixed_times_entry = ttk.Entry(step2_frame, textvariable=self.fixed_times_var, width=20)
+        self.fixed_times_entry.grid(row=10, column=0, columnspan=2, sticky='w')
 
         ttk.Label(step2_frame, text="资产模式:").grid(row=11, column=0, sticky='w', pady=(10,2))
         self.asset_mode_var = tk.StringVar(value="随机资产")
@@ -206,6 +208,22 @@ class TaskGeneratorApp:
         ttk.Label(step2_frame, text="Future Kline:", font=("Arial", 8)).grid(row=16, column=0, sticky='w', pady=2)
         self.future_kline_var = tk.IntVar(value=13)
         ttk.Entry(step2_frame, textvariable=self.future_kline_var, width=10).grid(row=16, column=1, sticky='w')
+
+        # 连续周期设置
+        self.cycle_count_label = ttk.Label(step2_frame, text="任务总数:", font=("Arial", 8))
+        self.cycle_count_label.grid(row=17, column=0, sticky='w', pady=(10,2))
+        self.cycle_count_var = tk.IntVar(value=10)
+        self.cycle_count_spin = ttk.Spinbox(step2_frame, from_=1, to=10000, textvariable=self.cycle_count_var, width=10)
+        self.cycle_count_spin.grid(row=17, column=1, sticky='w', pady=2)
+
+        self.skip_interval_label = ttk.Label(step2_frame, text="跳过间隔(0=不跳过):", font=("Arial", 8))
+        self.skip_interval_label.grid(row=18, column=0, sticky='w', pady=2)
+        self.skip_interval_var = tk.IntVar(value=0)
+        self.skip_interval_spin = ttk.Spinbox(step2_frame, from_=0, to=100, textvariable=self.skip_interval_var, width=10)
+        self.skip_interval_spin.grid(row=18, column=1, sticky='w', pady=2)
+
+        self._on_date_mode_changed()
+        self._on_time_mode_changed()
 
         # 3. 操作按钮
         btn_frame = ttk.Frame(left_scrollable)
@@ -276,6 +294,8 @@ class TaskGeneratorApp:
             self.timeframe_combo.pack(side=tk.LEFT)
 
     def _on_date_mode_changed(self, event=None):
+        if getattr(self, "time_mode_var", None) and self.time_mode_var.get() == "连续周期":
+            return
         mode = self.date_mode_var.get()
         if mode == "连续日期":
             self.continuous_days_spin.config(state="normal")
@@ -285,6 +305,38 @@ class TaskGeneratorApp:
             self.continuous_days_spin.config(state="disabled")
             self.random_days_spin.config(state="normal")
             self.unique_random_cb.config(state="normal")
+
+    def _on_time_mode_changed(self, event=None):
+        mode = self.time_mode_var.get()
+        if mode == "连续周期":
+            self.fixed_times_label.grid_remove()
+            self.fixed_times_entry.grid_remove()
+            self.cycle_count_label.grid()
+            self.cycle_count_spin.grid()
+            self.skip_interval_label.grid()
+            self.skip_interval_spin.grid()
+            self.continuous_days_spin.config(state="disabled")
+            self.random_days_spin.config(state="disabled")
+            self.unique_random_cb.config(state="disabled")
+            self.date_mode_combo.config(state="disabled")
+        elif mode == "固定时间":
+            self.fixed_times_label.grid()
+            self.fixed_times_entry.grid()
+            self.cycle_count_label.grid_remove()
+            self.cycle_count_spin.grid_remove()
+            self.skip_interval_label.grid_remove()
+            self.skip_interval_spin.grid_remove()
+            self.date_mode_combo.config(state="readonly")
+            self._on_date_mode_changed()
+        else:
+            self.fixed_times_label.grid_remove()
+            self.fixed_times_entry.grid_remove()
+            self.cycle_count_label.grid_remove()
+            self.cycle_count_spin.grid_remove()
+            self.skip_interval_label.grid_remove()
+            self.skip_interval_spin.grid_remove()
+            self.date_mode_combo.config(state="readonly")
+            self._on_date_mode_changed()
 
     def _load_default_files(self):
         """扫描默认目录下的CSV文件"""
@@ -652,6 +704,73 @@ class TaskGeneratorApp:
                     assets_list = random.sample(self.assets, count)
                 else:
                     assets_list = [random.choice(self.assets) for _ in range(count)]
+
+            if time_mode_value == "连续周期":
+                period_map = {'15m': 15, '30m': 30, '1h': 60, '4h': 240, '1d': 1440}
+                if self.is_multi_tf.get():
+                    selected = [t for t in self.all_timeframes if self.multi_tf_vars[t].get()]
+                    if not selected:
+                        messagebox.showerror("错误", "请至少选择一个时间周期")
+                        return
+                    base_tf = min(selected, key=lambda x: period_map.get(x, 1440))
+                else:
+                    base_tf = tf
+                period_mins = period_map.get(base_tf, 240)
+                skip = self.skip_interval_var.get()
+                interval_mins = period_mins * (skip + 1)
+
+                cycle_count = self.cycle_count_var.get()
+                if cycle_count <= 0:
+                    messagebox.showerror("错误", "任务总数必须大于0")
+                    return
+
+                try:
+                    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+                    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+                except:
+                    messagebox.showerror("错误", "日期格式错误，请使用 YYYY-MM-DD")
+                    return
+
+                end_boundary = end_dt.replace(hour=23, minute=59, second=59)
+                current_dt = start_dt.replace(hour=0, minute=0, second=0)
+
+                tasks = []
+                task_id = 1
+                ai_version = self.ai_version_var.get()
+
+                for i in range(cycle_count):
+                    if current_dt > end_boundary:
+                        break
+                    asset = assets_list[i % len(assets_list)]
+                    actual_dt = current_dt - timedelta(minutes=1)
+                    d = actual_dt.strftime("%Y-%m-%d")
+                    t = actual_dt.strftime("%H:%M")
+                    task = {
+                        "task_id": task_id,
+                        "asset": asset,
+                        "timeframe": tf,
+                        "end_date": d,
+                        "end_time": t,
+                        "kline_count": k_count,
+                        "future_kline_count": fut_count,
+                        "ai_version": ai_version,
+                        "data_method": "to_end",
+                        "status": "Pending"
+                    }
+                    tasks.append(task)
+                    task_id += 1
+                    current_dt += timedelta(minutes=interval_mins)
+
+                tasks.sort(key=lambda x: (x["end_date"], x["end_time"], x["asset"]))
+                self.generated_tasks = tasks
+                for item in self.tree.get_children():
+                    self.tree.delete(item)
+                for task in tasks:
+                    cols_order = ["task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "ai_version", "data_method", "status"]
+                    values = [task[k] for k in cols_order]
+                    self.tree.insert('', 'end', values=values)
+                self.preview_info.config(text=f"预览: {len(self.generated_tasks)} 条任务")
+                return
 
             dates_list = []
             start_dt = None
