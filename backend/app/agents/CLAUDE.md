@@ -1,381 +1,96 @@
-[根目录](../../CLAUDE.md) > **agents**
+# Agents 模块 — brale-core 多智能体分析系统
 
-# Agents 模块 - AI智能体层
+## 模块职责
 
-## 📋 模块职责
+基于 brale-core 架构的多智能体协作系统，负责技术指标压缩、市场结构分析、衍生品机制分析、形态检测和 Fusion 共识决策。
 
-Agents 模块是 QuantAgent 系统的AI智能体层，实现了基于 LangChain 的多智能体协作架构，负责技术指标分析、模式识别、趋势分析和最终交易决策的智能化处理。
-
-**🔒 最新优化**: 已修复文件冲突问题，每个智能体现在都使用独立的数据和图表文件，确保分析结果的准确性。
-
-## 🏗️ 模块结构
+## 架构
 
 ```
 agents/
-├── indicator_agent.py    # 技术指标分析智能体
-├── pattern_agent.py      # 模式识别智能体
-├── trend_agent.py        # 趋势分析智能体
-├── decision/             # 决策智能体包
-│   ├── __init__.py                 # 包定义
-│   ├── core_decision.py            # 核心决策逻辑（通用）
-│   ├── decision_agent_original.py  # 原始经典版决策智能体 (Original)
-│   ├── decision_agent_factory.py   # 决策智能体工厂
-│   └── decision_configs.py         # 决策配置
-└── agent_state.py        # 智能体状态管理
+├── agent_state.py              # LangGraph 状态定义
+├── preprocessing/              # 压缩 + 状态分类（规则计算，无 LLM）
+│   ├── indicator_compress.py   # 10 个指标的压缩快照 (EMA/RSI/ATR/OBV/STC/BB/CHOP/StochRSI/Aroon/TD)
+│   ├── indicator_state.py      # 指标确定性状态分类 (trend/momentum/vol/bias/events/cross-TF)
+│   ├── structure_compress.py   # 结构压缩 (fractal/candidates/SuperTrend/SMC/recent_candles/break_events)
+│   ├── mechanics_compress.py   # 衍生品数据压缩 (OI/费率/多空比/CVD/清算)
+│   ├── mechanics_state.py      # 机制确定性状态分类 (OI/funding/crowding/liquidation/sentiment/conflicts)
+│   ├── fusion.py               # 加权共识 (Structure=1.0 Indicator=0.7 Mechanics=0.5 阈值0.35/0.52)
+│   └── pattern/                # 形态检测（规则计算，无 LLM）
+│       ├── geometry.py         # 10 种几何形态 (头肩/双顶底/三角/楔形/通道)
+│       ├── cdl.py              # 8 种蜡烛图形态 (十字星/吞没/穿刺/三兵/黄昏星)
+│       └── evidence.py         # 合并过滤引擎 (MinScore=100 Top3)
+├── brale_indicator_agent.py    # Indicator Agent LLM — 技术指标分析
+├── brale_structure_agent.py    # Structure Agent LLM — 市场结构分析
+├── brale_mechanics_agent.py    # Mechanics Agent LLM — 衍生品机制分析
+└── decision/                   # 旧版决策智能体（已弃用，保留兼容）
+    ├── core_decision.py
+    ├── decision_agent_original.py
+    ├── decision_agent_factory.py
+    └── decision_configs.py
 ```
 
-## 🤖 智能体架构
+## 数据流
 
-### 1. 技术指标分析智能体 (`indicator_agent.py`)
+```
+MarketDataService
+  ├── get_ohlcv_data()         → OHLCV K线
+  └── fetch_*_derivatives()    → 衍生品数据 (OI/费率/多空比/清算)
 
-**主要功能:**
-- MACD (移动平均收敛散度) 计算
-- RSI (相对强弱指数) 计算
-- ROC (变动率指标) 计算
-- Stochastic (随机指标) 计算
-- Williams %R 计算
-
-**技术特性:**
-- 使用 LangChain 工具调用机制
-- 支持多时间框架分析
-- 智能参数选择
-- 性能监控和进度跟踪
-
-**核心方法:**
-```python
-def create_indicator_agent(llm, toolkit):
-    """创建技术指标分析智能体节点"""
-
-def indicator_agent_node(state):
-    """智能体节点执行函数"""
+graph_setup.py (LangGraph)
+  │
+  ├── [compress] ────────────────────────────────────────
+  │   ├── compress_indicator()    → indicator_compressed
+  │   │   └── indicator_state.enrich() → +trend/momentum/vol/bias/events
+  │   ├── compress_structure()    → structure_compressed
+  │   │   └── +SuperTrend +SMC +recent_candles +key_levels +break_events +pattern
+  │   └── compress_mechanics()    → mechanics_compressed
+  │       └── mechanics_state.enrich() → +oi_state/funding_state/crowding/liquidation/conflicts
+  │
+  ├── [agents] (并行) ────────────────────────────────────
+  │   ├── brale_indicator_agent   → IndicatorSummary
+  │   ├── brale_structure_agent   → StructureSummary
+  │   └── brale_mechanics_agent   → MechanicsSummary
+  │
+  └── [fusion] ─────────────────────────────────────────
+      └── compute_consensus()     → {direction, score, confidence, agreement, resonance}
 ```
 
-### 2. 模式识别智能体 (`pattern_agent.py`)
+## 关键参数
 
-**主要功能:**
-- K线图表生成
-- 价格模式识别
-- 图表形态分析
-- 视觉化技术分析
+| 参数 | 值 |
+|------|-----|
+| EMA Fast/Mid/Slow | 21/50/200 |
+| RSIPeriod/ATRPeriod | 14/14 |
+| STC Fast/Slow | 23/50 |
+| BB Period/Mult | 20/2.0 |
+| CHOP/StochRSI/Aroon | 14/14/25 |
+| FractalSpan | 2 |
+| SuperTrend Period/Mult | 14/2.5 |
+| Fusion Weights | Structure=1.0 Indicator=0.7 Mechanics=0.5 |
+| Score/Confidence 阈值 | 0.35/0.52 |
+| ResonanceBonusCap | 0.12 |
+| Pattern MinScore/MaxDetected | 100/3 |
 
-**技术特性:**
-- 🆕 **独立图表生成**: 每次分析使用唯一的图表文件
-- 多种图表类型支持
-- 模式匹配算法
-- 视觉分析结果输出
-- **修复状态**: ✅ 已解决固定输出问题
+## 运行命令
 
-**🎯 重要修复 (2025-10-29):**
-- **问题**: 所有币种都显示相同的"下降三角形"分析
-- **根因**: 硬编码文件名导致数据污染
-- **解决**: 使用智能文件管理系统，每个分析独立处理
-- **效果**: 现在每个币种都有真实的、独特的模式识别结果
+```bash
+# 后端测试
+cd backend && python -m pytest tests/ -x -q
 
-### 3. 趋势分析智能体 (`trend_agent.py`)
-
-**主要功能:**
-- 趋势图表生成
-- 趋势方向识别
-- 支撑阻力位分析
-- 趋势强度评估
-
-**技术特性:**
-- 🆕 **独立趋势图生成**: 每次分析使用唯一的趋势图表文件
-- 多时间框架趋势分析
-- 趋势线自动绘制
-- 动态支撑阻力计算
-- 趋势持续性预测
-- **修复状态**: ✅ 已优化文件管理
-
-**🔧 同步修复:**
-- 与模式识别智能体使用相同的智能文件管理系统
-- 确保趋势分析也基于独立的图表数据
-- 避免与其它分析的数据冲突
-
-### 4. 决策智能体包 (`decision/`)
- 
- **模块职责:**
- 负责汇总所有分析结果并生成最终交易决策。现已重构为独立的子包，包含不同风险偏好的决策策略。
- 
- #### 4.1 核心决策逻辑 (`core_decision.py`)
-- **功能**: 提供通用的决策智能体创建模板
-- **特点**: 包含提示词构建、状态管理、工具绑定等核心逻辑
-
-#### 4.2 决策策略变体
-- **原始经典版 (`decision_agent_original.py`)**: 经过实战验证的原始高频交易逻辑，保留英文Prompt，强制二选一。
-
-#### 4.3 决策智能体工厂 (`decision_agent_factory.py`)
- - **功能**: 根据配置动态创建指定版本的决策智能体
- - **模式**: 工厂模式，解耦客户端与具体智能体实现
- 
- #### 4.4 决策配置 (`decision_configs.py`)
- - **功能**: 定义不同版本的参数配置和系统提示词模板
-
-### 8. 智能体状态管理 (`agent_state.py`)
-
-**主要功能:**
-- 智能体执行状态跟踪
-- 中间结果缓存
-- 错误状态管理
-- 进度信息维护
-
-## 🔧 工具集成
-
-### 技术指标工具集
-每个智能体都集成了相应的技术工具：
-
-```python
-# 技术指标智能体工具
-tools = [
-    toolkit.compute_macd,    # MACD计算
-    toolkit.compute_rsi,     # RSI计算
-    toolkit.compute_roc,     # ROC计算
-    toolkit.compute_stoch,   # Stochastic计算
-    toolkit.compute_willr,   # Williams %R计算
-]
+# 启动
+python launch.py
 ```
 
-### 图表生成工具
-```python
-# 模式识别智能体工具
-tools = [
-    toolkit.generate_kline_image,  # K线图生成
-]
+## 与 brale-core 对齐状态
 
-# 趋势分析智能体工具
-tools = [
-    toolkit.generate_trend_image,  # 趋势图生成
-]
-```
-
-## 📊 智能体协作流程
-
-### 分析流程图
-```mermaid
-graph TD
-    A[市场数据输入] --> B[技术指标智能体]
-    A --> C[模式识别智能体]
-    A --> D[趋势分析智能体]
-
-    B --> E[指标分析结果]
-    C --> F[模式分析结果]
-    D --> G[趋势分析结果]
-
-    E --> H[决策智能体]
-    F --> H
-    G --> H
-
-    H --> I[最终交易决策]
-    I --> J[决策报告输出]
-```
-
-### 执行顺序
-1. **并行分析阶段**: 技术指标、模式识别、趋势分析智能体同时执行
-2. **结果融合阶段**: 决策智能体收集各智能体分析结果
-3. **决策生成阶段**: 基于融合结果生成最终交易决策
-4. **结果输出阶段**: 格式化输出分析报告和决策建议
-
-## 🎯 提示词工程
-
-### 系统提示词示例
-```python
-prompt = ChatPromptTemplate.from_messages([
-    ("system",
-     "你是一名专业的高频交易分析师助手，在时间敏感的环境下操作。"
-     "你必须分析技术指标以支持快节奏的交易执行。\n\n"
-     "你可以使用以下工具：compute_rsi、compute_macd、compute_roc、compute_stoch 和 compute_willr。"
-     "通过提供适当的参数来使用它们，如 `kline_data` 和相应的周期。\n\n"
-     f"⚠️ 提供的OHLC数据来自{time_frame}时间框架，反映近期市场行为。"
-     "你必须快速准确地解读这些数据。\n\n"
-     "这是OHLC数据：\n{kline_data}。\n\n"
-     "调用必要的工具并分析结果。\n"
-    ),
-    MessagesPlaceholder(variable_name="messages"),
-])
-```
-
-## 📈 性能监控
-
-### 进度跟踪系统
-```python
-def update_agent_progress(agent_name, progress_within_agent=0, status=""):
-    """智能体进度更新函数"""
-    stage_progress_map = {
-        "indicator": (20, 40, "indicator_analysis"),      # 20-40%
-        "pattern": (40, 60, "pattern_analysis"),         # 40-60%
-        "trend": (60, 80, "trend_analysis"),            # 60-80%
-        "decision": (80, 95, "decision_making")          # 80-95%
-    }
-```
-
-### 性能装饰器
-```python
-@performance_monitor("技术指标智能体")
-def create_indicator_agent(llm, toolkit):
-    """带性能监控的智能体创建函数"""
-
-@performance_monitor("技术指标智能体执行")
-def indicator_agent_node(state):
-    """带性能监控的智能体执行函数"""
-```
-
-## 🔗 LLM集成
-
-### 模型配置
-- **Agent模型**: deepseek-ai/DeepSeek-V3.2-Exp
-- **温度参数**: 0.1 (确保分析结果的一致性)
-- **API服务**: ModelScope (https://api-inference.modelscope.cn/v1)
-
-### 工具绑定机制
-```python
-chain = prompt | llm.bind_tools(tools)
-```
-
-### 工具调用处理
-```python
-if hasattr(ai_response, "tool_calls"):
-    for call in ai_response.tool_calls:
-        tool_name = call["name"]
-        tool_args = call["args"]
-        tool_args["kline_data"] = copy.deepcopy(state["kline_data"])
-        tool_fn = next(t for t in tools if t.name == tool_name)
-        tool_result = tool_fn.invoke(tool_args)
-        messages.append(ToolMessage(
-            tool_call_id=call["id"],
-            content=json.dumps(tool_result)
-        ))
-```
-
-## 🚨 错误处理
-
-### 导入错误处理
-```python
-try:
-    from web.config import update_agent_progress  # 🔧 已修复导入路径
-except ImportError:
-    def update_agent_progress(agent_name, progress_within_agent=0, status=""):
-        pass
-```
-
-### 性能监控错误处理
-```python
-try:
-    from utils.performance import performance_monitor, monitor_llm_call  # 🔧 已修复导入路径
-except ImportError:
-    def performance_monitor(stage_name=None):
-        def decorator(func):
-            return func
-        return decorator
-```
-
-## 📝 开发指南
-
-### 新增智能体步骤
-1. 创建智能体文件 (`new_agent.py`)
-2. 实现智能体创建函数 `create_new_agent()`
-3. 定义智能体执行节点 `new_agent_node()`
-4. 集成相应的工具集
-5. 添加进度跟踪和性能监控
-6. 更新决策智能体的融合逻辑
-
-### 智能体模板
-```python
-@performance_monitor("新智能体")
-def create_new_agent(llm, toolkit):
-    """创建新智能体节点"""
-
-    @performance_monitor("新智能体执行")
-    def new_agent_node(state):
-        # 进度跟踪
-        update_agent_progress("new_agent", 10, "正在启动新智能体...")
-
-        # 工具定义
-        tools = [
-            # 添加相应工具
-        ]
-
-        # 系统提示词
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", "智能体系统提示词"),
-            MessagesPlaceholder(variable_name="messages"),
-        ])
-
-        # 执行逻辑
-        chain = prompt | llm.bind_tools(tools)
-        messages = state["messages"]
-
-        # 工具调用处理
-        # ... 工具调用逻辑 ...
-
-        # 最终响应
-        update_agent_progress("new_agent", 100, "新智能体分析完成")
-        return {
-            "messages": messages + [final_response],
-            "new_agent_report": final_response.content,
-        }
-
-    return new_agent_node
-```
-
-## 🔧 最新修复和优化 (2025-10-29)
-
-### 🎯 解决的关键问题
-- **模式识别固定输出**: 不同币种不再显示相同的分析结果
-- **导入路径错误**: 修复所有智能体的模块导入问题
-- **文件管理优化**: 集成智能文件管理系统
-
-### 📊 修复的文件
-- `indicator_agent.py`: ✅ 修复导入路径，使用独立文件管理
-- `pattern_agent.py`: ✅ 修复固定输出问题，使用唯一图表文件
-- `trend_agent.py`: ✅ 同步优化文件管理，确保独立分析
-- `decision_agent.py`: ✅ 修复导入路径错误
-
-## 📊 相关文件清单
-
-| 文件名 | 主要功能 | 行数 | 状态 |
-|--------|----------|------|------|
-| `indicator_agent.py` | 技术指标分析智能体 | ~179行 | ✅ 已优化 |
-| `pattern_agent.py` | 模式识别智能体 | ~168行 | ✅ 已修复 |
-| `trend_agent.py` | 趋势分析智能体 | ~156行 | ✅ 已优化 |
-| `decision/core_decision.py` | 核心决策逻辑 | ~100行 | ✅ 核心 |
-| `decision/decision_agent.py` | 约束版决策智能体 | ~153行 | ✅ 完整 |
-| `decision/decision_agent_relaxed.py` | 宽松版决策智能体 | ~120行 | ✅ 完整 |
-| `decision/decision_agent_comprehensive.py` | 综合版决策智能体 | ~120行 | ✅ 完整 |
-| `decision/decision_agent_factory.py` | 决策智能体工厂 | ~85行 | ✅ 完整 |
-| `decision/decision_configs.py` | 决策配置管理 | ~95行 | ✅ 完整 |
-| `agent_state.py` | 智能体状态管理 | ~68行 | ✅ 完整 |
-| `base_agent.py` | 基础智能体类 | 不存在 | ❌ 待实现 |
-
-## 🔮 未来扩展
-
-### 计划新增智能体
-- **风险管理智能体**: 专门负责风险评估和仓位管理
-- **新闻情绪智能体**: 分析新闻和社交媒体情绪
-- **套利机会智能体**: 识别跨市场套利机会
-- **投资组合智能体**: 优化投资组合配置
-
-### 技术改进方向
-- 增强智能体间的通信机制
-- 实现更复杂的多轮对话
-- 集成更多技术分析工具
-- 提升决策解释的透明度
-
----
-
-**模块维护者:** 哈雷酱 (傲娇大小姐工程师)
-**文档生成时间:** 2025-11-12
-**模块状态:** ✅ 核心智能体完整
-
-## 🎉 重要更新总结
-
-### 解决的重大问题
-- **模式识别准确性**: 不同币种现在有真实的、独特的分析结果
-- **系统稳定性**: 修复所有导入路径错误，确保正常运行
-- **数据独立性**: 每个智能体使用独立的数据和图表文件
-
-### 技术成果
-- **零冲突保证**: 智能文件管理系统确保数据隔离
-- **并发安全**: 支持多用户同时分析不同币种
-- **自动维护**: 临时文件自动清理，系统保持清洁
-
-现在每个智能体都能基于真实的币种数据进行准确分析！
+| 层 | 状态 |
+|----|------|
+| 压缩 (indicator/structure/mechanics) | ✅ 对齐 |
+| 状态分类 (indicator_state/mechanics_state) | ✅ 对齐 |
+| Agent LLM (3 个 summary) | ✅ 对齐 |
+| Fusion 共识 | ✅ 对齐 |
+| Pattern 形态检测 (18 种) | ✅ 对齐 |
+| SuperTrend + SMC + BreakEvents | ✅ 对齐 |
+| Provider 复核层 | ❌ 不需要（仅预测方向） |
+| Risk/Gate/HardGuard | ❌ 不需要（仅预测方向） |

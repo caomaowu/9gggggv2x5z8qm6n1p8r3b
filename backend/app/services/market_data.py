@@ -287,6 +287,60 @@ class MarketDataService:
             return parts[0]
         return symbol
 
+    @staticmethod
+    def _normalize_rubik_oi_volume_item(r: dict | list) -> dict:
+        """Normalize rubik open-interest-volume item: list→dict, dict→passthrough.
+        OKX rubik returns ``[ts, oi, vol]`` lists; proxy may return dicts."""
+        if isinstance(r, dict):
+            return {"ts": r.get("ts", ""), "oi": float(r.get("oi", 0)), "vol": float(r.get("vol", 0))}
+        if isinstance(r, list) and len(r) >= 3:
+            return {"ts": str(r[0]), "oi": float(r[1]), "vol": float(r[2])}
+        return {"ts": "", "oi": 0.0, "vol": 0.0}
+
+    @staticmethod
+    def _normalize_rubik_ls_ratio_item(r: dict | list) -> dict:
+        """Normalize rubik long-short-ratio item: list→dict, dict→passthrough.
+        OKX rubik returns ``[ts, longRatio, shortRatio, longShortRatio]``."""
+        if isinstance(r, dict):
+            return {
+                "ts": r.get("ts", ""),
+                "longRatio": float(r.get("longRatio", 0)),
+                "shortRatio": float(r.get("shortRatio", 0)),
+                "longShortRatio": float(r.get("longShortRatio", 0)),
+            }
+        if isinstance(r, list) and len(r) >= 4:
+            return {"ts": str(r[0]), "longRatio": float(r[1]), "shortRatio": float(r[2]), "longShortRatio": float(r[3])}
+        return {"ts": "", "longRatio": 0.0, "shortRatio": 0.0, "longShortRatio": 0.0}
+
+    @staticmethod
+    def _normalize_rubik_taker_item(r: dict | list) -> dict:
+        """Normalize rubik taker-volume item: list→dict, dict→passthrough.
+        New OKX endpoint returns ``[ts, buyVol, sellVol]``; ratios are computed.
+        Old format (deprecated) had ``[ts, buyVol, sellVol, buyRatio, sellRatio]``."""
+        if isinstance(r, dict):
+            buy_vol = float(r.get("buyVol", 0))
+            sell_vol = float(r.get("sellVol", 0))
+            total = buy_vol + sell_vol
+            return {
+                "ts": r.get("ts", ""),
+                "buyVol": buy_vol,
+                "sellVol": sell_vol,
+                "buyRatio": round(buy_vol / total, 4) if total > 0 else 0.0,
+                "sellRatio": round(sell_vol / total, 4) if total > 0 else 0.0,
+            }
+        if isinstance(r, list) and len(r) >= 3:
+            buy_vol = float(r[1])
+            sell_vol = float(r[2])
+            total = buy_vol + sell_vol
+            return {
+                "ts": str(r[0]),
+                "buyVol": buy_vol,
+                "sellVol": sell_vol,
+                "buyRatio": round(buy_vol / total, 4) if total > 0 else 0.0,
+                "sellRatio": round(sell_vol / total, 4) if total > 0 else 0.0,
+            }
+        return {"ts": "", "buyVol": 0.0, "sellVol": 0.0, "buyRatio": 0.0, "sellRatio": 0.0}
+
     def fetch_open_interest(self, symbol: str) -> dict | None:
         """GET /api/v5/public/open-interest — snapshot, current value only."""
         try:
@@ -309,25 +363,19 @@ class MarketDataService:
             return None
 
     def fetch_open_interest_history(self, symbol: str, period: str = "1H", limit: int = 24) -> list[dict] | None:
-        """GET /api/v5/rubik/stat/contracts/open-interest-volume — history, **after无效**."""
+        """GET /api/v5/rubik/stat/contracts/open-interest-volume — OI 历史。
+        period: 5m(最多576条) / 1H(最多720条) / 1D(最多180条)。after 无效，永远返回最新数据。"""
         try:
             ccy = self._extract_ccy(symbol)
             data = self._make_request("rubik/stat/contracts/open-interest-volume", {
                 "ccy": ccy,
                 "period": period,
-                "limit": min(limit, 100),
+                "limit": min(limit, 720),
             })
             if is_v5_success(data):
                 raw = get_v5_data(data)
                 if raw and isinstance(raw, list):
-                    return [
-                        {
-                            "ts": r.get("ts", ""),
-                            "oi": float(r.get("oi", 0)),
-                            "vol": float(r.get("vol", 0)),
-                        }
-                        for r in raw
-                    ]
+                    return [self._normalize_rubik_oi_volume_item(r) for r in raw]
             logger.warning(f"fetch_open_interest_history returned empty: {symbol}")
             return None
         except Exception as e:
@@ -335,10 +383,10 @@ class MarketDataService:
             return None
 
     def fetch_funding_rate_history(self, symbol: str, limit: int = 24, after: int | None = None) -> list[dict] | None:
-        """GET /api/v5/public/funding-rate-history — supports 'after' pagination."""
+        """GET /api/v5/public/funding-rate-history — 支持 after 翻页，每页最多50条，可回溯~90天。"""
         try:
             api_symbol = self._convert_symbol(symbol)
-            params: dict = {"instId": api_symbol, "limit": str(min(limit, 100))}
+            params: dict = {"instId": api_symbol, "limit": str(min(limit, 50))}
             if after is not None:
                 params["after"] = str(after)
             data = self._make_request("public/funding-rate-history", params)
@@ -363,26 +411,19 @@ class MarketDataService:
             return None
 
     def fetch_long_short_ratio(self, symbol: str, period: str = "1H", limit: int = 24) -> list[dict] | None:
-        """GET /api/v5/rubik/stat/contracts/long-short-account-ratio — **after无效**."""
+        """GET /api/v5/rubik/stat/contracts/long-short-account-ratio — 多空比历史。
+        period: 1H(最多720条) / 1D(最多180条)。after 无效，永远返回最新数据。"""
         try:
             ccy = self._extract_ccy(symbol)
             data = self._make_request("rubik/stat/contracts/long-short-account-ratio", {
                 "ccy": ccy,
                 "period": period,
-                "limit": min(limit, 100),
+                "limit": min(limit, 720),
             })
             if is_v5_success(data):
                 raw = get_v5_data(data)
                 if raw and isinstance(raw, list):
-                    return [
-                        {
-                            "ts": r.get("ts", ""),
-                            "longRatio": float(r.get("longRatio", 0)),
-                            "shortRatio": float(r.get("shortRatio", 0)),
-                            "longShortRatio": float(r.get("longShortRatio", 0)),
-                        }
-                        for r in raw
-                    ]
+                    return [self._normalize_rubik_ls_ratio_item(r) for r in raw]
             logger.warning(f"fetch_long_short_ratio returned empty: {symbol}")
             return None
         except Exception as e:
@@ -390,27 +431,18 @@ class MarketDataService:
             return None
 
     def fetch_taker_volume_ratio(self, symbol: str, period: str = "1H", limit: int = 24) -> list[dict] | None:
-        """GET /api/v5/rubik/stat/contracts/taker-volume-ratio — **after无效**."""
+        """GET /api/v5/rubik/stat/taker-volume-contract — 主动买卖量，OKX 已下架旧端点 contracts/taker-volume-ratio。"""
         try:
-            ccy = self._extract_ccy(symbol)
-            data = self._make_request("rubik/stat/contracts/taker-volume-ratio", {
-                "ccy": ccy,
+            api_symbol = self._convert_symbol(symbol)
+            data = self._make_request("rubik/stat/taker-volume-contract", {
+                "instId": api_symbol,
                 "period": period,
-                "limit": min(limit, 100),
+                "limit": min(limit, 720),
             })
             if is_v5_success(data):
                 raw = get_v5_data(data)
                 if raw and isinstance(raw, list):
-                    return [
-                        {
-                            "ts": r.get("ts", ""),
-                            "buyVol": float(r.get("buyVol", 0)),
-                            "sellVol": float(r.get("sellVol", 0)),
-                            "buyRatio": float(r.get("buyRatio", 0)),
-                            "sellRatio": float(r.get("sellRatio", 0)),
-                        }
-                        for r in raw
-                    ]
+                    return [self._normalize_rubik_taker_item(r) for r in raw]
             logger.warning(f"fetch_taker_volume_ratio returned empty: {symbol}")
             return None
         except Exception as e:
@@ -423,6 +455,7 @@ class MarketDataService:
             ccy = self._extract_ccy(symbol)
             data = self._make_request("public/liquidation-orders", {
                 "uly": f"{ccy}-USDT",
+                "instType": self.okx_inst_type,
                 "limit": min(limit, 20),
                 "state": "filled",
             })
