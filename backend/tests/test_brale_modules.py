@@ -178,7 +178,7 @@ class TestStructureCompress:
         assert "candidates" in data
         assert "supports" in data
         assert "resistances" in data
-        assert "pattern_hint" in data
+        assert "pattern" in data
 
     def test_fractal_detection(self, sample_ohlcv_100):
         from app.agents.preprocessing.structure_compress import (

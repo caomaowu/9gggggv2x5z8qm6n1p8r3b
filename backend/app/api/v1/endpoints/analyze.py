@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.events import check_env_changes
 import logging
 import pandas as pd
+from typing import Any
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -333,6 +334,21 @@ async def analyze_market(
 
         check_env_changes()
 
+        # --- Fetch derivative data for brale mechanics agent ---
+        derivative_data: dict[str, Any] = {}
+        try:
+            logger.info(f"[{result_id}] Fetching derivative data for mechanics agent...")
+            derivative_data["oi"] = market_service.fetch_open_interest(request.asset)
+            derivative_data["oi_history"] = market_service.fetch_open_interest_history(request.asset)
+            derivative_data["funding_history"] = market_service.fetch_funding_rate_history(request.asset)
+            derivative_data["long_short_history"] = market_service.fetch_long_short_ratio(request.asset)
+            derivative_data["taker_volume_history"] = market_service.fetch_taker_volume_ratio(request.asset)
+            derivative_data["liquidation_orders"] = market_service.fetch_liquidation_orders(request.asset)
+            present = [k for k, v in derivative_data.items() if v is not None]
+            logger.info(f"[{result_id}] Derivative data fetched: {len(present)}/{len(derivative_data)} available ({present})")
+        except Exception as e:
+            logger.warning(f"[{result_id}] Failed to fetch derivative data: {e}")
+
         engine_config = {
             "decision_agent_version": request.ai_version,
         }
@@ -349,7 +365,8 @@ async def analyze_market(
         result = await trading_engine.run_analysis(
             df, 
             request.asset, 
-            timeframe_for_result
+            timeframe_for_result,
+            derivative_data=derivative_data,
         )
         
         # Inject Result ID and Request Metadata

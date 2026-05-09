@@ -52,7 +52,16 @@ class IndicatorAgentState(TypedDict):
         dict, "Dictionary of base64-encoded trend charts for multi-timeframe trend analysis"
     ]
 
-    # --- Brale compressed data ---
+    # --- Brale deterministic state ---
+    indicator_state_json: Annotated[
+        Optional[dict], "Multi-TF indicator state JSON from indicator_state"
+    ]
+    indicator_compressed_all: Annotated[
+        Optional[dict], "All-TF compressed indicator dict {tf: compressed}"
+    ]
+    structure_compressed_all: Annotated[
+        Optional[dict], "All-TF compressed structure dict {tf: compressed}"
+    ]
     indicator_compressed: Annotated[
         Optional[dict], "Compressed indicator JSON from indicator_compress"
     ]

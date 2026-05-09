@@ -1,3 +1,6 @@
+import os
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging

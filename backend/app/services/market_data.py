@@ -8,6 +8,7 @@ from urllib3.util.retry import Retry
 from app.core.config import settings
 from app.services.market_data_v5_parser import (
     is_v5_success,
+    get_v5_data,
     parse_v5_ohlcv_to_dataframe,
     convert_timeframe_v1_to_v5,
     convert_symbol_for_v5,

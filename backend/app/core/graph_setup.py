@@ -23,6 +23,12 @@ from app.agents.preprocessing.structure_compress import compress_structure
 from app.agents.preprocessing.mechanics_compress import compress_mechanics
 from app.agents.preprocessing.fusion import compute_consensus
 
+# brale-core deterministic state classifiers
+from app.agents.preprocessing.indicator_state import summarize_indicator as indicator_state_summary
+from app.agents.preprocessing.indicator_state import build_indicator_state_json
+from app.agents.preprocessing.indicator_state import merge_state_into_compressed as enrich_indicator
+from app.agents.preprocessing.mechanics_state import merge_state_into_compressed as enrich_mechanics
+
 
 class SetGraph:
     def __init__(
@@ -81,9 +87,20 @@ class SetGraph:
                         except Exception as e:
                             print(f"[brale] Structure compress failed for {tf}: {e}")
                     shared["indicator_compressed"] = indicator_compressed.get(primary_tf) if indicator_compressed else None
+                    # Enrich primary-TF indicator with deterministic state
+                    if shared["indicator_compressed"]:
+                        shared["indicator_compressed"] = enrich_indicator(shared["indicator_compressed"])
                     shared["structure_compressed"] = structure_compressed.get(primary_tf) if structure_compressed else None
                     shared["indicator_compressed_all"] = indicator_compressed
                     shared["structure_compressed_all"] = structure_compressed
+                    # Build multi-TF indicator state JSON (brale indicator_state.go)
+                    try:
+                        shared["indicator_state_json"] = build_indicator_state_json(
+                            indicator_compressed, primary_tf, symbol
+                        )
+                        print(f"[brale] Indicator state JSON built, alignment={shared['indicator_state_json'].get('cross_tf_summary', {}).get('alignment', '?')}")
+                    except Exception as e:
+                        print(f"[brale] Indicator state JSON failed: {e}")
                     print(f"[brale] Multi-TF compressed: {list(indicator_compressed.keys())}")
                 else:
                     df = None
@@ -101,8 +118,9 @@ class SetGraph:
 
             if not multi_tf or not isinstance(kline_data, dict):
                 try:
-                    shared["indicator_compressed"] = compress_indicator(df, interval, symbol)
-                    print("[brale] Indicator compressed OK")
+                    raw_ind = compress_indicator(df, interval, symbol)
+                    shared["indicator_compressed"] = enrich_indicator(raw_ind)
+                    print("[brale] Indicator compressed + state OK")
                 except Exception as e:
                     print(f"[brale] Indicator compress failed: {e}")
                 try:
@@ -115,7 +133,7 @@ class SetGraph:
                 mech_df = df
                 if multi_tf and isinstance(kline_data, dict) and interval in kline_data:
                     mech_df = _ensure_df(kline_data[interval]) or df
-                shared["mechanics_compressed"] = compress_mechanics(
+                raw_mech = compress_mechanics(
                     ohlcv_data=mech_df,
                     oi_snapshot=derivative_data.get("oi"),
                     oi_history=derivative_data.get("oi_history"),
@@ -125,7 +143,8 @@ class SetGraph:
                     liquidation_orders=derivative_data.get("liquidation_orders"),
                     symbol=symbol, interval=interval,
                 )
-                print("[brale] Mechanics compressed OK")
+                shared["mechanics_compressed"] = enrich_mechanics(raw_mech)
+                print("[brale] Mechanics compressed + state OK")
             except Exception as e:
                 print(f"[brale] Mechanics compress failed: {e}")
 

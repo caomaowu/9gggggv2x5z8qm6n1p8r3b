@@ -19,6 +19,11 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+# brale pattern detection
+from app.agents.preprocessing.pattern.geometry import detect as detect_geometry, Options as GeometryOpts
+from app.agents.preprocessing.pattern.cdl import detect as detect_candle, Options as CandleOpts
+from app.agents.preprocessing.pattern.evidence import combine as combine_patterns, Options as EvidenceOpts
+
 # ======================================================================
 # Configuration
 # ======================================================================
@@ -26,18 +31,26 @@ import pandas as pd
 
 @dataclass
 class StructureCompressOptions:
-    fractal_span: int = 5              # span for isFractalHigh / isFractalLow
-    max_structure_points: int = 12     # after merge
-    dedup_distance_bars: int = 3       # dedup window in bars
-    dedup_atr_factor: float = 0.5      # price-distance factor × ATR
-    prune_per_side: int = 3            # max candidates above / below price
-    volume_lookback: int = 20          # for volumeRatio
-    ema_fast: int = 20                 # EMA periods for context
+    fractal_span: int = 2              # span for isFractalHigh / isFractalLow (brale default)
+    max_structure_points: int = 8
+    dedup_distance_bars: int = 10
+    dedup_atr_factor: float = 0.5
+    prune_per_side: int = 3
+    volume_lookback: int = 20
+    ema_fast: int = 20
     ema_mid: int = 50
     ema_slow: int = 200
     bb_period: int = 20
     bb_multiplier: float = 2.0
     range_lookback: int = 30
+    # SuperTrend
+    supertrend_period: int = 14
+    supertrend_multiplier: float = 2.5
+    # SMC
+    emit_smc: bool = True
+    # Recent candles
+    recent_candles: int = 5
+    include_rsi: bool = True
 
 
 DEFAULT_STRUCTURE_OPTIONS = StructureCompressOptions()
@@ -250,8 +263,10 @@ def _build_structure_candidates(
 
 
 def _dedup_candidates(candidates: list[dict], atr: np.ndarray, opts: StructureCompressOptions) -> list[dict]:
-    """brale: dedupCandidates (trend_compress_structure.go:279-313)"""
-    threshold = float(np.nanmean(atr[np.isfinite(atr)])) * opts.dedup_atr_factor if len(atr) > 0 else 0.0
+    """brale: dedupCandidates — uses latest ATR value for threshold."""
+    clean_atr = atr[np.isfinite(atr)]
+    atr_latest = float(clean_atr[-1]) if len(clean_atr) > 0 else 0.0
+    threshold = atr_latest * opts.dedup_atr_factor if atr_latest > 0 else 0.0
     grouped: dict[tuple, list[dict]] = {}
     for c in candidates:
         key = (c["type"],)
@@ -333,6 +348,345 @@ def _detect_pattern(closes: np.ndarray, highs: np.ndarray, lows: np.ndarray) -> 
 
 
 # ======================================================================
+# SuperTrend  (HMA-based, ported from brale trend_supertrend.go)
+# ======================================================================
+
+
+def _wma(values: np.ndarray, period: int) -> np.ndarray:
+    """Weighted Moving Average (brale: wmaSeries)."""
+    n = len(values)
+    if n < period or period <= 0:
+        return np.full(0, np.nan)
+    divisor = float(period * (period + 1)) / 2.0
+    out = np.full(n - period + 1, np.nan, dtype=np.float64)
+    for end in range(period - 1, n):
+        s = 0.0
+        w = float(period)
+        for idx in range(end - period + 1, end + 1):
+            s += values[idx] * w
+            w -= 1.0
+        out[end - period + 1] = s / divisor
+    return out
+
+
+def _hma(values: np.ndarray, period: int) -> np.ndarray:
+    """Hull Moving Average (brale: hmaSeries)."""
+    n = len(values)
+    if n == 0 or period <= 0:
+        return np.full(0, np.nan)
+    half_period = int(round(period / 2.0))
+    sqrt_period = int(round(np.sqrt(float(period))))
+    if half_period <= 0 or sqrt_period <= 0:
+        return np.full(0, np.nan)
+
+    wma1 = _wma(values, half_period)
+    wma2 = _wma(values, period)
+    if len(wma2) == 0:
+        return np.full(0, np.nan)
+    skip = period - half_period
+    if skip < 0 or skip > len(wma1):
+        return np.full(0, np.nan)
+    wma1 = wma1[skip:]
+    mn = min(len(wma1), len(wma2))
+    wma1 = wma1[:mn]; wma2 = wma2[:mn]
+    diff = 2.0 * wma1 - wma2
+    return _wma(diff, sqrt_period)
+
+
+def _compute_supertrend(
+    highs: np.ndarray, lows: np.ndarray, closes: np.ndarray,
+    period: int = 14, multiplier: float = 2.5,
+) -> dict[str, Any] | None:
+    """HMA-based SuperTrend (brale: computeSuperTrendSeries + buildSuperTrendSnapshot)."""
+    n = len(closes)
+    if n < 2 or period <= 0:
+        return None
+
+    tr = np.maximum(highs[1:] - lows[1:],
+                    np.maximum(np.abs(highs[1:] - closes[:-1]),
+                               np.abs(lows[1:] - closes[:-1])))
+    atr = _hma(tr, period)
+    if len(atr) == 0:
+        return None
+
+    sqrt_period = int(round(np.sqrt(float(period))))
+    atr_idle = period + sqrt_period - 1
+    if atr_idle >= n:
+        return None
+
+    medians = (highs[atr_idle:] + lows[atr_idle:]) / 2.0
+    closings = closes[atr_idle:]
+    mn_atr = min(len(atr), len(medians), len(closings))
+    atr = atr[:mn_atr]; medians = medians[:mn_atr]; closings = closings[:mn_atr]
+
+    st_series = np.full(mn_atr, np.nan, dtype=np.float64)
+    up_trend = False
+    final_upper = 0.0
+    final_lower = 0.0
+    prev_close = 0.0
+
+    for i in range(mn_atr):
+        median = medians[i]
+        atr_m = atr[i] * multiplier
+        close_v = closings[i]
+        basic_upper = median + atr_m
+        basic_lower = median - atr_m
+
+        if i == 0:
+            final_upper = basic_upper
+            final_lower = basic_lower
+            st_series[i] = final_lower
+        else:
+            if basic_upper < final_upper or prev_close > final_upper:
+                final_upper = basic_upper
+            if basic_lower > final_lower or prev_close < final_lower:
+                final_lower = basic_lower
+            if up_trend:
+                if close_v <= final_upper:
+                    st_series[i] = final_upper
+                else:
+                    st_series[i] = final_lower
+                    up_trend = False
+            else:
+                if close_v >= final_lower:
+                    st_series[i] = final_lower
+                else:
+                    st_series[i] = final_upper
+                    up_trend = True
+        prev_close = close_v
+
+    for i in range(mn_atr - 1, -1, -1):
+        level = st_series[i]
+        close_v = closings[i]
+        if np.isnan(level) or np.isinf(level) or abs(level) <= 1e-12:
+            continue
+        if np.isnan(close_v) or np.isinf(close_v) or abs(close_v) <= 1e-12:
+            continue
+        state = "up" if close_v >= level else "down"
+        return {
+            "state": state,
+            "level": round(float(level), 4),
+            "distance_pct": round(abs(close_v - level) / close_v * 100.0, 4),
+        }
+    return None
+
+
+# ======================================================================
+# SMC — OrderBlock + FVG  (ported from brale trend_compress.go)
+# ======================================================================
+
+
+def _detect_smc(highs: np.ndarray, lows: np.ndarray, opens: np.ndarray, closes: np.ndarray) -> dict[str, Any] | None:
+    """Detect OrderBlock and FVG (Fair Value Gap)."""
+    n = len(closes)
+    if n < 5:
+        return None
+
+    # Bias from EMA34
+    ema34 = np.mean(closes[-34:]) if n >= 34 else np.mean(closes)
+    bias = "bullish" if closes[-1] >= ema34 else "bearish"
+
+    ob = _detect_order_block(opens, highs, lows, closes, bias)
+    fvg = _detect_fvg(highs, lows, closes)
+
+    if ob is None and fvg is None:
+        return None
+    return {"order_block": ob, "fvg": fvg, "bias": bias}
+
+
+def _detect_order_block(
+    opens: np.ndarray, highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, bias: str
+) -> dict[str, Any] | None:
+    """Find OB in last 8 bars. Bullish→bear candle as support, Bearish→bull candle as resistance."""
+    n = len(closes)
+    recent = slice(max(n - 8, 0), n)
+    r_opens = opens[recent]; r_highs = highs[recent]; r_lows = lows[recent]; r_closes = closes[recent]
+    for i in range(len(r_closes) - 1, -1, -1):
+        o, h, l, c = r_opens[i], r_highs[i], r_lows[i], r_closes[i]
+        if bias == "bullish" and c < o:
+            return {
+                "type": "bullish",
+                "upper": round(float(max(o, c)), 4),
+                "lower": round(float(min(l, o)), 4),
+            }
+        if bias == "bearish" and c > o:
+            return {
+                "type": "bearish",
+                "upper": round(float(max(o, h)), 4),
+                "lower": round(float(min(o, c)), 4),
+            }
+    return None
+
+
+def _detect_fvg(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray) -> dict[str, Any] | None:
+    """Detect Fair Value Gap — gap between 3 bars with unfilled space."""
+    n = len(closes)
+    for offset in range(2, 6):
+        idx = n - offset
+        if idx - 2 < 0:
+            break
+        hi_prev = highs[idx - 2]; lo_prev = lows[idx - 2]
+        hi_cur = highs[idx]; lo_cur = lows[idx]
+        # Bullish FVG: gap above
+        if lows[idx - 1] > hi_prev and lo_cur > hi_prev:
+            return {
+                "type": "bullish",
+                "gap_top": round(float(lo_cur), 4),
+                "gap_bottom": round(float(hi_prev), 4),
+            }
+        # Bearish FVG: gap below
+        if highs[idx - 1] < lo_prev and hi_cur < lo_prev:
+            return {
+                "type": "bearish",
+                "gap_top": round(float(lo_prev), 4),
+                "gap_bottom": round(float(hi_cur), 4),
+            }
+    return None
+
+
+# ======================================================================
+# Recent Candles  (brale: buildRecentCandles, trend_compress.go:644-672)
+# ======================================================================
+
+
+def _rsi_wilder(closes: np.ndarray, period: int = 14) -> np.ndarray:
+    """Wilder smoothing RSI for structure context."""
+    n = len(closes)
+    rsi = np.full(n, np.nan, dtype=np.float64)
+    if n < period + 1:
+        return rsi
+    gains = np.maximum(np.diff(closes, prepend=closes[0]), 0.0)
+    losses = np.maximum(-np.diff(closes, prepend=closes[0]), 0.0)
+    avg_gain = np.mean(gains[1:period + 1])
+    avg_loss = np.mean(losses[1:period + 1])
+    rsi[period] = 100.0 - 100.0 / (1.0 + avg_gain / max(avg_loss, 1e-12))
+    for i in range(period + 1, n):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+        rsi[i] = 100.0 - 100.0 / (1.0 + avg_gain / max(avg_loss, 1e-12))
+    return np.round(rsi, 1)
+
+
+def _build_recent_candles(
+    opens: np.ndarray, highs: np.ndarray, lows: np.ndarray,
+    closes: np.ndarray, volumes: np.ndarray, rsi: np.ndarray,
+    opts: StructureCompressOptions,
+) -> list[dict[str, Any]]:
+    """Build last N candles with OHLVC + optional RSI."""
+    n = len(closes)
+    keep = min(opts.recent_candles, n)
+    start = n - keep
+    out: list[dict[str, Any]] = []
+    for idx in range(start, n):
+        rc: dict[str, Any] = {
+            "idx": idx,
+            "o": round(float(opens[idx]), 4),
+            "h": round(float(highs[idx]), 4),
+            "l": round(float(lows[idx]), 4),
+            "c": round(float(closes[idx]), 4),
+            "v": round(float(volumes[idx]), 4),
+        }
+        if opts.include_rsi and idx < len(rsi):
+            v = rsi[idx]
+            if (not np.isnan(v)) and (not np.isinf(v)):
+                rc["rsi"] = float(v)
+        out.append(rc)
+    return out
+
+
+# ======================================================================
+# Key Levels  (brale: buildTrendKeyLevels, trend_compress.go:475-501)
+# ======================================================================
+
+
+def _build_key_levels(points: list[dict]) -> dict[str, Any] | None:
+    """Extract last_swing_high and last_swing_low from fractal points."""
+    last_high = None
+    last_low = None
+    for p in reversed(points):
+        t = p.get("type", "")
+        if last_high is None and t == "high":
+            last_high = {"price": p["price"], "idx": p["idx"]}
+        if last_low is None and t == "low":
+            last_low = {"price": p["price"], "idx": p["idx"]}
+        if last_high and last_low:
+            break
+    if not last_high and not last_low:
+        return None
+    result: dict[str, Any] = {}
+    if last_high:
+        result["last_swing_high"] = last_high
+    if last_low:
+        result["last_swing_low"] = last_low
+    return result
+
+
+# ======================================================================
+# Break Events  (brale: detectLatestBreakEvent, trend_compress.go:522-558)
+# ======================================================================
+
+
+def _build_break_events(
+    closes: np.ndarray, key_levels: dict[str, Any] | None
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    """Detect if price recently broke above last_swing_high or below last_swing_low."""
+    n = len(closes)
+    if n < 2 or key_levels is None:
+        return [], None
+
+    latest_idx = n - 1
+    events: list[dict[str, Any]] = []
+
+    high = key_levels.get("last_swing_high")
+    if high:
+        for i in range(latest_idx, 0, -1):
+            prev_c = closes[i - 1]
+            curr_c = closes[i]
+            if prev_c <= high["price"] < curr_c:
+                evt = {
+                    "type": "break_up",
+                    "level_price": high["price"],
+                    "level_idx": high["idx"],
+                    "bar_idx": i,
+                    "bar_age": latest_idx - i,
+                    "confirm": "close",
+                }
+                events.append(evt)
+                break
+
+    low = key_levels.get("last_swing_low")
+    if low:
+        for i in range(latest_idx, 0, -1):
+            prev_c = closes[i - 1]
+            curr_c = closes[i]
+            if prev_c >= low["price"] > curr_c:
+                evt = {
+                    "type": "break_down",
+                    "level_price": low["price"],
+                    "level_idx": low["idx"],
+                    "bar_idx": i,
+                    "bar_age": latest_idx - i,
+                    "confirm": "close",
+                }
+                events.append(evt)
+                break
+
+    # Build summary from latest event
+    if events:
+        latest = events[0]
+        summary = {
+            "latest_event_type": latest["type"],
+            "latest_event_age": latest["bar_age"],
+            "latest_event_bar_idx": latest["bar_idx"],
+            "latest_event_level_price": latest["level_price"],
+            "latest_event_level_idx": latest["level_idx"],
+        }
+        return events, summary
+
+    return events, None
+
+
+# ======================================================================
 # Main compress entry-point
 # ======================================================================
 
@@ -377,6 +731,11 @@ def compress_structure(
     for i in range(period - 1, n):
         atr_raw[i] = np.mean(tr_arr[i - period + 1: i + 1])
 
+    # RSI (for recent_candles with RSI context)
+    rsi_raw = np.full(n, np.nan, dtype=np.float64)
+    if opts.include_rsi:
+        rsi_raw = _rsi_wilder(closes, 14)
+
     # Fractal points
     points = _select_structure_points(highs, lows, opts.fractal_span, opts.max_structure_points)
 
@@ -396,8 +755,35 @@ def compress_structure(
     # Volume action
     vol_ratio = _volume_ratio(volumes, opts.volume_lookback)
 
-    # Pattern
-    pattern = _detect_pattern(closes, highs, lows)
+    # Pattern detection (brale geometry + cdl + evidence)
+    pattern = None
+    try:
+        candles_list = [{"open": float(opens[i]), "high": float(highs[i]), "low": float(lows[i]), "close": float(closes[i])}
+                        for i in range(n)]
+        geom_res = detect_geometry(candles_list)
+        candle_res = detect_candle(candles_list)
+        pattern = combine_patterns(geom_res, candle_res)
+    except Exception:
+        pass
+
+    # SuperTrend (HMA-based, ported from brale trend_supertrend.go)
+    supertrend = None
+    if opts.supertrend_period > 0:
+        supertrend = _compute_supertrend(highs, lows, closes, opts.supertrend_period, opts.supertrend_multiplier)
+
+    # SMC: OrderBlock + FVG
+    smc = None
+    if opts.emit_smc:
+        smc = _detect_smc(highs, lows, opens, closes)
+
+    # Recent candles (brale: buildRecentCandles)
+    recent_candles = _build_recent_candles(opens, highs, lows, closes, volumes, rsi_raw, opts)
+
+    # Key levels (brale: buildTrendKeyLevels)
+    key_levels = _build_key_levels(points)
+
+    # Break events + summary (brale: detectLatestBreakEvent)
+    break_events, break_summary = _build_break_events(closes, key_levels)
 
     # EMA context
     ema20 = _ema_array(closes, 20)
@@ -426,11 +812,17 @@ def compress_structure(
                         "ema20": round(float(ema20[-1]), 4) if np.isfinite(ema20[-1]) else None,
                         "ema50": round(float(ema50[-1]), 4) if np.isfinite(ema50[-1]) else None,
                         "ema200": round(float(ema200[-1]), 4) if np.isfinite(ema200[-1]) else None},
+        "supertrend": supertrend,
+        "smc": smc,
+        "recent_candles": recent_candles,
+        "key_levels": key_levels,
+        "break_events": break_events,
+        "break_summary": break_summary,
         "fractal_points": points,
         "candidates": candidates,
         "supports": supports,
         "resistances": resistances,
-        "pattern_hint": pattern,
+        "pattern": pattern,
     }
 
     return {"_meta": _meta, "market": market, "data": data}

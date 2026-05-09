@@ -275,21 +275,28 @@ def _bollinger(closes: np.ndarray, period: int, mult: float) -> tuple[np.ndarray
 
 
 def _choppiness(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: int) -> np.ndarray:
+    """CHOP (Choppiness Index by E.W.Dreiss) using standard True Range."""
     n = len(closes)
-    if n < period:
+    if n < period + 1:
         return _nanarr(n)
     out = np.full(n, np.nan, dtype=np.float64)
-    for i in range(period - 1, n):
-        win_h = highs[i - period + 1: i + 1]
-        win_l = lows[i - period + 1: i + 1]
-        tr_total = np.sum(np.abs(np.diff(closes[i - period + 1: i + 1])))
+    for i in range(period, n):
+        start = i - period + 1
+        win_h = highs[start: i + 1]
+        win_l = lows[start: i + 1]
+        tr_sum = 0.0
+        for k in range(period):
+            h = win_h[k]
+            l = win_l[k]
+            prev_c = closes[start + k - 1]
+            tr_sum += max(h - l, abs(h - prev_c), abs(l - prev_c))
         hh = np.max(win_h)
         ll = np.min(win_l)
         denom = hh - ll
         if denom < 1e-12:
             out[i] = 0.0
         else:
-            out[i] = 100.0 * np.log10(tr_total / denom) / np.log10(float(period))
+            out[i] = 100.0 * np.log10(tr_sum / denom) / np.log10(float(period))
     return np.round(out, 4)
 
 
@@ -530,7 +537,7 @@ def _build_bb_snapshot(mid: np.ndarray, up: np.ndarray, lo: np.ndarray, price: f
     bandwidth = None
     pct_b = None
     if latest_up is not None and latest_lo is not None and abs(latest_up - latest_lo) > 1e-12:
-        bandwidth = round((latest_up - latest_lo) / ((latest_up + latest_lo) / 2.0), 4)
+        bandwidth = round((latest_up - latest_lo) / latest_mid * 100.0, 4) if latest_mid and abs(latest_mid) > 1e-12 else None
     if latest_up is not None and latest_lo is not None and abs(latest_up - latest_lo) > 1e-12 and price is not None:
         pct_b = round((price - latest_lo) / (latest_up - latest_lo), 4)
     return {
