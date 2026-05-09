@@ -63,3 +63,4 @@ tools/data/batch_backtest_queue.json
 tools/data/daemon_config.json
 tools/data/daemon_config.json
 caomao.xyz-ssl-bundle/
+run-continuation/

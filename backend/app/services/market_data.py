@@ -143,9 +143,13 @@ class MarketDataService:
 
     @staticmethod
     def _date_str_to_unix_ms(date_str: str) -> int | None:
-        """Convert date string like '2025-01-01' or '2025-01-01 12:00:00' to Unix ms."""
+        """Convert date string like '2025-01-01' or '2025-01-01 12:00:00' to Unix ms (UTC).
+        Input is assumed to be in Asia/Shanghai timezone (CST)."""
         try:
-            return int(pd.Timestamp(date_str).value // 1_000_000)
+            ts = pd.Timestamp(date_str)
+            if ts.tz is None:
+                ts = ts.tz_localize('Asia/Shanghai')
+            return int(ts.tz_convert('UTC').value // 1_000_000)
         except Exception:
             return None
 
@@ -300,7 +304,11 @@ class MarketDataService:
     @staticmethod
     def _normalize_rubik_ls_ratio_item(r: dict | list) -> dict:
         """Normalize rubik long-short-ratio item: list→dict, dict→passthrough.
-        OKX rubik returns ``[ts, longRatio, shortRatio, longShortRatio]``."""
+
+        OKX v5 实测返回两种列表格式：
+          - [ts, longShortRatio]           (2 元素，当前格式)
+          - [ts, longRatio, shortRatio, longShortRatio] (4 元素，旧格式)
+        """
         if isinstance(r, dict):
             return {
                 "ts": r.get("ts", ""),
@@ -308,8 +316,11 @@ class MarketDataService:
                 "shortRatio": float(r.get("shortRatio", 0)),
                 "longShortRatio": float(r.get("longShortRatio", 0)),
             }
-        if isinstance(r, list) and len(r) >= 4:
-            return {"ts": str(r[0]), "longRatio": float(r[1]), "shortRatio": float(r[2]), "longShortRatio": float(r[3])}
+        if isinstance(r, list):
+            if len(r) >= 4:
+                return {"ts": str(r[0]), "longRatio": float(r[1]), "shortRatio": float(r[2]), "longShortRatio": float(r[3])}
+            if len(r) >= 2:
+                return {"ts": str(r[0]), "longRatio": 0.0, "shortRatio": 0.0, "longShortRatio": float(r[1])}
         return {"ts": "", "longRatio": 0.0, "shortRatio": 0.0, "longShortRatio": 0.0}
 
     @staticmethod
@@ -362,16 +373,21 @@ class MarketDataService:
             logger.error(f"fetch_open_interest failed for {symbol}: {e}")
             return None
 
-    def fetch_open_interest_history(self, symbol: str, period: str = "1H", limit: int = 24) -> list[dict] | None:
+    def fetch_open_interest_history(self, symbol: str, period: str = "1H", limit: int = 24,
+                                     after: int | None = None) -> list[dict] | None:
         """GET /api/v5/rubik/stat/contracts/open-interest-volume — OI 历史。
-        period: 5m(最多576条) / 1H(最多720条) / 1D(最多180条)。after 无效，永远返回最新数据。"""
+        period: 5m(最多576条) / 1H(最多720条) / 1D(最多180条)。
+        after: Unix毫秒时间戳，翻页获取更老的数据（代理层支持）。"""
         try:
             ccy = self._extract_ccy(symbol)
-            data = self._make_request("rubik/stat/contracts/open-interest-volume", {
+            params: dict = {
                 "ccy": ccy,
                 "period": period,
                 "limit": min(limit, 720),
-            })
+            }
+            if after is not None:
+                params["after"] = str(after)
+            data = self._make_request("rubik/stat/contracts/open-interest-volume", params)
             if is_v5_success(data):
                 raw = get_v5_data(data)
                 if raw and isinstance(raw, list):
@@ -410,16 +426,21 @@ class MarketDataService:
             logger.error(f"fetch_funding_rate_history failed for {symbol}: {e}")
             return None
 
-    def fetch_long_short_ratio(self, symbol: str, period: str = "1H", limit: int = 24) -> list[dict] | None:
+    def fetch_long_short_ratio(self, symbol: str, period: str = "1H", limit: int = 24,
+                                after: int | None = None) -> list[dict] | None:
         """GET /api/v5/rubik/stat/contracts/long-short-account-ratio — 多空比历史。
-        period: 1H(最多720条) / 1D(最多180条)。after 无效，永远返回最新数据。"""
+        period: 1H(最多720条) / 1D(最多180条)。
+        after: Unix毫秒时间戳，翻页获取更老的数据（代理层支持）。"""
         try:
             ccy = self._extract_ccy(symbol)
-            data = self._make_request("rubik/stat/contracts/long-short-account-ratio", {
+            params: dict = {
                 "ccy": ccy,
                 "period": period,
                 "limit": min(limit, 720),
-            })
+            }
+            if after is not None:
+                params["after"] = str(after)
+            data = self._make_request("rubik/stat/contracts/long-short-account-ratio", params)
             if is_v5_success(data):
                 raw = get_v5_data(data)
                 if raw and isinstance(raw, list):
@@ -430,15 +451,20 @@ class MarketDataService:
             logger.error(f"fetch_long_short_ratio failed for {symbol}: {e}")
             return None
 
-    def fetch_taker_volume_ratio(self, symbol: str, period: str = "1H", limit: int = 24) -> list[dict] | None:
-        """GET /api/v5/rubik/stat/taker-volume-contract — 主动买卖量，OKX 已下架旧端点 contracts/taker-volume-ratio。"""
+    def fetch_taker_volume_ratio(self, symbol: str, period: str = "1H", limit: int = 24,
+                                  after: int | None = None) -> list[dict] | None:
+        """GET /api/v5/rubik/stat/taker-volume-contract — 主动买卖量，OKX 已下架旧端点 contracts/taker-volume-ratio。
+        after: Unix毫秒时间戳，翻页获取更老的数据（代理层支持）。"""
         try:
             api_symbol = self._convert_symbol(symbol)
-            data = self._make_request("rubik/stat/taker-volume-contract", {
+            params: dict = {
                 "instId": api_symbol,
                 "period": period,
                 "limit": min(limit, 720),
-            })
+            }
+            if after is not None:
+                params["after"] = str(after)
+            data = self._make_request("rubik/stat/taker-volume-contract", params)
             if is_v5_success(data):
                 raw = get_v5_data(data)
                 if raw and isinstance(raw, list):

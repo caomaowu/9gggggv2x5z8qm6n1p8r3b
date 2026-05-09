@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from app.models.schemas.analyze import AnalyzeRequest
 from app.services.market_data import MarketDataService
@@ -14,6 +15,30 @@ from typing import Any
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# ======================================================================
+# 衍生品数据周期映射（方案A+D）
+# rubik 端点不支持任意 bar，需将分析周期映射到 OKX 支持的最小可用周期。
+# 当分析周期 > 拉取周期时，通过增大 limit 补偿时间跨度。
+# ======================================================================
+
+DERIVATIVE_PERIOD_MAP: dict[str, str] = {
+    "1m": "5m",      # rubik OI历史最小支持 5m
+    "3m": "5m",
+    "5m": "5m",
+    "15m": "1H",     # 降级到 1H
+    "30m": "1H",     # 降级到 1H
+    "1h": "1H",
+    "4h": "1H",      # 拉 1H，用 limit ×4 补偿
+    "1d": "1D",
+    "1w": "1D",      # 拉 1D，用 limit ×7 补偿
+}
+
+# 周期→分钟数（用于计算 adjusted_limit）
+_TIMEFRAME_MINUTES: dict[str, int] = {
+    "1m": 1, "3m": 3, "5m": 5, "15m": 15, "30m": 30,
+    "1h": 60, "4h": 240, "1d": 1440, "1w": 10080,
+}
 
 def get_market_service():
     return MarketDataService()
@@ -335,15 +360,63 @@ async def analyze_market(
         check_env_changes()
 
         # --- Fetch derivative data for brale mechanics agent ---
+        # 方案A+D：根据分析周期映射 rubik period，用 adjusted_limit 补偿时间跨度
         derivative_data: dict[str, Any] = {}
         try:
             logger.info(f"[{result_id}] Fetching derivative data for mechanics agent...")
+
+            # 确定衍生品拉取周期：取主时间框架，映射到 rubik 可用周期
+            deriv_tf = timeframe_for_result
+            if "," in deriv_tf:
+                deriv_tf = deriv_tf.split(",")[0]  # 多时间框架取第一个
+            # 规范化大小写
+            deriv_tf_lower = deriv_tf.lower()
+            rubik_period = DERIVATIVE_PERIOD_MAP.get(deriv_tf_lower, "1H")
+
+            # 计算 adjusted_limit：保持与 K 线相同的时间跨度
+            analysis_minutes = _TIMEFRAME_MINUTES.get(deriv_tf_lower, 60)
+            period_minutes = _TIMEFRAME_MINUTES.get(rubik_period.lower(), 60)
+            limit_multiplier = max(1, analysis_minutes // period_minutes)
+            adjusted_limit = request.kline_count * limit_multiplier
+            logger.info(
+                f"[{result_id}] Derivative period mapping: {deriv_tf}→{rubik_period} "
+                f"(analysis={analysis_minutes}m, rubik={period_minutes}m, "
+                f"multiplier={limit_multiplier}, limit={request.kline_count}→{adjusted_limit})"
+            )
+
+            # 回测模式下计算 after 时间戳（仅资金费率支持翻页，rubik 端点忽略 after）
+            funding_after: int | None = None
+            if request.data_method in ("to_end", "date_range") and end_dt_str:
+                try:
+                    end_dt = datetime.strptime(end_dt_str, "%Y-%m-%d %H:%M:%S")
+                    end_ts = int(end_dt.timestamp() * 1000)
+                    funding_after = end_ts
+                    logger.info(
+                        f"[{result_id}] Backtest mode: funding_after={funding_after} (end={end_dt_str})"
+                    )
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"[{result_id}] Failed to parse end_dt_str for after timestamp: {e}")
+
+            # --- 拉取各衍生品数据 ---
+            # rubik 端点不支持 after，永远拉最新全量，由 _filter_rubik_to_kline_window 切片
             derivative_data["oi"] = market_service.fetch_open_interest(request.asset)
-            derivative_data["oi_history"] = market_service.fetch_open_interest_history(request.asset)
-            derivative_data["funding_history"] = market_service.fetch_funding_rate_history(request.asset)
-            derivative_data["long_short_history"] = market_service.fetch_long_short_ratio(request.asset)
-            derivative_data["taker_volume_history"] = market_service.fetch_taker_volume_ratio(request.asset)
-            derivative_data["liquidation_orders"] = market_service.fetch_liquidation_orders(request.asset)
+
+            derivative_data["oi_history"] = market_service.fetch_open_interest_history(
+                request.asset, period=rubik_period, limit=adjusted_limit
+            )
+            derivative_data["funding_history"] = market_service.fetch_funding_rate_history(
+                request.asset, limit=max(24, min(adjusted_limit, 50)), after=funding_after
+            )
+            derivative_data["long_short_history"] = market_service.fetch_long_short_ratio(
+                request.asset, period=rubik_period, limit=adjusted_limit
+            )
+            derivative_data["taker_volume_history"] = market_service.fetch_taker_volume_ratio(
+                request.asset, period=rubik_period, limit=adjusted_limit
+            )
+            derivative_data["liquidation_orders"] = market_service.fetch_liquidation_orders(
+                request.asset
+            )
+
             present = [k for k, v in derivative_data.items() if v is not None]
             logger.info(f"[{result_id}] Derivative data fetched: {len(present)}/{len(derivative_data)} available ({present})")
         except Exception as e:

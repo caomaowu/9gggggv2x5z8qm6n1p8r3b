@@ -46,12 +46,81 @@ DEFAULT_MECHANICS_OPTIONS = MechanicsCompressOptions()
 
 _TIMEFRAME_MINUTES: dict[str, int] = {
     "1m": 1, "3m": 3, "5m": 5, "15m": 15, "30m": 30,
-    "1H": 60, "4H": 240, "1D": 1440, "1W": 10080,
+    "1h": 60, "4h": 240, "1d": 1440, "1w": 10080,
 }
 
 
 def _tf_minutes(tf: str) -> int:
-    return _TIMEFRAME_MINUTES.get(tf, 60)
+    """Parse timeframe string to minutes, case-insensitive."""
+    return _TIMEFRAME_MINUTES.get(tf.lower(), 60)
+
+
+# ======================================================================
+# Helper: filter rubik data to K-line time window
+# ======================================================================
+
+def _filter_rubik_to_kline_window(
+    rubik_data: list[dict] | None,
+    kline_df: pd.DataFrame | None,
+    ts_field: str = "ts",
+    interval: str = "1H",
+) -> list[dict]:
+    """
+    Slice rubik data to the backtest K-line time window.
+
+    Buffer is the analysis interval's duration, so the last incomplete
+    rubik period (e.g. 15:00–16:00 for a 16:00 candle) is included.
+
+    Returns an empty list when the rubik data does NOT overlap the K-line
+    window at all — the caller must mark the derivative as missing.
+    """
+    if not rubik_data:
+        return []
+    if kline_df is None or kline_df.empty:
+        return rubik_data
+
+    kline_start = kline_df.index[0]
+    kline_end = kline_df.index[-1]
+    buffer_mins = max(60, _tf_minutes(interval))
+    buffer = pd.Timedelta(minutes=buffer_mins)
+
+    window_start = kline_start - buffer
+    window_end = kline_end + buffer
+
+    filtered: list[dict] = []
+    for r in rubik_data:
+        ts_str = str(r.get(ts_field, ""))
+        if not ts_str:
+            filtered.append(r)
+            continue
+
+        try:
+            ts_int = int(ts_str)
+            if ts_int > 1e12:
+                ts = pd.Timestamp(ts_int, unit='ms', tz='UTC')
+            else:
+                ts = pd.Timestamp(ts_int, unit='s', tz='UTC')
+        except (ValueError, TypeError):
+            try:
+                ts = pd.Timestamp(ts_str)
+                if ts.tz is None:
+                    ts = ts.tz_localize('UTC')
+            except Exception:
+                filtered.append(r)
+                continue
+
+        if window_start <= ts <= window_end:
+            filtered.append(r)
+
+    if not filtered:
+        return []   # no overlap → caller marks missing
+
+    try:
+        filtered.sort(key=lambda x: int(str(x.get(ts_field, "0"))))
+    except Exception:
+        pass
+
+    return filtered
 
 
 # ======================================================================
@@ -104,9 +173,12 @@ def compress_mechanics(
                       "price_timestamp": price_ts, "missing": True}
 
     # --- OI history (change over time) ---
+    oi_filtered = _filter_rubik_to_kline_window(
+        oi_history, ohlcv_data, ts_field="ts", interval=interval
+    )
     oi_by_interval: dict[str, Any] = {}
-    if opts.require_oi and oi_history:
-        oi_vals = [r.get("oi", 0) for r in oi_history if r.get("oi") is not None]
+    if opts.require_oi and oi_filtered:
+        oi_vals = [r.get("oi", 0) for r in oi_filtered if r.get("oi") is not None]
         if len(oi_vals) >= 2:
             first_oi = oi_vals[0]
             last_oi = oi_vals[-1]
@@ -142,10 +214,13 @@ def compress_mechanics(
         out["funding"] = {"rate": None, "timestamp": "", "missing": True}
 
     # --- Long/Short ratio ---
+    ls_filtered = _filter_rubik_to_kline_window(
+        long_short_history, ohlcv_data, ts_field="ts", interval=interval
+    )
     ls_by_interval: dict[str, Any] = {}
     if opts.require_long_short:
-        if long_short_history and len(long_short_history) > 0:
-            latest = long_short_history[-1]
+        if ls_filtered and len(ls_filtered) > 0:
+            latest = ls_filtered[-1]
             rs = latest.get("longShortRatio") or latest.get("ls_ratio")
             ls_by_interval[interval] = {
                 "ratio": rs,
@@ -161,11 +236,14 @@ def compress_mechanics(
     out["long_short_by_interval"] = ls_by_interval
 
     # --- CVD (estimated from taker volume ratio) ---
+    taker_filtered = _filter_rubik_to_kline_window(
+        taker_volume_history, ohlcv_data, ts_field="ts", interval=interval
+    )
     cvd_by_interval: dict[str, Any] = {}
     if opts.require_cvd:
-        if taker_volume_history and len(taker_volume_history) > 0:
+        if taker_filtered and len(taker_filtered) > 0:
             buy_cum = 0.0; sell_cum = 0.0
-            for r in taker_volume_history:
+            for r in taker_filtered:
                 buy_cum += r.get("buyVol", 0)
                 sell_cum += r.get("sellVol", 0)
             cvd_val = round(buy_cum - sell_cum, 4)
@@ -179,7 +257,7 @@ def compress_mechanics(
                 "normalized": normalized,
                 "divergence": divergence,
                 "peak_flip": "none",
-                "timestamp": taker_volume_history[0].get("ts", ""),
+                "timestamp": taker_filtered[-1].get("ts", ""),
                 "missing": False,
             }
         else:
