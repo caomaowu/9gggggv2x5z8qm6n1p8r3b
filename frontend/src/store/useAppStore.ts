@@ -31,9 +31,6 @@ interface AppState {
   analysisResult: AnalysisResult | null;
   latestResultId: string | null;
 
-  // Decision Agent Version
-  decisionAgentVersion: string;
-
   // Continuous Analysis Mode
   continuousMode: boolean;
   historyRefreshTrigger: number;
@@ -58,7 +55,6 @@ interface AppState {
   setDateConfig: (config: Partial<AppState>) => void;
   setAnalysisResult: (result: AnalysisResult | null) => void;
   setLatestResultId: (id: string | null) => void;
-  setDecisionAgentVersion: (version: string) => void;
   setContinuousMode: (mode: boolean) => void;
   triggerHistoryRefresh: () => void;
   setAutoFocusResult: (autoFocus: boolean) => void;
@@ -115,8 +111,6 @@ export const useAppStore = create<AppState>()(
       
       analysisResult: null,
       latestResultId: null,
-
-      decisionAgentVersion: 'lite', // Default to lite
 
       continuousMode: false,
       historyRefreshTrigger: 0,
@@ -175,7 +169,6 @@ export const useAppStore = create<AppState>()(
       
       setAnalysisResult: (result) => set({ analysisResult: result }),
       setLatestResultId: (id) => set({ latestResultId: id }),
-      setDecisionAgentVersion: (version) => set({ decisionAgentVersion: version }),
       setContinuousMode: (mode) => set({ continuousMode: mode }),
       triggerHistoryRefresh: () => set((state) => ({ historyRefreshTrigger: state.historyRefreshTrigger + 1 })),
       setAutoFocusResult: (autoFocus) => set({ autoFocusResult: autoFocus }),

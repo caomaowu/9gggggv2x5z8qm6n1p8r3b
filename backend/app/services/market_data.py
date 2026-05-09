@@ -271,3 +271,178 @@ class MarketDataService:
             return data.get("data", [])
         except Exception:
             return ["okx"]
+
+    # ========================================================================
+    # Derivative Data Methods (brale-core migration)
+    # ========================================================================
+
+    def _extract_ccy(self, symbol: str) -> str:
+        """Extract currency from symbol: 'BTC-USDT-SWAP' → 'BTC'."""
+        symbol = (symbol or "").strip().upper()
+        if not symbol:
+            return ""
+        parts = symbol.replace("/", "-").split("-")
+        if len(parts) >= 1:
+            return parts[0]
+        return symbol
+
+    def fetch_open_interest(self, symbol: str) -> dict | None:
+        """GET /api/v5/public/open-interest — snapshot, current value only."""
+        try:
+            api_symbol = self._convert_symbol(symbol)
+            data = self._make_request("public/open-interest", {"instId": api_symbol})
+            if is_v5_success(data):
+                raw = get_v5_data(data)
+                if raw and isinstance(raw, list) and len(raw) > 0:
+                    item = raw[0]
+                    return {
+                        "instId": item.get("instId", api_symbol),
+                        "oi": float(item.get("oi", 0)),
+                        "oiCcy": float(item.get("oiCcy", 0)),
+                        "ts": item.get("ts", ""),
+                    }
+            logger.warning(f"fetch_open_interest returned empty: {symbol}")
+            return None
+        except Exception as e:
+            logger.error(f"fetch_open_interest failed for {symbol}: {e}")
+            return None
+
+    def fetch_open_interest_history(self, symbol: str, period: str = "1H", limit: int = 24) -> list[dict] | None:
+        """GET /api/v5/rubik/stat/contracts/open-interest-volume — history, **after无效**."""
+        try:
+            ccy = self._extract_ccy(symbol)
+            data = self._make_request("rubik/stat/contracts/open-interest-volume", {
+                "ccy": ccy,
+                "period": period,
+                "limit": min(limit, 100),
+            })
+            if is_v5_success(data):
+                raw = get_v5_data(data)
+                if raw and isinstance(raw, list):
+                    return [
+                        {
+                            "ts": r.get("ts", ""),
+                            "oi": float(r.get("oi", 0)),
+                            "vol": float(r.get("vol", 0)),
+                        }
+                        for r in raw
+                    ]
+            logger.warning(f"fetch_open_interest_history returned empty: {symbol}")
+            return None
+        except Exception as e:
+            logger.error(f"fetch_open_interest_history failed for {symbol}: {e}")
+            return None
+
+    def fetch_funding_rate_history(self, symbol: str, limit: int = 24, after: int | None = None) -> list[dict] | None:
+        """GET /api/v5/public/funding-rate-history — supports 'after' pagination."""
+        try:
+            api_symbol = self._convert_symbol(symbol)
+            params: dict = {"instId": api_symbol, "limit": str(min(limit, 100))}
+            if after is not None:
+                params["after"] = str(after)
+            data = self._make_request("public/funding-rate-history", params)
+            if is_v5_success(data):
+                raw = get_v5_data(data)
+                if raw and isinstance(raw, list):
+                    return [
+                        {
+                            "instId": r.get("instId", api_symbol),
+                            "fundingTime": r.get("fundingTime", ""),
+                            "fundingRate": float(r.get("fundingRate", 0)),
+                            "realizedRate": float(r.get("realizedRate", 0)),
+                            "nextFundingTime": r.get("nextFundingTime", ""),
+                            "ts": r.get("ts", ""),
+                        }
+                        for r in raw
+                    ]
+            logger.warning(f"fetch_funding_rate_history returned empty: {symbol}")
+            return None
+        except Exception as e:
+            logger.error(f"fetch_funding_rate_history failed for {symbol}: {e}")
+            return None
+
+    def fetch_long_short_ratio(self, symbol: str, period: str = "1H", limit: int = 24) -> list[dict] | None:
+        """GET /api/v5/rubik/stat/contracts/long-short-account-ratio — **after无效**."""
+        try:
+            ccy = self._extract_ccy(symbol)
+            data = self._make_request("rubik/stat/contracts/long-short-account-ratio", {
+                "ccy": ccy,
+                "period": period,
+                "limit": min(limit, 100),
+            })
+            if is_v5_success(data):
+                raw = get_v5_data(data)
+                if raw and isinstance(raw, list):
+                    return [
+                        {
+                            "ts": r.get("ts", ""),
+                            "longRatio": float(r.get("longRatio", 0)),
+                            "shortRatio": float(r.get("shortRatio", 0)),
+                            "longShortRatio": float(r.get("longShortRatio", 0)),
+                        }
+                        for r in raw
+                    ]
+            logger.warning(f"fetch_long_short_ratio returned empty: {symbol}")
+            return None
+        except Exception as e:
+            logger.error(f"fetch_long_short_ratio failed for {symbol}: {e}")
+            return None
+
+    def fetch_taker_volume_ratio(self, symbol: str, period: str = "1H", limit: int = 24) -> list[dict] | None:
+        """GET /api/v5/rubik/stat/contracts/taker-volume-ratio — **after无效**."""
+        try:
+            ccy = self._extract_ccy(symbol)
+            data = self._make_request("rubik/stat/contracts/taker-volume-ratio", {
+                "ccy": ccy,
+                "period": period,
+                "limit": min(limit, 100),
+            })
+            if is_v5_success(data):
+                raw = get_v5_data(data)
+                if raw and isinstance(raw, list):
+                    return [
+                        {
+                            "ts": r.get("ts", ""),
+                            "buyVol": float(r.get("buyVol", 0)),
+                            "sellVol": float(r.get("sellVol", 0)),
+                            "buyRatio": float(r.get("buyRatio", 0)),
+                            "sellRatio": float(r.get("sellRatio", 0)),
+                        }
+                        for r in raw
+                    ]
+            logger.warning(f"fetch_taker_volume_ratio returned empty: {symbol}")
+            return None
+        except Exception as e:
+            logger.error(f"fetch_taker_volume_ratio failed for {symbol}: {e}")
+            return None
+
+    def fetch_liquidation_orders(self, symbol: str, limit: int = 16) -> list[dict] | None:
+        """GET /api/v5/public/liquidation-orders — uly param, ~16 entries max."""
+        try:
+            ccy = self._extract_ccy(symbol)
+            data = self._make_request("public/liquidation-orders", {
+                "uly": f"{ccy}-USDT",
+                "limit": min(limit, 20),
+                "state": "filled",
+            })
+            if is_v5_success(data):
+                raw = get_v5_data(data)
+                if raw and isinstance(raw, list):
+                    return [
+                        {
+                            "instId": r.get("instId", ""),
+                            "uly": r.get("uly", ""),
+                            "side": r.get("side", ""),
+                            "posSide": r.get("posSide", ""),
+                            "sz": float(r.get("sz", 0)),
+                            "bkPx": float(r.get("bkPx", 0)),
+                            "bkLoss": float(r.get("bkLoss", 0)),
+                            "ts": r.get("ts", ""),
+                        }
+                        for r in raw
+                    ]
+            logger.warning(f"fetch_liquidation_orders returned empty: {symbol}")
+            return None
+        except Exception as e:
+            logger.error(f"fetch_liquidation_orders failed for {symbol}: {e}")
+            return None

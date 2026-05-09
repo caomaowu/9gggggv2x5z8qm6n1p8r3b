@@ -11,117 +11,110 @@ export default function DecisionPanel() {
         result_id,
         data_method_short,
         analysis_time_display,
-        agent_version_name,
-        agent_version_description,
-        decision_agent_version,
         llm_config
     } = analysisResult;
 
-    // 辅助函数：格式化百分比
     const formatPct = (current: number | undefined, target: number | string | undefined, type: 'stop' | 'profit', decision: string | undefined) => {
         if (!current || !target || typeof target !== 'number' || isNaN(current) || isNaN(target)) return null;
-        
         const pct = ((target - current) / current) * 100;
         const pctStr = (pct > 0 ? '+' : '') + pct.toFixed(2) + '%';
-        
-        const isShort = decision?.toLowerCase().includes('short') || decision?.includes('做空');
-        
-        let isProfitDirection = false;
-        
-        if (type === 'profit') {
-             // 止盈：Long时pct>0为好，Short时pct<0为好
-             isProfitDirection = isShort ? (pct < 0) : (pct > 0);
-        } else {
-            // 止损：通常无论Long/Short，止损位都是为了限制亏损，所以这里我们可能只关心它是pct-up还是pct-down的颜色
-            isProfitDirection = false; 
-        }
-
-        const badgeClass = isProfitDirection ? styles.pctUp : styles.pctDown;
-        
-        return <span className={`${styles.pctBadge} ${badgeClass}`}>{pctStr}</span>;
+        return <span className={`${styles.pctBadge} ${pct > 0 ? styles.pctUp : styles.pctDown}`}>{pctStr}</span>;
     };
 
     const getDecisionClass = (d: string) => {
         const lower = d?.toLowerCase() || '';
-        if (lower.includes('buy') || lower.includes('long') || lower.includes('做多')) return styles.decisionLong;
-        if (lower.includes('sell') || lower.includes('short') || lower.includes('做空')) return styles.decisionShort;
+        if (lower.includes('long') || lower.includes('buy') || lower.includes('做多')) return styles.decisionLong;
+        if (lower.includes('short') || lower.includes('sell') || lower.includes('做空')) return styles.decisionShort;
         return styles.decisionHold;
     };
 
-    // isExperimental removed as we only have original version now
+    const score = singleDecision?.score ?? 0;
+    const direction = singleDecision?.direction ?? (singleDecision?.action?.toLowerCase() ?? 'hold');
+    const resonance = singleDecision?.resonance;
+    const agentScores = singleDecision?.agent_scores;
 
     return (
         <div className={styles.panel}>
             <h4 className={styles.panelTitle}>
-                <i className="fas fa-bullseye"></i> 最终交易决策
+                <i className="fas fa-bullseye"></i> Brale Consensus Fusion
             </h4>
 
-            {(agent_version_name || decision_agent_version) && (
-                <div className={styles.aiVersionInfo}>
-                    <div className={styles.icon}>
-                        <i className="fas fa-brain fa-2x"></i>
-                    </div>
-                    <div className={styles.content}>
-                        <div className={styles.title}>
-                            <i className="fas fa-cog me-1"></i>决策智能体版本
+            {/* Fusion info */}
+            <div className={styles.aiVersionInfo}>
+                <div className={styles.icon}>
+                    <i className="fas fa-layer-group fa-2x"></i>
+                </div>
+                <div className={styles.content}>
+                    <div className={styles.title}>融合共识</div>
+                    <span className={`${styles.versionBadge} ${styles.versionStandard}`}>
+                        direction: {direction} | score: {score.toFixed(2)}
+                        {singleDecision?.confidence !== undefined && ` | conf: ${(singleDecision.confidence * 100).toFixed(0)}%`}
+                    </span>
+                    {singleDecision?.agreement !== undefined && (
+                        <div className={styles.versionDescription}>
+                            agreement: {(singleDecision.agreement * 100).toFixed(0)}%
+                            {singleDecision?.coverage !== undefined && ` | coverage: ${((singleDecision.coverage ?? 0) * 100).toFixed(0)}%`}
                         </div>
-                        {agent_version_name ? (
-                            <span className={`${styles.versionBadge} ${styles.versionStandard}`}>
-                                <i className="fas fa-shield-alt me-1"></i>{agent_version_name}
-                            </span>
-                        ) : decision_agent_version === 'original' ? (
-                            <span className={`${styles.versionBadge} ${styles.versionStandard}`}>
-                                <i className="fas fa-history me-1"></i>原始经典版
-                            </span>
-                        ) : (
-                            <span className={`${styles.versionBadge} ${styles.versionStandard}`}>
-                                <i className="fas fa-shield-alt me-1"></i>{decision_agent_version}
-                            </span>
-                        )}
-                        
-                        {agent_version_description && (
-                            <div className={styles.versionDescription}>
-                                <i className="fas fa-info-circle me-1"></i>{agent_version_description}
-                            </div>
-                        )}
+                    )}
+                </div>
+            </div>
+
+            {/* Resonance */}
+            {resonance && (
+                <div className={styles.llmInfo} style={{ borderLeft: resonance.active ? '3px solid #10b981' : '3px solid #6b7280' }}>
+                    <div className={styles.llmInfoTitle}>
+                        共振: {resonance.active ? '活跃' : '未激活'}
+                        {resonance.active && ` (${resonance.aligned_count} agents, bonus +${(resonance.bonus).toFixed(3)})`}
                     </div>
                 </div>
             )}
 
-            {llm_config && (llm_config.agent || llm_config.graph) && (
+            {/* Agent scores */}
+            {agentScores && (
                 <div className={styles.llmInfo}>
-                    <div className={styles.llmInfoTitle}>参与分析的模型与温度</div>
+                    <div className={styles.llmInfoTitle}>Agent 分项</div>
                     <div className={styles.llmInfoGrid}>
-                        {llm_config.agent && (
-                            <div className={styles.llmInfoItem}>
-                                <div className={styles.llmLabel}>Decision Agent</div>
+                        {Object.entries(agentScores).map(([name, s]: [string, any]) => (
+                            <div key={name} className={styles.llmInfoItem}>
+                                <div className={styles.llmLabel}>{name}</div>
                                 <div className={styles.llmValue}>
-                                    <span className={styles.llmModel}>{llm_config.agent.model || '未配置'}</span>
-                                    {typeof llm_config.agent.temperature === 'number' && (
-                                        <span className={styles.llmTemp}>T={llm_config.agent.temperature}</span>
-                                    )}
+                                    <span className={styles.llmModel}>score: {s.score?.toFixed(2) ?? '-'}</span>
+                                    <span className={styles.llmTemp}>conf: {((s.confidence ?? 0) * 100).toFixed(0)}%</span>
                                 </div>
                             </div>
-                        )}
-                        {llm_config.graph && (
-                            <div className={styles.llmInfoItem}>
-                                <div className={styles.llmLabel}>Graph Agent</div>
-                                <div className={styles.llmValue}>
-                                    <span className={styles.llmModel}>{llm_config.graph.model || '未配置'}</span>
-                                    {typeof llm_config.graph.temperature === 'number' && (
-                                        <span className={styles.llmTemp}>T={llm_config.graph.temperature}</span>
-                                    )}
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* LLM info */}
+            {llm_config && (
+                <div className={styles.llmInfo}>
+                    <div className={styles.llmInfoTitle}>LLM 模型</div>
+                    <div className={styles.llmInfoGrid}>
+                        {(['indicator', 'structure', 'mechanics'] as const).map(agent => {
+                            const info = llm_config[agent];
+                            if (!info) return null;
+                            return (
+                                <div key={agent} className={styles.llmInfoItem}>
+                                    <div className={styles.llmLabel}>{agent}</div>
+                                    <div className={styles.llmValue}>
+                                        <span className={styles.llmModel}>{info.model || '-'}</span>
+                                        {typeof info.temperature === 'number' && (
+                                            <span className={styles.llmTemp}>T={info.temperature}</span>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })}
                     </div>
                 </div>
             )}
 
             <div className={styles.singleModelResults}>
                 <div className="text-center mb-3">
-                    <span className={`${styles.decisionBadge} ${getDecisionClass(singleDecision?.action || singleDecision?.decision || 'HOLD')}`}>
-                        {singleDecision?.action || singleDecision?.decision || 'HOLD'}
+                    <span className={`${styles.decisionBadge} ${getDecisionClass(singleDecision?.action || direction || 'HOLD')}`}>
+                        {singleDecision?.action || 'HOLD'}
                     </span>
                 </div>
 
@@ -135,31 +128,25 @@ export default function DecisionPanel() {
                                 </div>
                             </div>
                         )}
-                         {singleDecision?.volatility_assessment && (
+                        {singleDecision?.volatility_assessment && (
                             <div className={styles.priceItem}>
-                                <div className={styles.priceLabel}>波动性评估</div>
+                                <div className={styles.priceLabel}>波动性</div>
                                 <div className={styles.priceValue}>
                                     <span className="badge bg-warning">{singleDecision.volatility_assessment}</span>
                                 </div>
                             </div>
                         )}
                         <div className={styles.priceItem}>
-                            <div className={styles.priceLabel}>预测周期</div>
+                            <div className={styles.priceLabel}>信号类型</div>
                             <div className={styles.priceValue}>
-                                {singleDecision?.forecast_horizon || '未提供'}
+                                {singleDecision?.signal_type || singleDecision?.forecast_horizon || 'next 1-2 bars'}
                             </div>
                         </div>
-                        <div className={styles.priceItem}>
-                            <div className={styles.priceLabel}>风险回报比</div>
-                            <div className={styles.priceValue}>
-                                {singleDecision?.risk_reward_ratio || singleDecision?.risk_reward || '未提供'}
-                            </div>
-                        </div>
-                         {data_method_short && analysis_time_display && (
+                        {data_method_short && analysis_time_display && (
                             <div className={styles.priceItem}>
                                 <div className={styles.priceLabel}>数据方式/时间</div>
                                 <div className={styles.priceValue}>
-                                    {data_method_short} ｜ {analysis_time_display}
+                                    {data_method_short} | {analysis_time_display}
                                 </div>
                             </div>
                         )}
@@ -179,21 +166,28 @@ export default function DecisionPanel() {
                             </div>
                         )}
 
-                        {singleDecision?.stop_loss && singleDecision.stop_loss !== '未提供' && (
+                        {singleDecision?.entry_point && singleDecision.entry_point !== latest_price && (
+                            <div className={styles.priceItem}>
+                                <div className={styles.priceLabel}>入场点</div>
+                                <div className={styles.priceValue}>{singleDecision.entry_point}</div>
+                            </div>
+                        )}
+
+                        {singleDecision?.stop_loss != null && singleDecision.stop_loss !== '未提供' && (
                             <div className={styles.priceItem}>
                                 <div className={styles.priceLabel}>止损价格</div>
                                 <div className={`${styles.priceValue} ${styles.stopLoss}`}>
-                                    {singleDecision.stop_loss}
+                                    {String(singleDecision.stop_loss)}
                                     {formatPct(latest_price, singleDecision.stop_loss as number, 'stop', singleDecision.action || singleDecision.decision)}
                                 </div>
                             </div>
                         )}
 
-                        {singleDecision?.take_profit && singleDecision.take_profit !== '未提供' && (
+                        {singleDecision?.take_profit != null && singleDecision.take_profit !== '未提供' && (
                             <div className={styles.priceItem}>
                                 <div className={styles.priceLabel}>止盈价格</div>
                                 <div className={`${styles.priceValue} ${styles.takeProfit}`}>
-                                    {singleDecision.take_profit}
+                                    {String(singleDecision.take_profit)}
                                     {formatPct(latest_price, singleDecision.take_profit as number, 'profit', singleDecision.action || singleDecision.decision)}
                                 </div>
                             </div>
@@ -208,8 +202,8 @@ export default function DecisionPanel() {
                             <span className={styles.confidenceValue}>{singleDecision.confidence_level}</span>
                         </div>
                         <div className={styles.confidenceBar}>
-                            <div className={`${styles.confidenceBarFill} ${singleDecision.confidence_level === '高' ? styles.confidenceHigh : singleDecision.confidence_level === '中' ? styles.confidenceMedium : styles.confidenceLow}`} 
-                                 style={{ width: singleDecision.confidence_level === '高' ? '85%' : singleDecision.confidence_level === '中' ? '60%' : '35%' }}>
+                            <div className={`${styles.confidenceBarFill} ${Number(singleDecision.confidence) > 0.7 ? styles.confidenceHigh : Number(singleDecision.confidence) > 0.4 ? styles.confidenceMedium : styles.confidenceLow}`} 
+                                 style={{ width: `${Math.round(Number(singleDecision.confidence) * 100)}%` }}>
                                 {singleDecision.confidence_level}
                             </div>
                         </div>

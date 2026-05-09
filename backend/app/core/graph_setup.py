@@ -1,191 +1,190 @@
 from typing import Dict
 import time
 import threading
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 import sys
 import io
-# 在文件开头添加
+import numpy as np
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 
-# 添加根目录到路径以支持绝对导入
-import sys
-from pathlib import Path
-# sys.path hack removed
-
 from app.agents.agent_state import IndicatorAgentState
-from app.agents.decision.decision_agent_original import create_final_trade_decider_original
-from app.utils.graph_util import TechnicalTools
-from app.agents.indicator_agent import create_indicator_agent
-from app.agents.pattern_agent import create_pattern_agent
-from app.agents.trend_agent import create_trend_agent
+
+# brale-core agents
+from app.agents.brale_indicator_agent import create_brale_indicator_agent
+from app.agents.brale_structure_agent import create_brale_structure_agent
+from app.agents.brale_mechanics_agent import create_brale_mechanics_agent
+
+# brale-core preprocessing
+from app.agents.preprocessing.indicator_compress import compress_indicator
+from app.agents.preprocessing.structure_compress import compress_structure
+from app.agents.preprocessing.mechanics_compress import compress_mechanics
+from app.agents.preprocessing.fusion import compute_consensus
 
 
 class SetGraph:
     def __init__(
         self,
-        indicator_llm: ChatOpenAI,
-        pattern_llm: ChatOpenAI,
-        trend_llm: ChatOpenAI,
-        decision_llm: ChatOpenAI,
-        toolkit: TechnicalTools,
-        tool_nodes: Dict[str, ToolNode],
-        decision_agent_version: str = "original",
-        include_decision_agent: bool = True,
+        indicator_llm,
+        structure_llm,
+        mechanics_llm,
     ):
         self.indicator_llm = indicator_llm
-        self.pattern_llm = pattern_llm
-        self.trend_llm = trend_llm
-        self.decision_llm = decision_llm
-        self.toolkit = toolkit
-        self.tool_nodes = tool_nodes
-        self.decision_agent_version = decision_agent_version
-        self.include_decision_agent = include_decision_agent
+        self.structure_llm = structure_llm
+        self.mechanics_llm = mechanics_llm
 
     def set_graph(self):
-        """
-        设置图结构，实现三个分析智能体顺序启动（间隔4秒和7秒），
-        决策智能体等待所有分析完成后立即执行
-        """
-        # Create analyst nodes
-        agent_nodes = {}
+        indicator_node = create_brale_indicator_agent(self.indicator_llm)
+        structure_node = create_brale_structure_agent(self.structure_llm)
+        mechanics_node = create_brale_mechanics_agent(self.mechanics_llm)
 
-        # create nodes for indicator agent - 哈雷酱修改：使用独立的 indicator_llm
-        agent_nodes["indicator"] = create_indicator_agent(self.indicator_llm, self.toolkit)
+        def compress_coordinator(state):
+            print("[brale] Compress coordinator: preprocessing data...")
 
-        # create nodes for pattern agent
-        agent_nodes["pattern"] = create_pattern_agent(
-            self.pattern_llm, self.toolkit
-        )
+            shared = state.copy()
+            kline_data = state.get("kline_data", {})
+            symbol = state.get("stock_name", "")
+            interval = state.get("time_frame", "1H")
+            derivative_data = state.get("derivative_data") or {}
+            multi_tf = state.get("multi_timeframe_mode", False)
 
-        # create nodes for trend agent
-        agent_nodes["trend"] = create_trend_agent(
-            self.trend_llm, self.toolkit
-        )
+            import pandas as pd
 
-        # create nodes for decision agent - 哈雷酱的AI版本功能！
-        try:
-            from app.agents.decision.decision_agent_factory import get_decision_agent_factory
-            factory = get_decision_agent_factory()
-            decision_agent_node = factory.create_agent(self.decision_agent_version, self.decision_llm)
-            print(f"[AI版本] 图形设置使用决策智能体版本: {self.decision_agent_version}")
-        except Exception as e:
-            print(f"[AI版本] 使用决策智能体工厂失败，回退到原始版本: {e}")
-            decision_agent_node = create_final_trade_decider_original(self.decision_llm)
+            def _ensure_df(data):
+                if isinstance(data, pd.DataFrame):
+                    return data
+                if isinstance(data, dict):
+                    try:
+                        return pd.DataFrame(data)
+                    except Exception:
+                        return None
+                return None
 
-        # create graph
-        graph = StateGraph(IndicatorAgentState)
+            if multi_tf and isinstance(kline_data, dict):
+                primary_tf = interval
+                if primary_tf in kline_data:
+                    df = _ensure_df(kline_data[primary_tf])
+                    indicator_compressed = {}
+                    structure_compressed = {}
+                    for tf, data in kline_data.items():
+                        tf_df = _ensure_df(data)
+                        if tf_df is None:
+                            continue
+                        try:
+                            indicator_compressed[tf] = compress_indicator(tf_df, tf, symbol)
+                        except Exception as e:
+                            print(f"[brale] Indicator compress failed for {tf}: {e}")
+                        try:
+                            structure_compressed[tf] = compress_structure(tf_df, tf, symbol)
+                        except Exception as e:
+                            print(f"[brale] Structure compress failed for {tf}: {e}")
+                    shared["indicator_compressed"] = indicator_compressed.get(primary_tf) if indicator_compressed else None
+                    shared["structure_compressed"] = structure_compressed.get(primary_tf) if structure_compressed else None
+                    shared["indicator_compressed_all"] = indicator_compressed
+                    shared["structure_compressed_all"] = structure_compressed
+                    print(f"[brale] Multi-TF compressed: {list(indicator_compressed.keys())}")
+                else:
+                    df = None
+            else:
+                df = _ensure_df(kline_data)
 
-        # add rest of the nodes
-        if self.include_decision_agent:
-            graph.add_node("Decision Maker", decision_agent_node)
+            if df is None or df.empty:
+                print("[brale] WARNING: empty/unusable DataFrame")
+                return shared
 
-        # 创建并行启动协调器
-        def sequential_start_coordinator(state):
-            """
-            协调三个分析智能体的顺序启动
-            """
-            print("🚀 开始顺序启动分析智能体...")
+            col_map = {c.lower(): c for c in df.columns}
+            for std in ["open", "high", "low", "close", "volume"]:
+                if std in col_map and col_map[std] != std.capitalize():
+                    df = df.rename(columns={col_map[std]: std.capitalize()})
 
-            # 创建共享状态和结果收集器
-            shared_state = state.copy()
-            results = {}
-            completion_events = {}
-
-            def run_agent_with_delay(agent_name, agent_node, delay):
-                """
-                延迟启动智能体并收集结果
-                """
-                if delay > 0:
-                    print(f"⏳ {agent_name} 智能体将在 {delay} 秒后启动...")
-                    time.sleep(delay)
-
-                print(f"🔄 启动 {agent_name} 智能体...")
+            if not multi_tf or not isinstance(kline_data, dict):
                 try:
-                    result = agent_node(shared_state)
-                    results[agent_name] = result
-                    completion_events[agent_name] = True
-                    print(f"✅ {agent_name} 智能体完成")
-                    return result
+                    shared["indicator_compressed"] = compress_indicator(df, interval, symbol)
+                    print("[brale] Indicator compressed OK")
                 except Exception as e:
-                    print(f"❌ {agent_name} 智能体失败: {e}")
-                    results[agent_name] = {"error": str(e)}
-                    completion_events[agent_name] = True
-                    return {"error": str(e)}
+                    print(f"[brale] Indicator compress failed: {e}")
+                try:
+                    shared["structure_compressed"] = compress_structure(df, interval, symbol)
+                    print("[brale] Structure compressed OK")
+                except Exception as e:
+                    print(f"[brale] Structure compress failed: {e}")
 
-            # 启动三个分析智能体，间隔调整为4秒和7秒（更安全）
+            try:
+                mech_df = df
+                if multi_tf and isinstance(kline_data, dict) and interval in kline_data:
+                    mech_df = _ensure_df(kline_data[interval]) or df
+                shared["mechanics_compressed"] = compress_mechanics(
+                    ohlcv_data=mech_df,
+                    oi_snapshot=derivative_data.get("oi"),
+                    oi_history=derivative_data.get("oi_history"),
+                    funding_history=derivative_data.get("funding_history"),
+                    long_short_history=derivative_data.get("long_short_history"),
+                    taker_volume_history=derivative_data.get("taker_volume_history"),
+                    liquidation_orders=derivative_data.get("liquidation_orders"),
+                    symbol=symbol, interval=interval,
+                )
+                print("[brale] Mechanics compressed OK")
+            except Exception as e:
+                print(f"[brale] Mechanics compress failed: {e}")
+
+            return shared
+
+        def brale_agent_coordinator(state):
+            print("[brale] Launching 3 analysis agents in parallel...")
+            shared = state.copy()
+            results = {}
+
+            def run_agent(name, node_fn):
+                print(f"[brale] Running {name} agent...")
+                try:
+                    result = node_fn(shared)
+                    results[name] = result
+                    print(f"[brale] {name} agent done")
+                except Exception as e:
+                    print(f"[brale] {name} agent FAILED: {e}")
+                    results[name] = {"error": str(e)}
+
             with ThreadPoolExecutor(max_workers=3) as executor:
-                # 提交任务，分别延迟 0, 5.0, 8.0 秒
                 futures = [
-                    executor.submit(run_agent_with_delay, "Indicator", agent_nodes["indicator"], 0),
-                    executor.submit(run_agent_with_delay, "Pattern", agent_nodes["pattern"], 5.0),
-                    executor.submit(run_agent_with_delay, "Trend", agent_nodes["trend"], 8.0)
+                    executor.submit(run_agent, "indicator", indicator_node),
+                    executor.submit(run_agent, "structure", structure_node),
+                    executor.submit(run_agent, "mechanics", mechanics_node),
                 ]
+                for f in futures:
+                    f.result()
 
-                # 等待所有任务完成
-                for future in futures:
-                    future.result()
+            for name, result in results.items():
+                key_map = {
+                    "indicator": "indicator_summary",
+                    "structure": "structure_summary",
+                    "mechanics": "mechanics_summary",
+                }
+                out_key = key_map.get(name)
+                if out_key and out_key in result and result[out_key] is not None:
+                    shared[out_key] = result[out_key]
 
-            if self.include_decision_agent:
-                print("🎉 所有分析智能体完成，准备启动决策智能体...")
+            return shared
 
-            # 整合所有分析结果到状态中
-            combined_messages = []
-            for agent_name, result in results.items():
-                if "messages" in result and result["messages"]:
-                    combined_messages.extend(result["messages"])
+        def fusion_node(state):
+            print("[brale] Computing consensus fusion...")
+            result = compute_consensus(
+                indicator_summary=state.get("indicator_summary"),
+                structure_summary=state.get("structure_summary"),
+                mechanics_summary=state.get("mechanics_summary"),
+            )
+            print(f"[brale] Fusion: direction={result['direction']} score={result['score']} conf={result['confidence']}")
+            return {"fusion_result": result}
 
-                # 保存各个智能体的报告
-                if f"{agent_name.lower()}_report" in result:
-                    shared_state[f"{agent_name.lower()}_report"] = result[f"{agent_name.lower()}_report"]
+        graph = StateGraph(IndicatorAgentState)
+        graph.add_node("compress", compress_coordinator)
+        graph.add_node("agents", brale_agent_coordinator)
+        graph.add_node("fusion", fusion_node)
 
-                # 保存计算数据和图像
-                if "indicators_data" in result:
-                    shared_state["indicators_data"] = result["indicators_data"]
-                
-                # 单周期图表
-                if "pattern_image" in result:
-                    shared_state["pattern_image"] = result["pattern_image"]
-                if "trend_image" in result:
-                    shared_state["trend_image"] = result["trend_image"]
-                
-                # 多周期图表 (哈雷酱修复：支持多周期数据传递)
-                if "pattern_images" in result:
-                    shared_state["pattern_images"] = result["pattern_images"]
-                if "trend_images" in result:
-                    shared_state["trend_images"] = result["trend_images"]
-                if "multi_timeframe_mode" in result:
-                    shared_state["multi_timeframe_mode"] = result["multi_timeframe_mode"]
-                if "timeframes" in result:
-                    shared_state["timeframes"] = result["timeframes"]
-
-                # 哈雷酱添加：保存价格信息和指标数据（从技术指标智能体获取）
-                if agent_name.lower() == "indicator":
-                    if "latest_price" in result:
-                        shared_state["latest_price"] = result["latest_price"]
-                    if "price_info" in result:
-                        shared_state["price_info"] = result["price_info"]
-                    if "indicator_data" in result:
-                        shared_state["indicator_data"] = result["indicator_data"]
-
-            shared_state["messages"] = combined_messages
-            shared_state["analysis_results"] = results
-
-            return shared_state
-
-        # 添加协调器节点
-        graph.add_node("Sequential Coordinator", sequential_start_coordinator)
-
-        # set start of graph
-        graph.add_edge(START, "Sequential Coordinator")
-        if self.include_decision_agent:
-            graph.add_edge("Sequential Coordinator", "Decision Maker")
-            graph.add_edge("Decision Maker", END)
-        else:
-            graph.add_edge("Sequential Coordinator", END)
+        graph.add_edge(START, "compress")
+        graph.add_edge("compress", "agents")
+        graph.add_edge("agents", "fusion")
+        graph.add_edge("fusion", END)
 
         return graph.compile()

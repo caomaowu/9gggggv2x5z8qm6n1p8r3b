@@ -73,15 +73,8 @@ function App() {
                     asset_name: result.asset || result.asset_name,
                     timeframe: result.timeframe,
                     data_length: result.data_length || (result.kline_data ? result.kline_data.length : 0),
-                    // Ensure charts are mapped if they exist in result
-                    pattern_chart: result.pattern_chart || result.pattern_image,
-                    trend_chart: result.trend_chart || result.trend_image,
-                    // Safe multi-timeframe fields
                     multi_timeframe_mode: multiTimeframeMode,
                     timeframes: timeframes,
-                    // Safe image objects
-                    trend_images: trend_images,
-                    pattern_images: pattern_images
                 };
                 
                 setAnalysisResult(enrichedResult);

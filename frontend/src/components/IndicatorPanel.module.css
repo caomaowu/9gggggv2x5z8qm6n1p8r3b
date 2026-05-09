@@ -1,63 +1,70 @@
-.largePanel {
+.panel {
     background: var(--white);
     border: 2px solid var(--gray-200);
     border-radius: 16px;
     padding: 1rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-    font-synthesis: none;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
 }
 
-.largePanel:hover {
-    border-color: var(--etrade-purple-light);
-    box-shadow: 0 8px 24px rgba(86, 39, 216, 0.1);
-    transform: translateY(-2px);
-}
-
-.largePanelTitle {
+.panelTitle {
     color: var(--color-text-primary);
     font-weight: 600;
-    font-size: 1.3rem;
-    margin: 0.3rem 0 1rem 0;
-    padding-bottom: 0.5rem;
+    font-size: 1.05rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.4rem;
     border-bottom: 2px solid var(--gray-100);
     display: flex;
     align-items: center;
-    gap: 0.8rem;
+    gap: 0.5rem;
 }
 
-.largePanelTitle i {
-    font-size: 2rem;
-    color: var(--etrade-purple-light);
-    background: linear-gradient(135deg, var(--etrade-purple-light) 0%, var(--etrade-purple) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
 }
 
-.largePanelSection {
+.item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.35rem 0.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.label {
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.section {
     margin-bottom: 0.6rem;
+    font-size: 0.85rem;
+    color: #374151;
 }
 
-.largePanelSection:last-child {
-    margin-bottom: 0;
+.section strong {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.8rem;
+    color: #6b7280;
 }
 
-/* Fallback list style */
-.fallbackList ul {
-    list-style: none;
-    padding: 0;
-}
-
-.fallbackList li {
-    margin-bottom: 0.5rem;
-    color: var(--gray-600);
-}
-
-.fallbackList strong {
-    color: var(--gray-800);
-    margin-right: 0.5rem;
+.emptyState {
+    padding: 2rem;
+    text-align: center;
+    color: #9ca3af;
+    font-size: 0.9rem;
 }

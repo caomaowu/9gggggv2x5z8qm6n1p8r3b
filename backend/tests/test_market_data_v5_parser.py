@@ -4,7 +4,7 @@ Unit tests for market_data_v5_parser.py — pure functions, no network.
 import pandas as pd
 import pytest
 
-from backend.app.services.market_data_v5_parser import (
+from app.services.market_data_v5_parser import (
     is_v5_success,
     get_v5_data,
     parse_v5_ohlcv_to_dataframe,

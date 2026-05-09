@@ -21,7 +21,7 @@ export const clearHistoryData = async (): Promise<SystemCleanResponse> => {
     return response.data;
 };
 
-// LLM Configuration Types
+// ---- Brale LLM Configuration Types ----
 
 export interface LLMProviderInfo {
     name: string;
@@ -29,21 +29,32 @@ export interface LLMProviderInfo {
     graph_models: string[];
 }
 
+export interface BraleAgentConfig {
+    provider: string;
+    model: string;
+    temperature: number;
+}
+
 export interface LLMConfigCurrent {
     agent_provider: string;
     agent_model: string;
     agent_temperature: number;
-    graph_provider: string;
-    graph_model: string;
-    graph_temperature: number;
-    decision_agent_version?: string;
+    // brale per-agent
+    indicator_provider?: string;
+    indicator_model?: string;
+    indicator_temperature?: number;
+    structure_provider?: string;
+    structure_model?: string;
+    structure_temperature?: number;
+    mechanics_provider?: string;
+    mechanics_model?: string;
+    mechanics_temperature?: number;
 }
 
 export interface LLMConfigResponse {
     current: LLMConfigCurrent;
     options: {
         providers: Record<string, LLMProviderInfo>;
-        decision_versions?: Array<{ id: string; name: string }>;
     };
 }
 
@@ -51,10 +62,15 @@ export interface LLMConfigUpdate {
     agent_provider?: string;
     agent_model?: string;
     agent_temperature?: number;
-    graph_provider?: string;
-    graph_model?: string;
-    graph_temperature?: number;
-    decision_agent_version?: string;
+    indicator_provider?: string;
+    indicator_model?: string;
+    indicator_temperature?: number;
+    structure_provider?: string;
+    structure_model?: string;
+    structure_temperature?: number;
+    mechanics_provider?: string;
+    mechanics_model?: string;
+    mechanics_temperature?: number;
 }
 
 export const getLLMConfig = async (): Promise<LLMConfigResponse> => {
@@ -64,43 +80,5 @@ export const getLLMConfig = async (): Promise<LLMConfigResponse> => {
 
 export const updateLLMConfig = async (config: LLMConfigUpdate): Promise<any> => {
     const response = await apiClient.post('/system/llm-config', config);
-    return response.data;
-};
-
-// Thinking Mode Types
-
-export interface ThinkingModeConfig {
-    indicator: boolean;
-    pattern: boolean;
-    trend: boolean;
-    decision: boolean;
-    
-    // 推理深度
-    indicator_effort?: string;
-    pattern_effort?: string;
-    trend_effort?: string;
-    decision_effort?: string;
-}
-
-export interface ThinkingModeUpdate {
-    indicator_thinking_mode?: boolean;
-    pattern_thinking_mode?: boolean;
-    trend_thinking_mode?: boolean;
-    decision_thinking_mode?: boolean;
-    
-    // 推理深度
-    indicator_reasoning_effort?: string;
-    pattern_reasoning_effort?: string;
-    trend_reasoning_effort?: string;
-    decision_reasoning_effort?: string;
-}
-
-export const getThinkingModeConfig = async (): Promise<ThinkingModeConfig> => {
-    const response = await apiClient.get<ThinkingModeConfig>('/system/thinking-mode');
-    return response.data;
-};
-
-export const updateThinkingModeConfig = async (config: ThinkingModeUpdate): Promise<any> => {
-    const response = await apiClient.post('/system/thinking-mode', config);
     return response.data;
 };

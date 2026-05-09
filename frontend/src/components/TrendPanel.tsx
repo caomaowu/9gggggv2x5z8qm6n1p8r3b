@@ -3,95 +3,71 @@ import AutoBeautify from './AutoBeautify';
 import styles from './TrendPanel.module.css';
 
 export default function TrendPanel() {
-    const { analysisResult } = useAppStore();
-    if (!analysisResult) return null;
+  const { analysisResult } = useAppStore();
+  if (!analysisResult) return null;
 
-    const { 
-        trend_analysis, 
-        trend_report, 
-        trend_chart,
-        trend_image,
-        trend_images,
-        multi_timeframe_mode
-    } = analysisResult;
-    
-    const content = trend_analysis || trend_report;
-    
-    // 判断是否为多时间框架模式
-    const isMultiTF = multi_timeframe_mode && trend_images && Object.keys(trend_images).length > 0;
-    // 单时间框架图表（兼容多个字段名）
-    const singleChart = trend_chart || trend_image;
-
+  const mechanics = analysisResult.mechanics_summary;
+  if (!mechanics) {
     return (
-        <div className={styles.largePanel}>
-            <h3 className={styles.largePanelTitle}>
-                <i className="fas fa-chart-line"></i> 趋势分析智能体
-            </h3>
-            <div className={styles.largePanelContent}>
-                <div className={styles.panelGroup}>
-                    <div className={styles.panel}>
-                        <h4 className={styles.panelTitle}>
-                            <i className="fas fa-analytics"></i> 趋势分析
-                        </h4>
-                        <div className={styles.formGroup} id="trend-analysis-content">
-                            {content ? (
-                                <AutoBeautify content={content} />
-                            ) : (
-                                <div className={styles.emptyState}>
-                                    <i className="fas fa-chart-line"></i>
-                                    <h5>趋势分析结果不可用</h5>
-                                    <p>请重新运行分析以获取趋势分析结果</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className={styles.panel}>
-                        <h4 className={styles.panelTitle}>
-                            <i className="fas fa-chart-line"></i> 趋势可视化
-                        </h4>
-                        <div className={styles.chartContainer}>
-                            {isMultiTF ? (
-                                // 多时间框架模式：网格布局同时展示多张图表
-                                <div className={styles.multiChartGrid}>
-                                    {Object.entries(trend_images).map(([tf, img]) => (
-                                        <div key={tf} className={styles.chartGridItem}>
-                                            <div className={styles.timeframeLabel}>{tf}</div>
-                                            <img 
-                                                src={`data:image/png;base64,${img}`}
-                                                alt={`${tf} 趋势图`}
-                                                className={styles.chartImage}
-                                                loading="lazy" 
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                // 单时间框架模式：保持原有布局
-                                <div className={styles.chartWrapper}>
-                                    {singleChart ? (
-                                        <div className={styles.chartImageWrapper}>
-                                            <img 
-                                                src={`data:image/png;base64,${singleChart}`}
-                                                alt="趋势分析图表"
-                                                className={styles.chartImage}
-                                                loading="lazy" 
-                                            />
-                                            <div className={styles.chartCaption}>支撑线与阻力线分析</div>
-                                        </div>
-                                    ) : (
-                                        <div className={styles.chartPlaceholder}>
-                                            <div className={styles.loadingSpinner}></div>
-                                            <h5>加载趋势图表中...</h5>
-                                            <p>正在生成趋势分析图表和支撑阻力线</p>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+      <div className={styles.panel}>
+        <h3 className={styles.panelTitle}>
+          <i className="fas fa-cogs"></i> 机制分析 Agent
+        </h3>
+        <div className={styles.emptyState}>暂无机制分析数据</div>
+      </div>
     );
+  }
+
+  const scoreColor = mechanics.movement_score >= 0.3 ? '#10b981'
+    : mechanics.movement_score <= -0.3 ? '#ef4444'
+    : '#6b7280';
+
+  return (
+    <div className={styles.panel}>
+      <h3 className={styles.panelTitle}>
+        <i className="fas fa-cogs"></i> 机制分析 Agent
+        <span style={{ float: 'right', fontSize: '0.9rem', color: scoreColor }}>
+          score: {mechanics.movement_score?.toFixed(2)}
+          <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', color: '#9ca3af' }}>
+            conf: {((mechanics.movement_confidence ?? 0) * 100).toFixed(0)}%
+          </span>
+        </span>
+      </h3>
+
+      <div className={styles.grid}>
+        <div className={styles.item}>
+          <span className={styles.label}>杠杆状态</span>
+          <span className={`${styles.badge} ${styles[`badge_${mechanics.leverage_state}`] || ''}`}>{mechanics.leverage_state}</span>
+        </div>
+        <div className={styles.item}>
+          <span className={styles.label}>持仓拥挤</span>
+          <span className={`${styles.badge} ${styles[`badge_${mechanics.crowding}`] || ''}`}>{mechanics.crowding}</span>
+        </div>
+        <div className={styles.item}>
+          <span className={styles.label}>风险等级</span>
+          <span className={`${styles.badge} ${styles[`badge_${mechanics.risk_level}`] || ''}`}>{mechanics.risk_level}</span>
+        </div>
+      </div>
+
+      {mechanics.open_interest_context && (
+        <div className={styles.section}>
+          <strong>OI / 资金费率</strong>
+          <AutoBeautify content={mechanics.open_interest_context} />
+        </div>
+      )}
+
+      {mechanics.anomaly_detail && mechanics.anomaly_detail !== '无明显异常' && (
+        <div className={styles.section} style={{ borderLeft: '3px solid #ef4444', paddingLeft: '0.5rem' }}>
+          <strong style={{ color: '#dc2626' }}>异常信号</strong>
+          <AutoBeautify content={mechanics.anomaly_detail} />
+        </div>
+      )}
+
+      {mechanics.next_focus && (
+        <div className={styles.section} style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+          <strong>下轮关注</strong>: {mechanics.next_focus}
+        </div>
+      )}
+    </div>
+  );
 }

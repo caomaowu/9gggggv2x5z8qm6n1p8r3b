@@ -1,0 +1,249 @@
+"""
+mechanics_compress.py — Derivatives-market mechanics compression.
+
+Replicates brale-core-master internal/decision/features/mechanics_compress.go.
+
+Aggregates:
+    - Open Interest (snapshot + history change)
+    - Funding Rate
+    - Long/Short account ratio
+    - Taker volume ratio (buy/sell)
+    - CVD (Cumulative Volume Delta, estimated from taker data)
+    - Fear & Greed (placeholder via external API)
+    - Liquidation orders (recent window)
+
+Key constraint: rubik endpoints do NOT support `after` pagination.
+Missing data is explicitly marked.
+"""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass
+from typing import Any
+
+import numpy as np
+import pandas as pd
+
+
+@dataclass
+class MechanicsCompressOptions:
+    require_oi: bool = True
+    require_funding: bool = True
+    require_long_short: bool = True
+    require_fear_greed: bool = True
+    require_liquidations: bool = False
+    require_cvd: bool = True
+    require_futures_sentiment: bool = True
+
+
+DEFAULT_MECHANICS_OPTIONS = MechanicsCompressOptions()
+
+
+# ======================================================================
+# Helper: parse timeframe strings like "5m", "1H", "4H" for window sizes
+# ======================================================================
+
+_TIMEFRAME_MINUTES: dict[str, int] = {
+    "1m": 1, "3m": 3, "5m": 5, "15m": 15, "30m": 30,
+    "1H": 60, "4H": 240, "1D": 1440, "1W": 10080,
+}
+
+
+def _tf_minutes(tf: str) -> int:
+    return _TIMEFRAME_MINUTES.get(tf, 60)
+
+
+# ======================================================================
+# Main compress
+# ======================================================================
+
+
+def compress_mechanics(
+    ohlcv_data: pd.DataFrame | None = None,
+    oi_snapshot: dict | None = None,
+    oi_history: list[dict] | None = None,
+    funding_history: list[dict] | None = None,
+    long_short_history: list[dict] | None = None,
+    taker_volume_history: list[dict] | None = None,
+    liquidation_orders: list[dict] | None = None,
+    symbol: str = "",
+    interval: str = "1H",
+    opts: MechanicsCompressOptions | None = None,
+) -> dict[str, Any]:
+    if opts is None:
+        opts = DEFAULT_MECHANICS_OPTIONS
+
+    now_ts = int(time.time() * 1000)
+    out: dict[str, Any] = {"symbol": symbol, "timestamp": pd.Timestamp.now(tz="UTC").isoformat()}
+
+    current_price = None
+    price_ts = ""
+    if ohlcv_data is not None and len(ohlcv_data) > 0:
+        closes = ohlcv_data["Close"].values.astype(np.float64)
+        current_price = float(closes[-1]) if len(closes) else None
+        if isinstance(ohlcv_data.index, pd.DatetimeIndex):
+            price_ts = str(ohlcv_data.index[-1])
+
+    # --- OI snapshot ---
+    if opts.require_oi:
+        oi_val = None
+        oi_ts = ""
+        if oi_snapshot:
+            oi_val = oi_snapshot.get("oi")
+            oi_ts = oi_snapshot.get("ts", "")
+        out["oi"] = {
+            "value": oi_val,
+            "timestamp": oi_ts,
+            "price": current_price,
+            "price_timestamp": price_ts,
+            "missing": oi_snapshot is None,
+        }
+    else:
+        out["oi"] = {"value": None, "timestamp": "", "price": current_price,
+                      "price_timestamp": price_ts, "missing": True}
+
+    # --- OI history (change over time) ---
+    oi_by_interval: dict[str, Any] = {}
+    if opts.require_oi and oi_history:
+        oi_vals = [r.get("oi", 0) for r in oi_history if r.get("oi") is not None]
+        if len(oi_vals) >= 2:
+            first_oi = oi_vals[0]
+            last_oi = oi_vals[-1]
+            change_pct = round(((last_oi - first_oi) / abs(first_oi)) * 100, 4) if abs(first_oi) > 1e-12 else 0.0
+        else:
+            change_pct = 0.0
+        latest_oi = oi_vals[-1] if oi_vals else None
+        oi_by_interval[interval] = {
+            "value": latest_oi,
+            "change_pct": change_pct,
+            "price": current_price,
+            "price_change_pct": 0.0,
+            "missing": False,
+        }
+    else:
+        oi_by_interval[interval] = {"value": None, "change_pct": 0.0, "price": current_price,
+                                     "price_change_pct": 0.0, "missing": True}
+    out["oi_history"] = oi_by_interval
+
+    # --- Funding rate ---
+    if opts.require_funding:
+        rate = None
+        rate_ts = ""
+        if funding_history and len(funding_history) > 0:
+            rate = funding_history[0].get("fundingRate") or funding_history[0].get("rate")
+            rate_ts = funding_history[0].get("fundingTime", "")
+        out["funding"] = {
+            "rate": rate,
+            "timestamp": rate_ts,
+            "missing": funding_history is None or len(funding_history) == 0,
+        }
+    else:
+        out["funding"] = {"rate": None, "timestamp": "", "missing": True}
+
+    # --- Long/Short ratio ---
+    ls_by_interval: dict[str, Any] = {}
+    if opts.require_long_short:
+        if long_short_history and len(long_short_history) > 0:
+            latest = long_short_history[-1]
+            rs = latest.get("longShortRatio") or latest.get("ls_ratio")
+            ls_by_interval[interval] = {
+                "ratio": rs,
+                "long_ratio": latest.get("longRatio"),
+                "short_ratio": latest.get("shortRatio"),
+                "timestamp": latest.get("ts", ""),
+                "missing": False,
+            }
+        else:
+            ls_by_interval[interval] = {"ratio": None, "timestamp": "", "missing": True}
+    else:
+        ls_by_interval[interval] = {"ratio": None, "timestamp": "", "missing": True}
+    out["long_short_by_interval"] = ls_by_interval
+
+    # --- CVD (estimated from taker volume ratio) ---
+    cvd_by_interval: dict[str, Any] = {}
+    if opts.require_cvd:
+        if taker_volume_history and len(taker_volume_history) > 0:
+            buy_cum = 0.0; sell_cum = 0.0
+            for r in taker_volume_history:
+                buy_cum += r.get("buyVol", 0)
+                sell_cum += r.get("sellVol", 0)
+            cvd_val = round(buy_cum - sell_cum, 4)
+            total_vol = buy_cum + sell_cum
+            normalized = round(cvd_val / total_vol, 4) if total_vol > 1e-12 else 0.0
+            momentum = "buying" if normalized > 0.05 else ("selling" if normalized < -0.05 else "neutral")
+            divergence = "none"
+            cvd_by_interval[interval] = {
+                "value": cvd_val,
+                "momentum": momentum,
+                "normalized": normalized,
+                "divergence": divergence,
+                "peak_flip": "none",
+                "timestamp": taker_volume_history[0].get("ts", ""),
+                "missing": False,
+            }
+        else:
+            cvd_by_interval[interval] = {"value": None, "momentum": "neutral",
+                                          "normalized": 0.0, "divergence": "none",
+                                          "peak_flip": "none", "timestamp": "", "missing": True}
+    else:
+        cvd_by_interval[interval] = {"value": None, "momentum": "neutral",
+                                      "normalized": 0.0, "divergence": "none",
+                                      "peak_flip": "none", "timestamp": "", "missing": True}
+    out["cvd_by_interval"] = cvd_by_interval
+
+    # --- Fear & Greed (placeholder) ---
+    out["fear_greed"] = {"value": None, "timestamp": "", "missing": True}
+    out["fear_greed_history"] = []
+
+    # --- Liquidations ---
+    if opts.require_liquidations:
+        if liquidation_orders and len(liquidation_orders) > 0:
+            long_liq = sum(r.get("sz", 0) for r in liquidation_orders if r.get("posSide") == "long")
+            short_liq = sum(r.get("sz", 0) for r in liquidation_orders if r.get("posSide") == "short")
+            total_liq = long_liq + short_liq
+            imbalance = round((long_liq - short_liq) / total_liq, 4) if total_liq > 1e-12 else 0.0
+            out["liquidations"] = {
+                "volume": round(total_liq, 4),
+                "long_vol": round(long_liq, 4),
+                "short_vol": round(short_liq, 4),
+                "imbalance": imbalance,
+                "count": len(liquidation_orders),
+                "timestamp": liquidation_orders[0].get("ts", ""),
+                "missing": False,
+            }
+            out["liquidations_by_window"] = {
+                "5m": {"long_vol": round(long_liq, 4), "short_vol": round(short_liq, 4),
+                       "total_vol": round(total_liq, 4), "imbalance": imbalance},
+            }
+            out["liquidation_source"] = "order_book"
+        else:
+            out["liquidations"] = {"volume": None, "timestamp": "", "missing": True}
+            out["liquidation_source"] = "unavailable"
+    else:
+        out["liquidations"] = {"volume": None, "timestamp": "", "missing": True}
+        out["liquidation_source"] = "disabled"
+
+    # --- Futures sentiment (placeholder) ---
+    out["futures_sentiment"] = {
+        "top_trader_lsr": None, "ls_ratio": None,
+        "taker_long_short_vol_ratio": None, "timestamp": "",
+        "missing": True,
+    }
+
+    # --- Metadata ---
+    out["_meta"] = {
+        "version": "mechanics_compress_v1",
+        "timestamp_now_ts": now_ts,
+    }
+
+    # Check has_data
+    has_any = False
+    for key in ["oi", "funding", "long_short_by_interval", "cvd_by_interval", "liquidations"]:
+        v = out.get(key, {})
+        if isinstance(v, dict) and not v.get("missing", True):
+            has_any = True
+            break
+    out["_meta"]["has_any_data"] = has_any
+
+    return out

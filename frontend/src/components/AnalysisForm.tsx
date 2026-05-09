@@ -14,7 +14,6 @@ export default function AnalysisForm() {
         dataMethod, klineCount, futureKlineCount,
         startDate, startTime, endDate, endTime, useCurrentTime,
         multiTimeframeMode, selectedTimeframes,
-        decisionAgentVersion,
         setAnalysisResult,
         setLatestResultId,
         continuousMode, setContinuousMode, triggerHistoryRefresh
@@ -63,12 +62,11 @@ export default function AnalysisForm() {
         const request: AnalyzeRequest = {
             asset: selectedAsset,
             timeframe: multiTimeframeMode ? selectedTimeframes[0] : selectedTimeframe,
-            data_source: 'quant_api', // Default
+            data_source: 'quant_api',
             data_method: dataMethod,
             kline_count: klineCount,
             future_kline_count: futureKlineCount,
             use_current_time: useCurrentTime,
-            ai_version: decisionAgentVersion,
             start_date: startDate || undefined,
             start_time: startTime || undefined,
             end_date: endDate || undefined,
@@ -119,9 +117,7 @@ export default function AnalysisForm() {
                 ...result,
                 asset_name: selectedAsset,
                 timeframe: selectedTimeframe,
-                data_length: klineCount, // 或者使用后端返回的实际数据点数
-                pattern_chart: result.pattern_chart || result.pattern_image,
-                trend_chart: result.trend_chart || result.trend_image,
+                data_length: klineCount,
                 multi_timeframe_mode: multiTimeframeMode,
                 timeframes: selectedTimeframes
             };

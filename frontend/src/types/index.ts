@@ -23,6 +23,10 @@ export interface LLMRuntimeInfo {
 export interface LLMRuntimeConfig {
   agent?: LLMRuntimeInfo;
   graph?: LLMRuntimeInfo;
+  // brale per-agent
+  indicator?: LLMRuntimeInfo;
+  structure?: LLMRuntimeInfo;
+  mechanics?: LLMRuntimeInfo;
 }
 
 export interface AnalyzeRequest {
@@ -37,29 +41,96 @@ export interface AnalyzeRequest {
   end_date?: string;
   end_time?: string;
   use_current_time: boolean;
+  /** @deprecated — removed in brale migration, kept for backward compat */
   ai_version?: string;
   multi_timeframe_mode?: boolean;
   timeframes?: string[];
 }
 
+// ---- brale agent summary types ----
+
+export interface AgentScore {
+  score: number;
+  confidence: number;
+}
+
+export interface ResonanceInfo {
+  active: boolean;
+  bonus: number;
+  aligned_count: number;
+}
+
+export interface FusionResult {
+  direction: "long" | "short" | "none";
+  score: number;
+  confidence: number;
+  agreement: number;
+  coverage: number;
+  resonance: ResonanceInfo;
+  agents: {
+    indicator: AgentScore;
+    structure: AgentScore;
+    mechanics: AgentScore;
+  };
+}
+
+export interface IndicatorSummary {
+  expansion: string;
+  alignment: string;
+  noise: string;
+  momentum_detail: string;
+  conflict_detail: string;
+  movement_score: number;
+  movement_confidence: number;
+  next_focus: string;
+}
+
+export interface StructureSummary {
+  regime: string;
+  last_break: string;
+  quality: string;
+  pattern: string;
+  volume_action: string;
+  candle_reaction: string;
+  movement_score: number;
+  movement_confidence: number;
+  next_focus: string;
+}
+
+export interface MechanicsSummary {
+  leverage_state: string;
+  crowding: string;
+  risk_level: string;
+  open_interest_context: string;
+  anomaly_detail: string;
+  movement_score: number;
+  movement_confidence: number;
+  next_focus: string;
+}
+
+// ---- decision (derived from Fusion) ----
+
 export interface DecisionResult {
   action: string;
-  decision?: string; // 为了兼容性
+  decision?: string;
+  direction?: string;
+  score?: number;
   confidence: number;
+  confidence_level?: string;
   reasoning: string;
-  justification?: string; // 兼容性
+  justification?: string;
   signal_type?: string;
   entry_point?: number;
-  stop_loss?: number | string; // 允许 '未提供'
-  take_profit?: number | string; // 允许 '未提供'
+  stop_loss?: number | string | null;
+  take_profit?: number | string | null;
   market_environment?: string;
   volatility_assessment?: string;
   forecast_horizon?: string;
-  risk_reward_ratio?: string;
-  risk_reward?: string;
-  confidence_level?: string;
-  time_horizon?: string;
-  model_name?: string;
+  risk_reward_ratio?: string | null;
+  agreement?: number;
+  resonance?: ResonanceInfo;
+  agent_scores?: Record<string, AgentScore>;
+  fusion_raw?: FusionResult;
   [key: string]: unknown;
 }
 
@@ -86,37 +157,54 @@ export interface AnalysisResult {
   future_kline_data?: FutureKlineDataRow[];
   future_15m_chart_base64?: string;
   future_15m_kline_data?: FutureKlineDataRow[];
-  indicator_report?: string;
-  technical_indicators?: string;
-  pattern_report?: string;
-  pattern_analysis?: string;
-  trend_report?: string;
-  trend_analysis?: string;
   latest_price?: number;
   price_info?: Record<string, unknown>;
   messages?: unknown[];
-  agent_version_name?: string;
-  agent_version_description?: string;
-  decision_agent_version?: string;
   result_id?: string;
   data_method_short?: string;
   analysis_time_display?: string;
-  
-  // 多时间框架支持
   multi_timeframe_mode?: boolean;
   timeframes?: string[];
-
   llm_config?: LLMRuntimeConfig;
-  
-  // 模式识别图表
-  pattern_chart?: string;              // 单时间框架(向后兼容)
-  pattern_image?: string;              // 单时间框架(向后兼容别名)
-  pattern_images?: Record<string, string>; // 多时间框架
-  
-  // 趋势分析图表
-  trend_chart?: string;                // 单时间框架(向后兼容)
-  trend_image?: string;                // 单时间框架(向后兼容别名)
-  trend_images?: Record<string, string>;   // 多时间框架
-  
+
+  // ---- brale structured data ----
+  fusion_result?: FusionResult;
+  indicator_summary?: IndicatorSummary;
+  structure_summary?: StructureSummary;
+  mechanics_summary?: MechanicsSummary;
+  market_data?: Record<string, unknown>;
+
+  // ---- deprecated (kept for backward compat, no longer populated) ----
+  /** @deprecated use indicator_summary */
+  indicator_report?: string;
+  /** @deprecated use indicator_summary */
+  technical_indicators?: string;
+  /** @deprecated use structure_summary */
+  pattern_report?: string;
+  /** @deprecated use structure_summary */
+  pattern_analysis?: string;
+  /** @deprecated use mechanics_summary */
+  trend_report?: string;
+  /** @deprecated use mechanics_summary */
+  trend_analysis?: string;
+  /** @deprecated brale agents don't generate images */
+  pattern_chart?: string;
+  /** @deprecated */
+  pattern_image?: string;
+  /** @deprecated */
+  pattern_images?: Record<string, string>;
+  /** @deprecated */
+  trend_chart?: string;
+  /** @deprecated */
+  trend_image?: string;
+  /** @deprecated */
+  trend_images?: Record<string, string>;
+  /** @deprecated Decision Agent removed */
+  agent_version_name?: string;
+  /** @deprecated */
+  agent_version_description?: string;
+  /** @deprecated */
+  decision_agent_version?: string;
+
   [key: string]: unknown;
 }

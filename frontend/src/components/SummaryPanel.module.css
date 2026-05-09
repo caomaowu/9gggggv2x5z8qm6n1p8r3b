@@ -87,3 +87,70 @@
     letter-spacing: 1px;
     margin-top: 0.5rem;
 }
+
+/* Summary grid (3 cards) */
+.summaryGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.summaryCard {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    padding: 0.75rem;
+    text-align: center;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    transition: transform 0.2s ease;
+}
+.summaryCard:hover {
+    transform: translateY(-2px);
+}
+
+.cardNumber {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #5627d8;
+}
+.cardLabel {
+    color: #6b7280;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 0.25rem;
+}
+
+/* Fusion panel */
+.fusionPanel {
+    background: linear-gradient(135deg, #f0f4ff 0%, #e8ecf8 100%);
+    border: 1px solid #d0d5e0;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    margin-top: 0.5rem;
+}
+.fusionDirection {
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+.fusionDetails {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.5rem;
+}
+.fusionItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.3rem 0.5rem;
+    background: rgba(255,255,255,0.7);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: #4b5563;
+}
+.fusionItem span:last-child {
+    font-weight: 600;
+}
