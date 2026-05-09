@@ -7,7 +7,7 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
+brale-core-master/
 # Python / Backend 忽略规则
 __pycache__/
 *.py[cod]
@@ -45,7 +45,7 @@ frontend/*.local
 *.swp
 *.swo
 
-brale-core-master/
+
 # SSL 证书
 caomaowu.lol-ssl-bundle/
 新版本/
