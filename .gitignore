@@ -45,7 +45,7 @@ frontend/*.local
 *.swp
 *.swo
 
-
+brale-core-master/
 # SSL 证书
 caomaowu.lol-ssl-bundle/
 新版本/
