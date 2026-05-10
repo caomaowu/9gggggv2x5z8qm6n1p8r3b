@@ -385,12 +385,12 @@ async def analyze_market(
             )
 
             # 回测模式下计算 after 时间戳（仅资金费率支持翻页，rubik 端点忽略 after）
+            # 使用 _date_str_to_unix_ms 确保 Asia/Shanghai → UTC 时区转换正确，
+            # 与其他 API 调用（K线、OI 等）的时区处理保持一致。
             funding_after: int | None = None
             if request.data_method in ("to_end", "date_range") and end_dt_str:
                 try:
-                    end_dt = datetime.strptime(end_dt_str, "%Y-%m-%d %H:%M:%S")
-                    end_ts = int(end_dt.timestamp() * 1000)
-                    funding_after = end_ts
+                    funding_after = market_service._date_str_to_unix_ms(end_dt_str)
                     logger.info(
                         f"[{result_id}] Backtest mode: funding_after={funding_after} (end={end_dt_str})"
                     )
