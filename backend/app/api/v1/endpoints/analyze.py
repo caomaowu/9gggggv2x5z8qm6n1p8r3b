@@ -486,7 +486,6 @@ async def analyze_market(
             result['future_15m_chart_base64'] = future_15m_chart_base64
         
         # Determine analysis time display
-        import datetime
         analysis_time_display = None
         if request.data_method == "to_end" and end_dt_str:
             analysis_time_display = end_dt_str
@@ -494,7 +493,7 @@ async def analyze_market(
             analysis_time_display = f"{start_dt_str} to {end_dt_str}"
         else:
              # For latest, use current time
-             analysis_time_display = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+             analysis_time_display = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         result['analysis_time_display'] = analysis_time_display
         result['data_method_short'] = request.data_method

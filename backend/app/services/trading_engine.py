@@ -182,6 +182,9 @@ class TradingEngine:
             "multi_timeframe_mode": is_multi_tf,
             "timeframes": list(data.keys()) if is_multi_tf else None,
             "derivative_data": derivative_data or {},
+            "mechanics_compressed": None,      # filled by compress_coordinator
+            "indicator_compressed": None,       # filled by compress_coordinator
+            "structure_compressed": None,       # filled by compress_coordinator
         }
 
         try:

@@ -47,9 +47,14 @@ class SetGraph:
         mechanics_node = create_brale_mechanics_agent(self.mechanics_llm)
 
         def compress_coordinator(state):
-            print("[brale] Compress coordinator: preprocessing data...")
+            import logging
+            _log = logging.getLogger(__name__)
+            _log.info("[brale] Compress coordinator: preprocessing data...")
 
             shared = state.copy()
+            # Ensure mechanics_compressed exists even if compress fails
+            if "mechanics_compressed" not in shared:
+                shared["mechanics_compressed"] = None
             kline_data = state.get("kline_data", {})
             symbol = state.get("stock_name", "")
             interval = state.get("time_frame", "1H")
@@ -133,6 +138,10 @@ class SetGraph:
                 mech_df = df
                 if multi_tf and isinstance(kline_data, dict) and interval in kline_data:
                     mech_df = _ensure_df(kline_data[interval]) or df
+                _log.info("[brale] Mechanics compress START: interval=%s, has_oi=%s, has_oi_hist=%s, has_funding=%s, has_ls=%s, has_taker=%s",
+                          interval, derivative_data.get('oi') is not None, derivative_data.get('oi_history') is not None,
+                          derivative_data.get('funding_history') is not None, derivative_data.get('long_short_history') is not None,
+                          derivative_data.get('taker_volume_history') is not None)
                 raw_mech = compress_mechanics(
                     ohlcv_data=mech_df,
                     oi_snapshot=derivative_data.get("oi"),
@@ -144,9 +153,9 @@ class SetGraph:
                     symbol=symbol, interval=interval,
                 )
                 shared["mechanics_compressed"] = enrich_mechanics(raw_mech)
-                print("[brale] Mechanics compressed + state OK")
+                _log.info("[brale] Mechanics compressed + state OK")
             except Exception as e:
-                print(f"[brale] Mechanics compress failed: {e}")
+                _log.error("[brale] Mechanics compress failed: %s", e, exc_info=True)
 
             return shared
 

@@ -81,6 +81,11 @@ def _filter_rubik_to_kline_window(
 
     kline_start = kline_df.index[0]
     kline_end = kline_df.index[-1]
+    # Ensure tz-aware UTC for comparison with rubik ts
+    if kline_start.tz is None:
+        kline_start = kline_start.tz_localize('UTC')
+    if kline_end.tz is None:
+        kline_end = kline_end.tz_localize('UTC')
     buffer_mins = max(60, _tf_minutes(interval))
     buffer = pd.Timedelta(minutes=buffer_mins)
 
