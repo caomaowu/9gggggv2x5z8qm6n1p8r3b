@@ -35,6 +35,22 @@ class ChartGenerator:
         """初始化图表生成器"""
         self.style = get_trading_style()
 
+    @staticmethod
+    def _ensure_local_tz(data: pd.DataFrame) -> pd.DataFrame:
+        """将 UTC naive datetime index 转为 Asia/Shanghai 时区，确保图表时间标签显示为北京时间。
+
+        OKX API 返回的 timestamp 是 UTC 毫秒，parse_v5_ohlcv_to_dataframe 通过
+        pd.to_datetime(ts, unit="ms") 产生了无时区 datetime，matplotlib/mplfinance
+        会直接显示原始数值，导致用户看到的是 UTC 时间而非本地时间。
+        """
+        if data.empty:
+            return data
+        idx = data.index
+        if isinstance(idx, pd.DatetimeIndex) and idx.tz is None:
+            data = data.copy()
+            data.index = idx.tz_localize('UTC').tz_convert('Asia/Shanghai')
+        return data
+
     @performance_monitor("K线图生成")
     def generate_kline_chart(self, data: pd.DataFrame, title: str = "K线图",
                            save_path: Optional[str] = None) -> str:
@@ -54,6 +70,9 @@ class ChartGenerator:
                 # 确保数据格式正确
                 if not all(col in data.columns for col in ['Open', 'High', 'Low', 'Close']):
                     raise ValueError("数据缺少必要的OHLC列")
+
+                # 将 UTC 时间转为北京时间
+                data = self._ensure_local_tz(data)
 
                 # 设置mplfinance样式
                 # 兼容性处理：检查可用的 matplotlib 样式
@@ -168,6 +187,9 @@ class ChartGenerator:
         """
         try:
             with monitor_image_generation("综合图"):
+                # 将 UTC 时间转为北京时间
+                data = self._ensure_local_tz(data)
+
                 # 创建 GridSpec 布局
                 fig = plt.figure(figsize=(12, 10))
                 gs = fig.add_gridspec(4, 1, height_ratios=[3, 1, 1, 1], hspace=0.4)
@@ -311,6 +333,7 @@ class ChartGenerator:
         """
         try:
             with monitor_image_generation("趋势图"):
+                data = self._ensure_local_tz(data)
                 fig, axes = plt.subplots(3, 1, figsize=(12, 10))
                 fig.suptitle(title, fontsize=16)
 
@@ -401,6 +424,7 @@ class ChartGenerator:
         """
         try:
             with monitor_image_generation("成交量图"):
+                data = self._ensure_local_tz(data)
                 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8),
                                             gridspec_kw={'height_ratios': [3, 1]})
                 fig.suptitle(title, fontsize=16)
@@ -460,6 +484,7 @@ class ChartGenerator:
             Base64编码的图片字符串
         """
         try:
+            data = self._ensure_local_tz(data)
             # 创建更大的画布来容纳更多信息
             fig = plt.figure(figsize=(16, 12))
             gs = fig.add_gridspec(4, 2, height_ratios=[2, 1, 1, 1], width_ratios=[3, 1])

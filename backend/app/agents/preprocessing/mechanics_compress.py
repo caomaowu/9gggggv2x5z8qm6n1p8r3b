@@ -203,6 +203,11 @@ def compress_mechanics(
                                      "price_change_pct": 0.0, "missing": True}
     out["oi_history"] = oi_by_interval
 
+    # 回测时间对齐：如果 OI 历史与 K 线窗口无时间重叠（如一年前回测），
+    # 则 OI 快照同样时间不相关，标记 missing，避免拿当前数据充数误导 LLM。
+    if oi_by_interval.get(interval, {}).get("missing"):
+        out["oi"]["missing"] = True
+
     # --- Funding rate ---
     if opts.require_funding:
         rate = None
