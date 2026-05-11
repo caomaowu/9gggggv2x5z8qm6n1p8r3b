@@ -18,12 +18,79 @@ Missing data is explicitly marked.
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 import pandas as pd
+
+_log = logging.getLogger(__name__)
+
+
+# ======================================================================
+# Fear & Greed — Alternative.me API (free, no auth)
+# ======================================================================
+
+_FNG_API = "https://api.alternative.me/fng/?limit=5"
+
+
+def _fetch_fear_greed() -> dict[str, Any] | None:
+    """Fetch latest Fear & Greed index from Alternative.me.
+
+    Returns dict with {value, timestamp, classification, history, next_update_sec}
+    or None on failure.
+    """
+    import urllib.request
+    import json as _json
+
+    try:
+        req = urllib.request.Request(_FNG_API, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            payload = _json.loads(resp.read().decode())
+    except Exception:
+        _log.debug("fear_greed fetch failed")
+        return None
+
+    try:
+        data_list = payload.get("data", [])
+        if not data_list:
+            return None
+
+        latest = data_list[0]
+        val = int(str(latest.get("value", "0")).strip())
+        ts_val = str(latest.get("timestamp", "0")).strip()
+        ts_sec = int(ts_val) if ts_val.isdigit() else 0
+        timestamp = pd.Timestamp(ts_sec, unit="s", tz="UTC").strftime("%Y-%m-%dT%H:%M:%SZ") if ts_sec else ""
+
+        next_update_sec = 0
+        until = str(latest.get("time_until_update", "0")).strip()
+        if until.isdigit():
+            next_update_sec = int(until)
+
+        history = []
+        for pt in data_list:
+            h_ts = str(pt.get("timestamp", "0")).strip()
+            h_sec = int(h_ts) if h_ts.isdigit() else 0
+            if not h_sec:
+                continue
+            history.append({
+                "value": int(str(pt.get("value", "0")).strip()),
+                "classification": str(pt.get("value_classification", "")).strip(),
+                "timestamp": pd.Timestamp(h_sec, unit="s", tz="UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
+            })
+
+        return {
+            "value": float(val),
+            "classification": str(latest.get("value_classification", "")).strip(),
+            "timestamp": timestamp,
+            "history": history,
+            "next_update_sec": next_update_sec,
+        }
+    except Exception:
+        _log.debug("fear_greed parse failed")
+        return None
 
 
 @dataclass
@@ -128,6 +195,56 @@ def _filter_rubik_to_kline_window(
     return filtered
 
 
+def _bucket_liquidation_windows(orders: list[dict], bucket_sec: int = 300) -> list[list[dict]]:
+    """Bucket liquidation orders into time windows for ZScore computation.
+
+    Each bucket spans bucket_sec seconds. Returns list of buckets (newest last).
+    If orders span < 2 buckets, returns empty list (insufficient for stats).
+    """
+    if not orders or len(orders) < 2:
+        return []
+
+    # Parse timestamps (handle both string and int formats)
+    parsed = []
+    for r in orders:
+        ts_raw = r.get("ts", "")
+        try:
+            ts_val = int(str(ts_raw))
+        except (ValueError, TypeError):
+            continue
+        # Normalize ms → seconds
+        if ts_val > 1_000_000_000_000:
+            ts_val //= 1000
+        parsed.append((ts_val, r))
+
+    if not parsed:
+        return []
+
+    parsed.sort(key=lambda x: x[0])
+    start_time = parsed[0][0]
+    end_time = parsed[-1][0]
+
+    if end_time - start_time < bucket_sec:
+        return []  # all orders in same bucket, no stats possible
+
+    # Bucket
+    buckets: list[list[dict]] = []
+    current_start = start_time
+    current_bucket: list[dict] = []
+    for ts_val, r in parsed:
+        if ts_val >= current_start + bucket_sec:
+            if current_bucket:
+                buckets.append(current_bucket)
+            current_start = ts_val
+            current_bucket = [r]
+        else:
+            current_bucket.append(r)
+    if current_bucket:
+        buckets.append(current_bucket)
+
+    return buckets if len(buckets) >= 2 else []
+
+
 # ======================================================================
 # Main compress
 # ======================================================================
@@ -191,11 +308,18 @@ def compress_mechanics(
         else:
             change_pct = 0.0
         latest_oi = oi_vals[-1] if oi_vals else None
+        # Price change over OI window
+        price_change_pct = 0.0
+        if ohlcv_data is not None and len(ohlcv_data) >= 2 and len(oi_vals) >= 2:
+            first_close = float(ohlcv_data["Close"].iloc[0])
+            last_close = float(ohlcv_data["Close"].iloc[-1])
+            if abs(first_close) > 1e-12:
+                price_change_pct = round(((last_close - first_close) / abs(first_close)) * 100, 4)
         oi_by_interval[interval] = {
             "value": latest_oi,
             "change_pct": change_pct,
             "price": current_price,
-            "price_change_pct": 0.0,
+            "price_change_pct": price_change_pct,
             "missing": False,
         }
     else:
@@ -203,22 +327,26 @@ def compress_mechanics(
                                      "price_change_pct": 0.0, "missing": True}
     out["oi_history"] = oi_by_interval
 
-    # 回测时间对齐：如果 OI 历史与 K 线窗口无时间重叠（如一年前回测），
-    # 则 OI 快照同样时间不相关，标记 missing，避免拿当前数据充数误导 LLM。
-    if oi_by_interval.get(interval, {}).get("missing"):
+    # 回测检测：OI 历史明确提供但无法覆盖 K 线时间窗口 → 远期回测
+    _is_backtest = opts.require_oi and oi_history is not None and len(oi_history) > 0 \
+                   and oi_by_interval.get(interval, {}).get("missing", False)
+    if _is_backtest:
         out["oi"]["missing"] = True
 
     # --- Funding rate ---
+    funding_filtered = _filter_rubik_to_kline_window(
+        funding_history, ohlcv_data, ts_field="ts", interval=interval
+    )
     if opts.require_funding:
         rate = None
         rate_ts = ""
-        if funding_history and len(funding_history) > 0:
-            rate = funding_history[0].get("fundingRate") or funding_history[0].get("rate")
-            rate_ts = funding_history[0].get("fundingTime", "")
+        if funding_filtered:
+            rate = funding_filtered[0].get("fundingRate", funding_filtered[0].get("rate"))
+            rate_ts = funding_filtered[0].get("fundingTime", "")
         out["funding"] = {
             "rate": rate,
             "timestamp": rate_ts,
-            "missing": funding_history is None or len(funding_history) == 0,
+            "missing": not bool(funding_filtered),
         }
     else:
         out["funding"] = {"rate": None, "timestamp": "", "missing": True}
@@ -250,42 +378,56 @@ def compress_mechanics(
         taker_volume_history, ohlcv_data, ts_field="ts", interval=interval
     )
     cvd_by_interval: dict[str, Any] = {}
+    buy_cum = 0.0; sell_cum = 0.0  # reused by futures sentiment below
     if opts.require_cvd:
         if taker_filtered and len(taker_filtered) > 0:
-            buy_cum = 0.0; sell_cum = 0.0
             for r in taker_filtered:
                 buy_cum += r.get("buyVol", 0)
                 sell_cum += r.get("sellVol", 0)
             cvd_val = round(buy_cum - sell_cum, 4)
             total_vol = buy_cum + sell_cum
             normalized = round(cvd_val / total_vol, 4) if total_vol > 1e-12 else 0.0
-            momentum = "buying" if normalized > 0.05 else ("selling" if normalized < -0.05 else "neutral")
-            divergence = "none"
             cvd_by_interval[interval] = {
                 "value": cvd_val,
-                "momentum": momentum,
+                "momentum": normalized,
                 "normalized": normalized,
-                "divergence": divergence,
+                "divergence": "none",
                 "peak_flip": "none",
                 "timestamp": taker_filtered[-1].get("ts", ""),
                 "missing": False,
             }
         else:
-            cvd_by_interval[interval] = {"value": None, "momentum": "neutral",
+            cvd_by_interval[interval] = {"value": None, "momentum": 0.0,
                                           "normalized": 0.0, "divergence": "none",
                                           "peak_flip": "none", "timestamp": "", "missing": True}
     else:
-        cvd_by_interval[interval] = {"value": None, "momentum": "neutral",
+        cvd_by_interval[interval] = {"value": None, "momentum": 0.0,
                                       "normalized": 0.0, "divergence": "none",
                                       "peak_flip": "none", "timestamp": "", "missing": True}
     out["cvd_by_interval"] = cvd_by_interval
 
-    # --- Fear & Greed (placeholder) ---
-    out["fear_greed"] = {"value": None, "timestamp": "", "missing": True}
-    out["fear_greed_history"] = []
+    # --- Fear & Greed (Alternative.me API, real-time only) ---
+    if opts.require_fear_greed and not _is_backtest:
+        fg = _fetch_fear_greed()
+        if fg:
+            out["fear_greed"] = {
+                "value": fg["value"],
+                "timestamp": fg["timestamp"],
+                "missing": False,
+            }
+            out["fear_greed_history"] = fg.get("history", [])
+            out["fear_greed_next_update_sec"] = fg.get("next_update_sec", 0)
+        else:
+            out["fear_greed"] = {"value": None, "timestamp": "", "missing": True}
+            out["fear_greed_history"] = []
+            out["fear_greed_next_update_sec"] = 0
+    else:
+        out["fear_greed"] = {"value": None, "timestamp": "", "missing": True}
+        out["fear_greed_history"] = []
+        out["fear_greed_next_update_sec"] = 0
 
     # --- Liquidations ---
-    if opts.require_liquidations:
+    if opts.require_liquidations and not _is_backtest:
         if liquidation_orders and len(liquidation_orders) > 0:
             long_liq = sum(r.get("sz", 0) for r in liquidation_orders if r.get("posSide") == "long")
             short_liq = sum(r.get("sz", 0) for r in liquidation_orders if r.get("posSide") == "short")
@@ -300,10 +442,56 @@ def compress_mechanics(
                 "timestamp": liquidation_orders[0].get("ts", ""),
                 "missing": False,
             }
-            out["liquidations_by_window"] = {
-                "5m": {"long_vol": round(long_liq, 4), "short_vol": round(short_liq, 4),
-                       "total_vol": round(total_liq, 4), "imbalance": imbalance},
-            }
+
+            # --- Window bucketing + ZScore ---
+            windows = _bucket_liquidation_windows(liquidation_orders, bucket_sec=300)
+            liq_by_window: dict[str, Any] = {}
+            if windows and len(windows) >= 2:
+                # Compute per-window aggregates
+                win_vols = []
+                for w in windows:
+                    w_long = sum(r.get("sz", 0) for r in w if r.get("posSide") == "long")
+                    w_short = sum(r.get("sz", 0) for r in w if r.get("posSide") == "short")
+                    w_total = w_long + w_short
+                    win_vols.append({
+                        "total_vol": w_total,
+                        "long_vol": w_long,
+                        "short_vol": w_short,
+                        "imbalance": (w_long - w_short) / w_total if w_total > 1e-12 else 0.0,
+                        "sample_count": len(w),
+                    })
+
+                # Stats for ZScore
+                vols = [w["total_vol"] for w in win_vols]
+                mean_v = sum(vols) / len(vols)
+                std_v = (sum((v - mean_v) ** 2 for v in vols) / len(vols)) ** 0.5
+
+                latest = win_vols[-1]
+                z_score = round((latest["total_vol"] - mean_v) / std_v, 4) if std_v > 1e-12 else 0.0
+
+                # VolOverOI
+                oi_val = out.get("oi", {}).get("value") or oi_snapshot.get("oi") if oi_snapshot else None
+                vol_over_oi = round(latest["total_vol"] / oi_val, 6) if oi_val and oi_val > 1e-12 else 0.0
+
+                liq_by_window["5m"] = {
+                    "long_vol": round(latest["long_vol"], 4),
+                    "short_vol": round(latest["short_vol"], 4),
+                    "total_vol": round(latest["total_vol"], 4),
+                    "imbalance": round(latest["imbalance"], 4),
+                    "sample_count": latest["sample_count"],
+                    "rel": {
+                        "vol_over_oi": vol_over_oi,
+                        "zscore": z_score,
+                        "spike": z_score >= 2.5,
+                    },
+                }
+            else:
+                # Too few windows for stats, fall back to simple aggregate
+                liq_by_window["5m"] = {
+                    "long_vol": round(long_liq, 4), "short_vol": round(short_liq, 4),
+                    "total_vol": round(total_liq, 4), "imbalance": imbalance,
+                }
+            out["liquidations_by_window"] = liq_by_window
             out["liquidation_source"] = "order_book"
         else:
             out["liquidations"] = {"volume": None, "timestamp": "", "missing": True}
@@ -312,12 +500,33 @@ def compress_mechanics(
         out["liquidations"] = {"volume": None, "timestamp": "", "missing": True}
         out["liquidation_source"] = "disabled"
 
-    # --- Futures sentiment (placeholder) ---
-    out["futures_sentiment"] = {
+    # --- Futures sentiment (computed from available data) ---
+    fs: dict[str, Any] = {
         "top_trader_lsr": None, "ls_ratio": None,
         "taker_long_short_vol_ratio": None, "timestamp": "",
         "missing": True,
     }
+    if opts.require_futures_sentiment:
+        # LSRatio from latest long/short data
+        if long_short_history and len(long_short_history) > 0:
+            latest_ls = long_short_history[0]
+            ls_ratio = latest_ls.get("longShortRatio") or latest_ls.get("ratio")
+            if ls_ratio is not None:
+                fs["ls_ratio"] = round(float(ls_ratio), 4)
+                fs["top_trader_lsr"] = round(float(ls_ratio), 4)
+                fs["timestamp"] = str(latest_ls.get("ts", ""))
+                fs["missing"] = False
+
+        # Taker volume ratio from taker data
+        # Compute if not already done by CVD section above
+        if buy_cum == 0.0 and sell_cum == 0.0 and taker_filtered and len(taker_filtered) > 0:
+            for r in taker_filtered:
+                buy_cum += r.get("buyVol", 0)
+                sell_cum += r.get("sellVol", 0)
+        if sell_cum > 1e-12:
+            fs["taker_long_short_vol_ratio"] = round(buy_cum / sell_cum, 4)
+            fs["missing"] = False  # at least one field has data
+    out["futures_sentiment"] = fs
 
     # --- Metadata ---
     out["_meta"] = {
@@ -327,7 +536,7 @@ def compress_mechanics(
 
     # Check has_data
     has_any = False
-    for key in ["oi", "funding", "long_short_by_interval", "cvd_by_interval", "liquidations"]:
+    for key in ["oi", "funding", "long_short_by_interval", "cvd_by_interval", "liquidations", "fear_greed"]:
         v = out.get(key, {})
         if isinstance(v, dict) and not v.get("missing", True):
             has_any = True

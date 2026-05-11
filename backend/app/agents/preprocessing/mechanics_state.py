@@ -92,6 +92,8 @@ def _classify_oi(compressed: dict[str, Any]) -> dict[str, Any] | None:
     if not intervals:
         return None
     entry = oi_history[intervals[0]]
+    if entry.get("missing", False):
+        return None
     change_pct = float(entry.get("change_pct", 0) or 0)
     price_change_pct = float(entry.get("price_change_pct", 0) or 0)
     return {
@@ -236,8 +238,6 @@ def _classify_liquidation(compressed: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _summarize_liquidation_window(name: str, window: dict[str, Any]) -> dict[str, Any]:
-    status = window.get("status", "")
-    complete = window.get("complete", False)
     imbalance = float(window.get("imbalance", 0) or 0)
 
     rel = window.get("rel") or window.get("Rel")
@@ -257,16 +257,13 @@ def _summarize_liquidation_window(name: str, window: dict[str, Any]) -> dict[str
         "imbalance": round(imbalance, 4),
     }
 
-    if status and status != "ok":
-        return {**base, "stress": "unknown", "status": status, "complete": complete}
-
     stress = "low"
     if spike or zscore >= LIQ_HIGH_ZSCORE or vol_over_oi >= LIQ_HIGH_VOL_OVER_OI:
         stress = "high"
     elif zscore >= LIQ_ELEVATED_ZSCORE or vol_over_oi >= LIQ_ELEVATED_VOL_OVER_OI:
         stress = "elevated"
 
-    return {**base, "stress": stress, "status": status, "complete": complete}
+    return {**base, "stress": stress}
 
 
 def _liquidation_stress_score(stress: str) -> int:

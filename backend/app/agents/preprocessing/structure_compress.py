@@ -50,7 +50,8 @@ class StructureCompressOptions:
     emit_smc: bool = True
     # Recent candles
     recent_candles: int = 5
-    include_rsi: bool = True
+    include_rsi: bool = True                    # RSI in recent candles
+    include_structure_rsi: bool = True          # RSI in structure (fractal) points
 
 
 DEFAULT_STRUCTURE_OPTIONS = StructureCompressOptions()
@@ -74,7 +75,7 @@ def _lin_reg_slope(series: np.ndarray) -> float:
     denom = n * sum_xx - sum_x * sum_x
     if abs(denom) < 1e-12:
         return 0.0
-    return round(float((n * sum_xy - sum_x * sum_y) / denom), 6)
+    return float((n * sum_xy - sum_x * sum_y) / denom)
 
 
 def _normalized_slope(series: np.ndarray) -> float:
@@ -112,7 +113,7 @@ def _volume_ratio(volumes: np.ndarray, lookback: int = 20) -> float:
     avg = np.mean(clean[-(1 + count): -1])
     if avg < 1e-12:
         return 1.0
-    return round(latest / avg, 4)
+    return round(latest / avg, 3)
 
 
 # ======================================================================
@@ -143,20 +144,83 @@ def _is_fractal_low(lows: np.ndarray, idx: int, span: int) -> bool:
 
 
 def _select_structure_points(
-    highs: np.ndarray, lows: np.ndarray, span: int, max_points: int = 12
+    highs: np.ndarray, lows: np.ndarray, span: int,
+    atr: np.ndarray, rsi: np.ndarray, opts: StructureCompressOptions,
 ) -> list[dict]:
-    """brale: selectStructurePoints (trend_compress_structure.go:12-42)"""
+    """brale: selectStructurePoints with mergeStructurePoint (trend_compress_structure.go:12-103).
+
+    Detects fractal highs/lows with inline dedup: same type, within
+    dedup_distance_bars bars and atr*dedup_atr_factor price threshold
+    → merge (highs keep higher, lows keep lower).
+    """
     n = len(highs)
     points: list[dict] = []
+
     for i in range(n - span - 1, span - 1, -1):
-        if len(points) >= max_points * 2:
-            break
+        # ATR at this specific index (matching brale: atr[candidate.Idx])
+        idx_atr = float(atr[i]) if i < len(atr) and np.isfinite(atr[i]) and abs(atr[i]) > 1e-9 else 0.0
+
+        # --- fractal high ---
         if _is_fractal_high(highs, i, span):
-            points.append({"type": "high", "idx": i, "price": round(float(highs[i]), 4)})
-            if len(points) >= max_points * 2:
-                break
+            cand = {"type": "high", "idx": i, "price": round(float(highs[i]), 4)}
+            if opts.include_structure_rsi and i < len(rsi):
+                v = rsi[i]
+                if np.isfinite(v):
+                    cand["rsi"] = round(float(v), 1)
+            merged = False
+            for p in points:
+                if p["type"] != "high":
+                    continue
+                if abs(p["idx"] - i) > opts.dedup_distance_bars:
+                    continue
+                threshold = idx_atr * opts.dedup_atr_factor
+                if threshold <= 0:
+                    pid_x = p["idx"]
+                    p_atr = float(atr[pid_x]) if pid_x < len(atr) and np.isfinite(atr[pid_x]) else 0.0
+                    threshold = p_atr * opts.dedup_atr_factor
+                if threshold > 0 and abs(p["price"] - cand["price"]) <= threshold:
+                    if cand["price"] > p["price"]:
+                        p["price"] = cand["price"]
+                        p["idx"] = i
+                        if opts.include_structure_rsi and "rsi" in cand:
+                            p["rsi"] = cand["rsi"]
+                    merged = True
+                    break
+            if not merged and len(points) < opts.max_structure_points:
+                points.append(cand)
+
+        if len(points) >= opts.max_structure_points:
+            continue
+
+        # --- fractal low ---
         if _is_fractal_low(lows, i, span):
-            points.append({"type": "low", "idx": i, "price": round(float(lows[i]), 4)})
+            cand = {"type": "low", "idx": i, "price": round(float(lows[i]), 4)}
+            if opts.include_structure_rsi and i < len(rsi):
+                v = rsi[i]
+                if np.isfinite(v):
+                    cand["rsi"] = round(float(v), 1)
+            merged = False
+            for p in points:
+                if p["type"] != "low":
+                    continue
+                if abs(p["idx"] - i) > opts.dedup_distance_bars:
+                    continue
+                threshold = idx_atr * opts.dedup_atr_factor
+                if threshold <= 0:
+                    pid_x = p["idx"]
+                    p_atr = float(atr[pid_x]) if pid_x < len(atr) and np.isfinite(atr[pid_x]) else 0.0
+                    threshold = p_atr * opts.dedup_atr_factor
+                if threshold > 0 and abs(p["price"] - cand["price"]) <= threshold:
+                    if cand["price"] < p["price"]:
+                        p["price"] = cand["price"]
+                        p["idx"] = i
+                        if opts.include_structure_rsi and "rsi" in cand:
+                            p["rsi"] = cand["rsi"]
+                    merged = True
+                    break
+            if not merged and len(points) < opts.max_structure_points:
+                points.append(cand)
+
     points.sort(key=lambda p: p["idx"])
     return points
 
@@ -167,14 +231,15 @@ def _select_structure_points(
 
 
 def _ema_array(closes: np.ndarray, period: int) -> np.ndarray:
+    """EMA with series[0] seed (matching brale emaSpan)."""
     n = len(closes)
     out = np.full(n, np.nan, dtype=np.float64)
     if n < period:
         return out
     alpha = 2.0 / (period + 1.0)
-    out[period - 1] = np.mean(closes[:period])
-    for i in range(period, n):
-        out[i] = alpha * closes[i] + (1 - alpha) * out[i - 1]
+    out[0] = float(closes[0])
+    for i in range(1, n):
+        out[i] = alpha * float(closes[i]) + (1 - alpha) * out[i - 1]
     return np.round(out, 4)
 
 
@@ -263,36 +328,32 @@ def _build_structure_candidates(
 
 
 def _dedup_candidates(candidates: list[dict], atr: np.ndarray, opts: StructureCompressOptions) -> list[dict]:
-    """brale: dedupCandidates — uses latest ATR value for threshold."""
-    clean_atr = atr[np.isfinite(atr)]
-    atr_latest = float(clean_atr[-1]) if len(clean_atr) > 0 else 0.0
-    threshold = atr_latest * opts.dedup_atr_factor if atr_latest > 0 else 0.0
-    grouped: dict[tuple, list[dict]] = {}
+    """brale: dedupCandidates — merge same-type candidates within ATR threshold, keeping younger (lower age)."""
+    # latest valid ATR
+    atr_latest = 0.0
+    for v in reversed(atr):
+        if np.isfinite(v) and abs(v) > 1e-9:
+            atr_latest = float(v)
+            break
+    threshold = atr_latest * opts.dedup_atr_factor
+
+    out: list[dict] = []
     for c in candidates:
-        key = (c["type"],)
-        grouped.setdefault(key, []).append(c)
+        merged = False
+        for i in range(len(out)):
+            if out[i]["type"] != c["type"]:
+                continue
+            if threshold > 0 and abs(out[i]["price"] - c["price"]) <= threshold:
+                # Keep younger (lower age_candles) — matching brale dedupCandidates
+                if c["age_candles"] < out[i]["age_candles"] or out[i]["age_candles"] == 0:
+                    out[i] = c
+                merged = True
+                break
+        if not merged:
+            out.append(c)
 
-    result: list[dict] = []
-    for items in grouped.values():
-        items.sort(key=lambda x: (x["age_candles"], x["price"]))
-        kept: list[dict] = []
-        for it in items:
-            can_merge = False
-            for k in kept:
-                if abs(it["price"] - k["price"]) < threshold:
-                    can_merge = True
-                    if it["type"] in ("fractal_high", "resistance", "band_upper", "range_high") and it["price"] > k["price"]:
-                        k["price"] = it["price"]
-                    elif it["type"] in ("fractal_low", "support", "band_lower", "range_low") and it["price"] < k["price"]:
-                        k["price"] = it["price"]
-                    break
-            if not can_merge:
-                if len(kept) < opts.max_structure_points:
-                    kept.append(it)
-        result.extend(kept)
-
-    result.sort(key=lambda x: (x["age_candles"], x["price"]))
-    return result
+    out.sort(key=lambda x: (x["age_candles"], x["price"]))
+    return out
 
 
 def _prune_candidates(candidates: list[dict], current_price: float, per_side: int) -> list[dict]:
@@ -304,7 +365,7 @@ def _prune_candidates(candidates: list[dict], current_price: float, per_side: in
     above.sort(key=lambda x: x["price"] - current_price)
 
     result = below[:per_side] + above[:per_side]
-    result.sort(key=lambda x: x["price"])
+    result.sort(key=lambda x: (x["price"], x["age_candles"]))
     return result
 
 
@@ -313,38 +374,7 @@ def _prune_candidates(candidates: list[dict], current_price: float, per_side: in
 # ======================================================================
 
 
-def _detect_pattern(closes: np.ndarray, highs: np.ndarray, lows: np.ndarray) -> str:
-    """Lightweight pattern detection: double-top/bottom, head-shoulders signal.
-
-    Returns a pattern label string (matching brale's Pattern enum)."""
-    n = len(closes)
-    if n < 40:
-        return "none"
-
-    recent_h = highs[-20:]; recent_l = lows[-20:]
-    hh = float(np.max(recent_h[np.isfinite(recent_h)]))
-    ll = float(np.min(recent_l[np.isfinite(recent_l)]))
-
-    # find extremes in last 20 bars
-    h_idx = int(np.nanargmax(highs[-20:]) + n - 20) if len(highs[-20:]) > 0 else n - 1
-    l_idx = int(np.nanargmin(lows[-20:]) + n - 20) if len(lows[-20:]) > 0 else n - 1
-
-    # Heuristic: double-top when two comparable highs exist
-    highs_clean = highs[np.isfinite(highs)]
-    if len(highs_clean) >= 30:
-        top1 = float(np.max(highs_clean[-30:-15]))
-        top2 = float(np.max(highs_clean[-15:]))
-        if abs(top1 - top2) / max(abs(top1), 1e-9) < 0.03:
-            return "double_top"
-
-    lows_clean = lows[np.isfinite(lows)]
-    if len(lows_clean) >= 30:
-        bot1 = float(np.min(lows_clean[-30:-15]))
-        bot2 = float(np.min(lows_clean[-15:]))
-        if abs(bot1 - bot2) / max(abs(bot1), 1e-9) < 0.03:
-            return "double_bottom"
-
-    return "none"
+# (Removed _detect_pattern — lightweight heuristic never called; brale has no equivalent.)
 
 
 # ======================================================================
@@ -462,8 +492,9 @@ def _compute_supertrend(
             continue
         if np.isnan(close_v) or np.isinf(close_v) or abs(close_v) <= 1e-12:
             continue
-        state = "up" if close_v >= level else "down"
+        state = "UP" if close_v >= level else "DOWN"
         return {
+            "interval": "",
             "state": state,
             "level": round(float(level), 4),
             "distance_pct": round(abs(close_v - level) / close_v * 100.0, 4),
@@ -482,16 +513,17 @@ def _detect_smc(highs: np.ndarray, lows: np.ndarray, opens: np.ndarray, closes: 
     if n < 5:
         return None
 
-    # Bias from EMA34
-    ema34 = np.mean(closes[-34:]) if n >= 34 else np.mean(closes)
+    # Bias from EMA34 (matching brale emaSpan(34))
+    alpha_34 = 2.0 / (34.0 + 1.0)
+    ema34 = float(closes[0])
+    for i in range(1, n):
+        ema34 = alpha_34 * float(closes[i]) + (1.0 - alpha_34) * ema34
     bias = "bullish" if closes[-1] >= ema34 else "bearish"
 
     ob = _detect_order_block(opens, highs, lows, closes, bias)
     fvg = _detect_fvg(highs, lows, closes)
 
-    if ob is None and fvg is None:
-        return None
-    return {"order_block": ob, "fvg": fvg, "bias": bias}
+    return {"order_block": ob, "fvg": fvg}  # always return dict (matching brale TrendSMC)
 
 
 def _detect_order_block(
@@ -629,61 +661,54 @@ def _build_key_levels(points: list[dict]) -> dict[str, Any] | None:
 def _build_break_events(
     closes: np.ndarray, key_levels: dict[str, Any] | None
 ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
-    """Detect if price recently broke above last_swing_high or below last_swing_low."""
+    """brale: detectLatestBreakEvent — single scan from end, return the most recent break event."""
     n = len(closes)
     if n < 2 or key_levels is None:
         return [], None
 
     latest_idx = n - 1
-    events: list[dict[str, Any]] = []
-
     high = key_levels.get("last_swing_high")
-    if high:
-        for i in range(latest_idx, 0, -1):
-            prev_c = closes[i - 1]
-            curr_c = closes[i]
-            if prev_c <= high["price"] < curr_c:
-                evt = {
-                    "type": "break_up",
-                    "level_price": high["price"],
-                    "level_idx": high["idx"],
-                    "bar_idx": i,
-                    "bar_age": latest_idx - i,
-                    "confirm": "close",
-                }
-                events.append(evt)
-                break
-
     low = key_levels.get("last_swing_low")
-    if low:
-        for i in range(latest_idx, 0, -1):
-            prev_c = closes[i - 1]
-            curr_c = closes[i]
-            if prev_c >= low["price"] > curr_c:
-                evt = {
-                    "type": "break_down",
-                    "level_price": low["price"],
-                    "level_idx": low["idx"],
-                    "bar_idx": i,
-                    "bar_age": latest_idx - i,
-                    "confirm": "close",
-                }
-                events.append(evt)
-                break
 
-    # Build summary from latest event
-    if events:
-        latest = events[0]
-        summary = {
-            "latest_event_type": latest["type"],
-            "latest_event_age": latest["bar_age"],
-            "latest_event_bar_idx": latest["bar_idx"],
-            "latest_event_level_price": latest["level_price"],
-            "latest_event_level_idx": latest["level_idx"],
-        }
-        return events, summary
+    for i in range(latest_idx, 0, -1):
+        prev_c = closes[i - 1]
+        curr_c = closes[i]
+        if high and prev_c <= high["price"] < curr_c:
+            evt = {
+                "type": "break_up",
+                "level_price": high["price"],
+                "level_idx": high["idx"],
+                "bar_idx": i,
+                "bar_age": latest_idx - i,
+                "confirm": "close",
+            }
+            summary = {
+                "latest_event_type": evt["type"],
+                "latest_event_age": evt["bar_age"],
+                "latest_event_bar_idx": evt["bar_idx"],
+                "latest_event_level_price": evt["level_price"],
+                "latest_event_level_idx": evt["level_idx"],
+            }
+            return [evt], summary
+        if low and prev_c >= low["price"] > curr_c:
+            evt = {
+                "type": "break_down",
+                "level_price": low["price"],
+                "level_idx": low["idx"],
+                "bar_idx": i,
+                "bar_age": latest_idx - i,
+                "confirm": "close",
+            }
+            summary = {
+                "latest_event_type": evt["type"],
+                "latest_event_age": evt["bar_age"],
+                "latest_event_bar_idx": evt["bar_idx"],
+                "latest_event_level_price": evt["level_price"],
+                "latest_event_level_idx": evt["level_idx"],
+            }
+            return [evt], summary
 
-    return events, None
+    return [], None
 
 
 # ======================================================================
@@ -721,23 +746,29 @@ def compress_structure(
     n = len(closes)
     current_price = float(closes[-1]) if n else None
 
-    # ATR estimate (simple true-range average)
-    tr_arr = np.maximum(highs - lows,
-               np.maximum(np.abs(highs - np.roll(closes, 1)),
-                          np.abs(lows - np.roll(closes, 1))))
-    tr_arr[0] = highs[0] - lows[0]
+    # ATR (Wilder-smoothed, matching brale ta.ATR / rma)
+    tr_arr = np.maximum(highs[1:] - lows[1:],
+               np.maximum(np.abs(highs[1:] - closes[:-1]),
+                           np.abs(lows[1:] - closes[:-1])))
     atr_raw = np.full(n, np.nan)
-    period = 14
-    for i in range(period - 1, n):
-        atr_raw[i] = np.mean(tr_arr[i - period + 1: i + 1])
+    period_atr = 14
+    if n >= period_atr:
+        tr_full = np.empty(n)
+        tr_full[0] = highs[0] - lows[0]
+        tr_full[1:] = tr_arr
+        # initial SMA
+        atr_raw[period_atr - 1] = np.mean(tr_full[:period_atr])
+        # Wilder smoothing
+        for i in range(period_atr, n):
+            atr_raw[i] = (atr_raw[i - 1] * (period_atr - 1) + tr_full[i]) / period_atr
 
     # RSI (for recent_candles with RSI context)
     rsi_raw = np.full(n, np.nan, dtype=np.float64)
     if opts.include_rsi:
         rsi_raw = _rsi_wilder(closes, 14)
 
-    # Fractal points
-    points = _select_structure_points(highs, lows, opts.fractal_span, opts.max_structure_points)
+    # Fractal points (with inline mergeStructurePoint dedup)
+    points = _select_structure_points(highs, lows, opts.fractal_span, atr_raw, rsi_raw, opts)
 
     # Candidates
     candidates = _build_structure_candidates(closes, highs, lows, volumes, atr_raw, points, opts)

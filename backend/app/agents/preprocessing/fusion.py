@@ -77,11 +77,15 @@ def _base_weight(source: Source) -> float:
 # ======================================================================
 
 
-def _compute_resonance(evidences: list[dict]) -> dict:
+def _compute_resonance(evidences: list[dict], sum_base: float, consensus_score: float) -> dict:
     """Compute resonance bonus when ≥2 agents agree on direction.
 
-    Returns {active: bool, bonus: float, aligned_count: int}.
+    Uses consensus score sign as the dominant direction (matching brale consensus.go:177).
     """
+    dominant_sign = 1 if consensus_score > 0 else (-1 if consensus_score < 0 else 0)
+    if dominant_sign == 0:
+        return {"active": False, "bonus": 0.0, "aligned_count": 0}
+
     aligned: list[dict] = []
     oppose: list[dict] = []
 
@@ -93,13 +97,10 @@ def _compute_resonance(evidences: list[dict]) -> dict:
         direction = 1 if e["score"] > 0 else -1
         e_dir = {"source": e["source"], "score": e["score"],
                   "confidence": e["confidence"], "direction": direction}
-        if len(aligned) == 0:
+        if direction == dominant_sign:
             aligned.append(e_dir)
         else:
-            if aligned[0]["direction"] == direction:
-                aligned.append(e_dir)
-            else:
-                oppose.append(e_dir)
+            oppose.append(e_dir)
 
     if len(aligned) < 2:
         return {"active": False, "bonus": 0.0, "aligned_count": len(aligned)}
@@ -113,7 +114,7 @@ def _compute_resonance(evidences: list[dict]) -> dict:
     if cancelled:
         return {"active": False, "bonus": 0.0, "aligned_count": len(aligned)}
 
-    total_base = sum(_base_weight(a["source"]) for a in aligned)
+    total_base = sum_base
     total_base_all = sum(_base_weight(e["source"]) for e in evidences)
     aligned_weight_ratio = total_base / total_base_all if total_base_all > 0 else 0.0
     aligned_conf_avg = sum(a["confidence"] for a in aligned) / len(aligned)
@@ -202,7 +203,7 @@ def compute_consensus(
     coverage = min(1.0, sum_w / sum_base) if sum_base > 0 else 0.0
     base_conf = coverage * agreement
 
-    resonance = _compute_resonance(evidences)
+    resonance = _compute_resonance(evidences, sum_base, score)
     confidence = min(1.0, base_conf + resonance["bonus"])
 
     if abs(score) >= THRESHOLD_SCORE and confidence >= THRESHOLD_CONFIDENCE:

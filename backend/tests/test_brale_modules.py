@@ -158,9 +158,10 @@ class TestIndicatorCompress:
         from app.agents.preprocessing.indicator_compress import _td_sequential
         c = sample_ohlcv_100["Close"].values.astype(np.float64)
         td = _td_sequential(c)
-        assert "current" in td
-        assert "phase" in td
-        assert td["phase"] in ("none", "setup", "countdown")
+        assert "buy_setup" in td
+        assert "sell_setup" in td
+        assert isinstance(td["buy_setup"], int)
+        assert isinstance(td["sell_setup"], int)
 
 
 # ======================================================================
@@ -183,11 +184,21 @@ class TestStructureCompress:
     def test_fractal_detection(self, sample_ohlcv_100):
         from app.agents.preprocessing.structure_compress import (
             _is_fractal_high, _is_fractal_low,
-            _select_structure_points,
+            _select_structure_points, StructureCompressOptions,
         )
         h = sample_ohlcv_100["High"].values.astype(np.float64)
         l = sample_ohlcv_100["Low"].values.astype(np.float64)
-        points = _select_structure_points(h, l, span=5, max_points=12)
+        c = sample_ohlcv_100["Close"].values.astype(np.float64)
+        # Build a minimal ATR array for mergeStructurePoint threshold
+        tr = np.maximum(h[1:] - l[1:], np.maximum(np.abs(h[1:] - c[:-1]), np.abs(l[1:] - c[:-1])))
+        atr = np.full(len(h), np.nan)
+        atr[14 - 1] = np.mean(np.concatenate([[h[0] - l[0]], tr[:14-1]]))
+        for i in range(14, len(h)):
+            atr[i] = (atr[i-1] * 13 + tr[i-1]) / 14
+        opts = StructureCompressOptions(fractal_span=5)
+        # Build RSI for structure point
+        rsi_arr = np.full(len(h), np.nan)
+        points = _select_structure_points(h, l, 5, atr, rsi_arr, opts)
         assert isinstance(points, list)
         for p in points:
             assert p["type"] in ("high", "low")
@@ -257,8 +268,9 @@ class TestMechanicsCompress:
     def test_compress_with_oi_and_funding(self, sample_ohlcv_100):
         from app.agents.preprocessing.mechanics_compress import compress_mechanics
         oi_snap = {"oi": 5000000, "ts": "2025-01-01T00:00:00Z"}
+        # ts must align with sample_ohlcv_100 window (2025-01-01 ~ 2025-01-05)
         funding = [{"fundingRate": 0.0001, "fundingTime": "2025-01-01T00:00:00Z",
-                     "realizedRate": 0.0001, "ts": "1234567890"}]
+                     "realizedRate": 0.0001, "ts": "1735689600"}]  # 2025-01-01T00:00:00 UTC
         long_short = [{"longRatio": 0.6, "shortRatio": 0.4, "longShortRatio": 1.5,
                         "ts": "2025-01-01T00:00:00Z"}]
         result = compress_mechanics(

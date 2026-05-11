@@ -16,17 +16,11 @@ import re
 from typing import Any
 
 from app.utils.llm_compat import invoke_llm_text
+from app.agents.prompt_features import AGENT_OUTPUT_PREAMBLE, assemble_prompt_with_features
 
 logger = logging.getLogger(__name__)
 
-_AGENT_OUTPUT_PREAMBLE = """你是 brale-core AI 驱动量化交易系统中的分析模块。
-硬性输出规则：
-- 只输出一个 JSON 对象；禁止 markdown/代码块/注释/数组根
-- 字段严格匹配 Schema；不得增删
-- 只能使用输入已有信息；禁止编造
-- 证据不足必须保持保守"""
-
-_STRUCTURE_SYSTEM_PROMPT = f"""{_AGENT_OUTPUT_PREAMBLE}
+_STRUCTURE_SYSTEM_PROMPT = f"""{AGENT_OUTPUT_PREAMBLE}
 
 你是交易系统的 Market Structure 分析器。接收价格结构压缩 JSON，输出结构分析摘要。
 
@@ -54,17 +48,7 @@ _STRUCTURE_SYSTEM_PROMPT = f"""{_AGENT_OUTPUT_PREAMBLE}
 - **candle_reaction**: 中文描述K线对关键位的反应（支撑位反弹/阻力位受压等）
 - **movement_score**: [-1, 1]，+1=强烈看涨，0=无方向，-1=强烈看跌
 - **movement_confidence**: [0, 1]
-- **next_focus**: 下轮需验证的结构位置或形态
-
-## 分析原则
-1. Fractal点(分形高/低)标识了近期关键支撑阻力位
-2. EMA20/50/200: 多头排列=趋势向上；空头排列=趋势向下；缠绕=震荡
-3. 价格在EMA之上且有更高高点/低点=上升趋势；反之=下降趋势
-4. Bollinger Bands: 触及上轨+扩张=强势突破；收缩+窄幅=盘整待变
-5. 成交量放大+突破关键位=有效突破；缩量反弹=假突破风险
-6. regime=range或unclear时 movement_score 应靠近 0
-7. 多个时间框架结构矛盾时 quality 降低
-8. 形态识别需结合 volume_action 和 candle_reaction 做确认"""
+- **next_focus**: 下轮需验证的结构位置或形态"""
 
 _DEFAULT_OUTPUT: dict[str, Any] = {
     "regime": "unclear",
@@ -156,6 +140,9 @@ def create_brale_structure_agent(llm: Any, system_prompt: str | None = None):
         interval = state.get("time_frame", "") or compressed.get("market", {}).get("interval", "")
         symbol = state.get("stock_name", "") or compressed.get("market", {}).get("symbol", "")
 
+        # Assemble system prompt with conditional feature fragments
+        full_system = assemble_prompt_with_features(prompt, "agent_structure", compressed)
+
         user_parts = [
             f"交易对: {symbol}",
             f"决策周期: {interval}",
@@ -166,7 +153,7 @@ def create_brale_structure_agent(llm: Any, system_prompt: str | None = None):
         user_msg = "\n".join(user_parts)
 
         try:
-            response = invoke_llm_text(llm, f"{prompt}\n\n{user_msg}")
+            response = invoke_llm_text(llm, f"{full_system}\n\n{user_msg}")
             parsed = _extract_json(response)
             if parsed is None:
                 logger.warning("[brale-structure] JSON parse failed. raw=%s", response[:200])

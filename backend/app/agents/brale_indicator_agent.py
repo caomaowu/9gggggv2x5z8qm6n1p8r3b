@@ -20,21 +20,17 @@ import re
 from typing import Any
 
 from app.utils.llm_compat import invoke_llm_text
+from app.agents.prompt_features import AGENT_OUTPUT_PREAMBLE, assemble_prompt_with_features
 
 logger = logging.getLogger(__name__)
 
 # ======================================================================
-# System Prompt  (1:1 brale prompts.go + agentOutputPreamble)
+# System Prompt  (1:1 brale prompts.go + feature fragments)
 # ======================================================================
 
-_AGENT_OUTPUT_PREAMBLE = """你是 brale-core AI 驱动量化交易系统中的分析模块。
-硬性输出规则：
-- 只输出一个 JSON 对象；禁止 markdown/代码块/注释/数组根
-- 字段严格匹配 Schema；不得增删
-- 只能使用输入已有信息；禁止编造
-- 证据不足必须保持保守"""
+# Shared preamble imported from prompt_features.py
 
-_INDICATOR_SYSTEM_PROMPT = f"""{_AGENT_OUTPUT_PREAMBLE}
+_INDICATOR_SYSTEM_PROMPT = f"""{AGENT_OUTPUT_PREAMBLE}
 
 你是交易系统的 Indicator 分析器。接收预计算的技术指标压缩 JSON，输出结构化的指标分析摘要。
 
@@ -60,18 +56,7 @@ _INDICATOR_SYSTEM_PROMPT = f"""{_AGENT_OUTPUT_PREAMBLE}
 - **conflict_detail**: 中文描述指标间矛盾之处
 - **movement_score**: [-1, 1]，+1=强烈看涨，0=无方向，-1=强烈看跌
 - **movement_confidence**: [0, 1]，当前证据的充分程度
-- **next_focus**: 下轮分析需验证的关键点，不包含交易建议
-
-## 分析原则
-1. EMA排列：EMA21>EMA50>EMA200 为多头排列，反之为空头；价格在EMA之上为支撑
-2. RSI: >70超买但趋势中可视为动能强劲；<30超卖但趋势中可视为弱势延续
-3. ATR: 扩张=波动加大，收窄=蓄势；结合CHOP判断是趋势还是震荡
-4. STC: 0→100上升=多头动能增强；100→0下降=空头动能增强；注意 rising/falling 状态
-5. Bollinger Bands: price触及上轨+带宽扩张=强势；price收窄+带宽收缩=变盘前兆
-6. StochRSI: >80超买区域，<20超卖区域
-7. Aroon: AroonUp>AroonDown+70=强势多头；反之空头
-8. TD Sequential: 计数≥9=可能反转；≥13=逆转概率高
-9. 综合所有指标判断，出现明显矛盾时 movement_score 应靠近 0"""
+- **next_focus**: 下轮分析需验证的关键点，不包含交易建议"""
 
 # ======================================================================
 # Default / fallback output
@@ -199,6 +184,9 @@ def create_brale_indicator_agent(llm: Any, system_prompt: str | None = None):
         interval = state.get("time_frame", "") or compressed.get("market", {}).get("interval", "")
         symbol = state.get("stock_name", "") or compressed.get("market", {}).get("symbol", "")
 
+        # Assemble system prompt with conditional feature fragments
+        full_system = assemble_prompt_with_features(prompt, "agent_indicator", compressed)
+
         # Build user message
         user_parts = [
             f"交易对: {symbol}",
@@ -209,7 +197,7 @@ def create_brale_indicator_agent(llm: Any, system_prompt: str | None = None):
         ]
         user_msg = "\n".join(user_parts)
 
-        full_prompt = f"{prompt}\n\n{user_msg}"
+        full_prompt = f"{full_system}\n\n{user_msg}"
 
         try:
             response = invoke_llm_text(llm, full_prompt)

@@ -21,8 +21,6 @@ Reference defaults (from brale internal/config/defaults.go):
 
 from __future__ import annotations
 
-import math
-import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -192,20 +190,22 @@ def _rsi(closes: np.ndarray, period: int) -> np.ndarray:
     out = np.full(n, np.nan, dtype=np.float64)
     avg_gain = np.mean(gains[:period])
     avg_loss = np.mean(losses[:period])
-    if avg_loss < 1e-12:
-        out[period] = 100.0
-    else:
-        rs = avg_gain / avg_loss
-        out[period] = 100.0 - 100.0 / (1.0 + rs)
+    out[period] = _rsi_from_averages(avg_gain, avg_loss)
     for i in range(period + 1, n):
         avg_gain = (avg_gain * (period - 1) + gains[i - 1]) / period
         avg_loss = (avg_loss * (period - 1) + losses[i - 1]) / period
-        if avg_loss < 1e-12:
-            out[i] = 100.0
-        else:
-            rs = avg_gain / avg_loss
-            out[i] = 100.0 - 100.0 / (1.0 + rs)
+        out[i] = _rsi_from_averages(avg_gain, avg_loss)
     return np.round(out, 4)
+
+
+def _rsi_from_averages(avg_gain: float, avg_loss: float) -> float:
+    """brale: rsiFromAverages — returns 50 when both gain and loss are zero."""
+    if avg_loss < 1e-12 and avg_gain < 1e-12:
+        return 50.0
+    if avg_loss < 1e-12:
+        return 100.0
+    rs = avg_gain / avg_loss
+    return 100.0 - 100.0 / (1.0 + rs)
 
 
 # ======================================================================
@@ -234,10 +234,10 @@ def _atr(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period: int) -
 
 
 def _obv(closes: np.ndarray, volumes: np.ndarray) -> np.ndarray:
-    """brale: computeOBVSeries (indicator_compress.go:480-499)"""
+    """brale: ta.OBV — OBV[0]=0 (matching default TAComputer engine)."""
     n = len(closes)
     obv = np.full(n, np.nan, dtype=np.float64)
-    obv[0] = float(volumes[0])
+    obv[0] = 0.0
     for i in range(1, n):
         diff = closes[i] - closes[i - 1]
         direction = 1.0 if diff > 0 else (-1.0 if diff < 0 else 0.0)
@@ -294,7 +294,7 @@ def _choppiness(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period:
         ll = np.min(win_l)
         denom = hh - ll
         if denom < 1e-12:
-            out[i] = 0.0
+            continue  # skip (matches brale: keep NaN)
         else:
             out[i] = 100.0 * np.log10(tr_sum / denom) / np.log10(float(period))
     return np.round(out, 4)
@@ -306,7 +306,7 @@ def _choppiness(highs: np.ndarray, lows: np.ndarray, closes: np.ndarray, period:
 
 
 def _stoch_rsi_values(closes: np.ndarray, period: int) -> np.ndarray:
-    """StochRSI — apply stochastic formula to RSI values."""
+    """StochRSI — apply stochastic formula to RSI values. Returns 0-1 range (matching brale ta.StochRSI)."""
     r = _rsi(closes, period)
     n = len(r)
     out = np.full(n, np.nan, dtype=np.float64)
@@ -317,8 +317,6 @@ def _stoch_rsi_values(closes: np.ndarray, period: int) -> np.ndarray:
             out[i] = 0.0
         else:
             out[i] = (r[i] - lo) / (hi - lo)
-    # Scale to 0-100
-    out *= 100.0
     return np.round(out, 4)
 
 
@@ -382,22 +380,29 @@ def _rolling_sma(series: np.ndarray, period: int) -> np.ndarray:
 
 
 def _compute_stc(closes: np.ndarray, fast: int, slow: int, stc_k: int, stc_d: int) -> np.ndarray:
-    """brale: ComputeSTC equivalent (IndicatorComputer interface)"""
+    """brale: Schaff Trend Cycle — matches internal/ta/stc.go formula.
+
+    STC[i] = clamp(100 * (MACD[i] - K[i]) / (D[i] - K[i]), 0, 100)
+    where K=rolling_stochastic(MACD, stc_k), D=SMA(K, stc_d).
+    """
     n = len(closes)
-    if n < max(fast, slow) + stc_k + stc_d:
+    min_bars = max(fast, slow) + stc_k + stc_d
+    if n < min_bars:
         return _nanarr(n)
 
     ema_f = _ema(closes, fast)
     ema_s = _ema(closes, slow)
     macd_line = ema_f - ema_s
 
-    # Layer 1: stochastic → SMA smooth
-    stoch1 = _rolling_stochastic(macd_line, stc_k)
-    smooth1 = _rolling_sma(stoch1, stc_d)
+    k_vals = _rolling_stochastic(macd_line, stc_k)
+    d_vals = _rolling_sma(k_vals, stc_d)
 
-    # Layer 2: stochastic → SMA smooth = final STC
-    stoch2 = _rolling_stochastic(smooth1, stc_k)
-    stc = _rolling_sma(stoch2, stc_d)
+    stc = np.full(n, np.nan, dtype=np.float64)
+    for i in range(n):
+        denom = d_vals[i] - k_vals[i]
+        if not np.isfinite(denom) or abs(denom) <= 1e-12:
+            continue
+        stc[i] = _clamp(100.0 * (macd_line[i] - k_vals[i]) / denom, 0.0, 100.0)
 
     return np.round(stc, 4)
 
@@ -410,38 +415,29 @@ def _compute_stc(closes: np.ndarray, fast: int, slow: int, stc_k: int, stc_d: in
 
 
 def _td_sequential(closes: np.ndarray) -> dict:
-    """Return {current, count, phase, last_n, state} snapshot."""
+    """brale: TD Sequential — returns independent buy_setup / sell_setup counts.
+
+    Buy setup: consecutive closes > close 4 bars ago.
+    Sell setup: consecutive closes < close 4 bars ago.
+    """
     n = len(closes)
     if n < 5:
-        return {"current": 0, "count": 0, "phase": "none", "last_n": [], "state": "flat"}
+        return {"buy_setup": 0, "sell_setup": 0}
 
-    setup_counts = []
-    run = 0
-    last_dir = 0
+    buy = 0
+    sell = 0
     for i in range(4, n):
         if closes[i] > closes[i - 4]:
-            if last_dir == 1:
-                run += 1
-            else:
-                run = 1
-            last_dir = 1
+            buy += 1
+            sell = 0
         elif closes[i] < closes[i - 4]:
-            if last_dir == -1:
-                run += 1
-            else:
-                run = 1
-            last_dir = -1
+            sell += 1
+            buy = 0
         else:
-            run = 0
-            last_dir = 0
-        setup_counts.append(run)
+            buy = 0
+            sell = 0
 
-    current = setup_counts[-1] if setup_counts else 0
-    phase = "countdown" if current >= 9 else ("setup" if current >= 6 else "none")
-    last_n_vals = setup_counts[-5:] if len(setup_counts) >= 5 else setup_counts
-    state = "rising" if last_dir == 1 else ("falling" if last_dir == -1 else "flat")
-
-    return {"current": current, "count": current, "phase": phase, "last_n": last_n_vals, "state": state}
+    return {"buy_setup": buy, "sell_setup": sell}
 
 
 # ======================================================================
@@ -559,15 +555,16 @@ def _build_chop_snapshot(series: np.ndarray, tail_n: int) -> dict:
 
 
 def _build_stoch_rsi_snapshot(series: np.ndarray, tail_n: int) -> dict:
+    """brale: buildStochRSISnapshot — returns value in 0-1 range."""
     clean = _sanitize(series)
     if len(clean) == 0:
-        return {"latest": None, "last_n": [], "overbought": False, "oversold": False}
+        return {"value": None, "last_n": [], "overbought": False, "oversold": False}
     latest = float(clean[-1])
     return {
-        "latest": latest,
+        "value": latest,
         "last_n": _tail(series, tail_n).tolist(),
-        "overbought": latest > 80.0,
-        "oversold": latest < 20.0,
+        "overbought": latest >= 0.8,
+        "oversold": latest <= 0.2,
     }
 
 
@@ -695,7 +692,7 @@ def compress_indicator(
         "series_order": "oldest_to_latest",
         "sampled_at": pd.Timestamp.now(tz="UTC").isoformat(),
         "version": "indicator_compress_v1",
-        "timestamp_now_ts": int(time.time() * 1000),
+        "timestamp_now_ts": pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%dT%H:%M:%SZ"),
         "data_age_sec": {},
     }
 

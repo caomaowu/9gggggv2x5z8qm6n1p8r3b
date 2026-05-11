@@ -290,7 +290,9 @@ def _classify_obv_slope(obv: dict[str, Any] | None) -> str:
 def _classify_stoch_rsi_zone(sr: dict[str, Any] | None) -> str:
     if not sr:
         return ""
-    val = sr.get("latest") or 0
+    val = sr.get("value")
+    if val is None:
+        return ""
     if val <= STOCH_RSI_OVERSOLD:
         return "oversold"
     if val >= STOCH_RSI_OVERBOUGHT:
@@ -361,7 +363,9 @@ def _classify_bb_width(bb: dict[str, Any] | None) -> str:
 def _classify_chop_regime(chop: dict[str, Any] | None) -> str:
     if not chop:
         return ""
-    v = chop.get("latest") or 0
+    v = chop.get("latest")
+    if v is None:
+        return ""
     if v < CHOP_TRENDING:
         return "trending"
     if v > CHOP_CHOPPY:
@@ -464,12 +468,12 @@ def _detect_indicator_events(market: dict[str, Any], data: dict[str, Any]) -> li
 
     td = data.get("td_sequential")
     if td:
-        count = td.get("count", 0) or 0
-        state_dir = (td.get("state") or "").lower().strip()
-        if state_dir == "rising" and count >= 8:
-            events.append(f"td_buy_setup_{count}")
-        elif state_dir == "falling" and count >= 8:
-            events.append(f"td_sell_setup_{count}")
+        buy = td.get("buy_setup", 0) or 0
+        sell = td.get("sell_setup", 0) or 0
+        if buy >= 8:
+            events.append(f"td_buy_setup_{buy}")
+        if sell >= 8:
+            events.append(f"td_sell_setup_{sell}")
 
     return events
 
@@ -485,8 +489,14 @@ def _crossed_below(prev_price: float, prev_ema: float, cur_price: float, cur_ema
 def _classify_aroon_signal(aroon: dict[str, Any] | None) -> str:
     if not aroon:
         return ""
-    up = (aroon.get("up") or {}).get("latest") or 0
-    down = (aroon.get("down") or {}).get("latest") or 0
+    up_dict = aroon.get("up")
+    down_dict = aroon.get("down")
+    if not isinstance(up_dict, dict) or not isinstance(down_dict, dict):
+        return ""
+    up = up_dict.get("latest")
+    down = down_dict.get("latest")
+    if up is None or down is None:
+        return ""
     if up > AROON_STRONG and down < AROON_WEAK:
         return "strong_up"
     if down > AROON_STRONG and up < AROON_WEAK:
@@ -533,17 +543,23 @@ def _build_cross_tf_summary(results: list[dict[str, Any]], decision_interval: st
     out["decision_tf_bias"] = decision.get("bias", "mixed")
     conflict_count = 0
 
+    # Always include lower_tf_agreement (default false, matching brale)
     if lower is not None and decision.get("bias", "mixed") != "mixed":
         out["lower_tf_agreement"] = lower.get("bias") == decision.get("bias")
         lb = lower.get("bias", "mixed")
         if lb != "mixed" and lb != decision.get("bias"):
             conflict_count += 1
+    else:
+        out["lower_tf_agreement"] = False
 
+    # Always include higher_tf_agreement (default false, matching brale)
     if higher is not None and decision.get("bias", "mixed") != "mixed":
         out["higher_tf_agreement"] = higher.get("bias") == decision.get("bias")
         hb = higher.get("bias", "mixed")
         if hb != "mixed" and hb != decision.get("bias"):
             conflict_count += 1
+    else:
+        out["higher_tf_agreement"] = False
 
     out["conflict_count"] = conflict_count
 
