@@ -55,6 +55,10 @@ class ChartGenerator:
                 if not all(col in data.columns for col in ['Open', 'High', 'Low', 'Close']):
                     raise ValueError("数据缺少必要的OHLC列")
 
+                # OKX 返回的时间戳是 UTC，转为北京时间显示
+                data = data.copy()
+                data.index = data.index + pd.Timedelta(hours=8)
+
                 # 设置mplfinance样式
                 # 兼容性处理：检查可用的 matplotlib 样式
                 # 确保支持中文标题

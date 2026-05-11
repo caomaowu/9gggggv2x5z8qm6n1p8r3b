@@ -142,9 +142,13 @@ class MarketDataService:
 
     @staticmethod
     def _date_str_to_unix_ms(date_str: str) -> int | None:
-        """Convert date string like '2025-01-01' or '2025-01-01 12:00:00' to Unix ms."""
+        """Convert date string like '2025-01-01' or '2025-01-01 12:00:00' to Unix ms.
+        Input is treated as Asia/Shanghai time, converted to UTC epoch ms."""
         try:
-            return int(pd.Timestamp(date_str).value // 1_000_000)
+            ts = pd.Timestamp(date_str)
+            if ts.tz is None:
+                ts = ts.tz_localize('Asia/Shanghai')
+            return int(ts.value // 1_000_000)
         except Exception:
             return None
 
