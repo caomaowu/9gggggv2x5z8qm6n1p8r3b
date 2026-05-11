@@ -5,13 +5,16 @@ Replicates brale-core-master internal/decision/direction/consensus.go:
     - ComputeConsensus() with base weights, confidence-power, resonance bonus.
     - Output: direction (long/short/none) + confidence + agreement + coverage.
 
+Thresholds are read from app.core.config.settings (configurable via .env):
+    FUSION_SCORE_THRESHOLD  (default 0.35, brale ScoreThreshold)
+    FUSION_CONFIDENCE_THRESHOLD (default 0.52, brale ConfidenceThreshold)
+    AGENT_SCORE_MODE (conservative/lean) affects scoring via agent prompts.
+
 Reference weights & thresholds (internal/config/defaults.go):
     weightStructure  = 1.0
     weightIndicator  = 0.7
     weightMechanics  = 0.5
     confidencePower  = 1.0
-    ScoreThreshold   = 0.35
-    ConfidenceThreshold = 0.52
     ResonanceBonusCap = 0.12
     ResonanceBonusScale = 0.4
 """
@@ -19,6 +22,18 @@ Reference weights & thresholds (internal/config/defaults.go):
 from __future__ import annotations
 
 from typing import Any
+
+
+def _get_thresholds():
+    """Lazy-load fusion thresholds from settings (supports .env hot-reload)."""
+    try:
+        from app.core.config import settings
+        return (
+            max(0.0, min(1.0, settings.FUSION_SCORE_THRESHOLD)),
+            max(0.0, min(1.0, settings.FUSION_CONFIDENCE_THRESHOLD)),
+        )
+    except Exception:
+        return (0.35, 0.52)
 
 # ======================================================================
 # Constants (1:1 brale)
@@ -28,8 +43,8 @@ WEIGHT_STRUCTURE = 1.0
 WEIGHT_INDICATOR = 0.7
 WEIGHT_MECHANICS = 0.5
 CONFIDENCE_POWER = 1.0
-THRESHOLD_SCORE = 0.35
-THRESHOLD_CONFIDENCE = 0.52
+THRESHOLD_SCORE = 0.35       # 动态覆盖：见 _get_thresholds()
+THRESHOLD_CONFIDENCE = 0.52  # 动态覆盖：见 _get_thresholds()
 RESONANCE_MIN_CONFIDENCE = 0.35
 RESONANCE_MIN_SCORE_ABS = 0.30
 RESONANCE_OPPOSE_CONFIDENCE = 0.55
@@ -206,7 +221,10 @@ def compute_consensus(
     resonance = _compute_resonance(evidences, sum_base, score)
     confidence = min(1.0, base_conf + resonance["bonus"])
 
-    if abs(score) >= THRESHOLD_SCORE and confidence >= THRESHOLD_CONFIDENCE:
+    # 动态读取 .env 配置的阈值
+    score_threshold, conf_threshold = _get_thresholds()
+
+    if abs(score) >= score_threshold and confidence >= conf_threshold:
         direction = "long" if score > 0 else "short"
     else:
         direction = "none"

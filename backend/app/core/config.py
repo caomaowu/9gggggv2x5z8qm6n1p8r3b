@@ -39,7 +39,19 @@ class Settings(BaseSettings):
     CODEX_API_KEY: str = ""
     SOUL_API_KEY: str = ""
     API302_API_KEY: str = ""
-    
+
+    # ---------- Brale Agent per-agent model override (可选) ----------
+    # 不设置则回退到 AGENT_PROVIDER / AGENT_MODEL / 各 Agent 默认温度
+    BRALE_INDICATOR_PROVIDER: str = ""
+    BRALE_INDICATOR_MODEL: str = ""
+    BRALE_INDICATOR_TEMPERATURE: float = 0.2
+    BRALE_STRUCTURE_PROVIDER: str = ""
+    BRALE_STRUCTURE_MODEL: str = ""
+    BRALE_STRUCTURE_TEMPERATURE: float = 0.1
+    BRALE_MECHANICS_PROVIDER: str = ""
+    BRALE_MECHANICS_MODEL: str = ""
+    BRALE_MECHANICS_TEMPERATURE: float = 0.2
+
     AGENT_PROVIDER: str = "modelscope"
     AGENT_MODEL: str = "Qwen/Qwen3-Next-80B-A3B-Instruct"
     AGENT_TEMPERATURE: float = 0.1
@@ -72,6 +84,16 @@ class Settings(BaseSettings):
 
     # Decision Agent Version (original / lite)
     DECISION_AGENT_VERSION: str = "lite"
+
+    # ---------- Agent 评分模式 & Fusion 阈值 ----------
+    # conservative: 证据不足/矛盾时 score=0（保守）
+    # lean:         证据不足/矛盾时也给出微偏倾向
+    AGENT_SCORE_MODE: str = "conservative"
+
+    # Fusion 共识分数/置信度门槛
+    # 默认值对应 brale 原版 (0.35 / 0.52)
+    FUSION_SCORE_THRESHOLD: float = 0.35
+    FUSION_CONFIDENCE_THRESHOLD: float = 0.52
 
     model_config = SettingsConfigDict(
         env_file=".env",

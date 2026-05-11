@@ -18,6 +18,28 @@ from typing import Any
 from app.utils.llm_compat import invoke_llm_text
 from app.agents.prompt_features import AGENT_OUTPUT_PREAMBLE, assemble_prompt_with_features
 
+
+def _score_field_desc() -> str:
+    """根据 AGENT_SCORE_MODE 返回 movement_score / movement_confidence 字段说明。"""
+    try:
+        from app.core.config import settings
+        mode = settings.AGENT_SCORE_MODE
+    except Exception:
+        mode = "conservative"
+    if mode == "lean":
+        return (
+            "- **movement_score**: [-1, 1]，+1=强烈看涨，-1=强烈看跌。\n"
+            "  即使方向不明确，也请给出你认为最可能的微偏倾向（0.1~0.3 偏多，-0.1~-0.3 偏空）。\n"
+            "  只有在完全无法判断时才使用 0。\n"
+            "- **movement_confidence**: [0, 1]"
+        )
+    return (
+        "- **movement_score**: [-1, 1]，+1=强烈看涨，0=无方向，-1=强烈看跌。\n"
+        "  当 regime 为 range/mixed/unclear，或 last_break 为 none/unknown，\n"
+        "  或 quality 为 messy/unclear 时：movement_score 靠近 0，movement_confidence 偏低。\n"
+        "- **movement_confidence**: [0, 1]"
+    )
+
 logger = logging.getLogger(__name__)
 
 _STRUCTURE_SYSTEM_PROMPT = f"""{AGENT_OUTPUT_PREAMBLE}
@@ -46,8 +68,7 @@ _STRUCTURE_SYSTEM_PROMPT = f"""{AGENT_OUTPUT_PREAMBLE}
 - **pattern**: 识别的形态类型（详见枚举），none=无形态
 - **volume_action**: 中文描述成交量特征（放量/缩量/背离等）
 - **candle_reaction**: 中文描述K线对关键位的反应（支撑位反弹/阻力位受压等）
-- **movement_score**: [-1, 1]，+1=强烈看涨，0=无方向，-1=强烈看跌
-- **movement_confidence**: [0, 1]
+{_score_field_desc()}
 - **next_focus**: 下轮需验证的结构位置或形态"""
 
 _DEFAULT_OUTPUT: dict[str, Any] = {

@@ -18,6 +18,27 @@ from typing import Any
 from app.utils.llm_compat import invoke_llm_text
 from app.agents.prompt_features import AGENT_OUTPUT_PREAMBLE, assemble_prompt_with_features
 
+
+def _score_field_desc() -> str:
+    """根据 AGENT_SCORE_MODE 返回 movement_score / movement_confidence 字段说明。"""
+    try:
+        from app.core.config import settings
+        mode = settings.AGENT_SCORE_MODE
+    except Exception:
+        mode = "conservative"
+    if mode == "lean":
+        return (
+            "- **movement_score**: [-1, 1]，+1=强烈看涨，-1=强烈看跌。\n"
+            "  即使方向不明确，也请给出你认为最可能的微偏倾向（0.1~0.3 偏多，-0.1~-0.3 偏空）。\n"
+            "  只有在完全无法判断时才使用 0。数据缺失时应靠近 0。\n"
+            "- **movement_confidence**: [0, 1]，证据充分时偏高。数据大量缺失时应偏低于 0.3"
+        )
+    return (
+        "- **movement_score**: [-1, 1]，+1=强烈看涨，0=无方向，-1=强烈看跌。\n"
+        "  证据不足时分数应靠近 0。数据缺失时应靠近 0。\n"
+        "- **movement_confidence**: [0, 1]，证据充分时偏高。数据大量缺失时应偏低于 0.3"
+    )
+
 logger = logging.getLogger(__name__)
 
 _MECHANICS_SYSTEM_PROMPT = f"""{AGENT_OUTPUT_PREAMBLE}
@@ -44,8 +65,7 @@ _MECHANICS_SYSTEM_PROMPT = f"""{AGENT_OUTPUT_PREAMBLE}
 - **risk_level**: 当前风险等级。low=低, medium=中等, high=高
 - **open_interest_context**: 中文描述OI变化率、资金费率等关键证据。当数据大量标记为 `missing: true` 时，直接说明"衍生品数据不可用"
 - **anomaly_detail**: 中文描述异常数据点（清算激增/费率极端/OI异动等），无明显异常则写"无明显异常"
-- **movement_score**: [-1, 1]，+1=强烈看涨，0=无方向，-1=强烈看跌。数据缺失时应靠近 0
-- **movement_confidence**: [0, 1]，证据充分时偏高。数据大量缺失时应偏低于 0.3
+{_score_field_desc()}
 - **next_focus**: 下轮需重点关注的衍生品指标变化"""
 
 _DEFAULT_OUTPUT: dict[str, Any] = {

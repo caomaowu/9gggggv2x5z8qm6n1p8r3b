@@ -22,6 +22,27 @@ from typing import Any
 from app.utils.llm_compat import invoke_llm_text
 from app.agents.prompt_features import AGENT_OUTPUT_PREAMBLE, assemble_prompt_with_features
 
+
+def _score_field_desc() -> str:
+    """根据 AGENT_SCORE_MODE 返回 movement_score / movement_confidence 字段说明。"""
+    try:
+        from app.core.config import settings
+        mode = settings.AGENT_SCORE_MODE
+    except Exception:
+        mode = "conservative"
+    if mode == "lean":
+        return (
+            "- **movement_score**: [-1, 1]，+1=强烈看涨，-1=强烈看跌。\n"
+            "  即使方向不明确，也请给出你认为最可能的微偏倾向（0.1~0.3 偏多，-0.1~-0.3 偏空）。\n"
+            "  只有在完全无法判断时才使用 0。\n"
+            "- **movement_confidence**: [0, 1]，当前证据的充分程度"
+        )
+    return (
+        "- **movement_score**: [-1, 1]，+1=强烈看涨，0=无方向，-1=强烈看跌。\n"
+        "  当证据不足、噪声大、或冲突明显时，score 应靠近 0，confidence 应偏低。\n"
+        "- **movement_confidence**: [0, 1]，当前证据的充分程度"
+    )
+
 logger = logging.getLogger(__name__)
 
 # ======================================================================
@@ -54,8 +75,7 @@ _INDICATOR_SYSTEM_PROMPT = f"""{AGENT_OUTPUT_PREAMBLE}
 - **noise**: 市场噪音水平。low=趋势清晰, medium=一般, high=频繁假信号
 - **momentum_detail**: 中文描述当前动能特征（方向/强度/加速或衰减），引用具体指标证据
 - **conflict_detail**: 中文描述指标间矛盾之处
-- **movement_score**: [-1, 1]，+1=强烈看涨，0=无方向，-1=强烈看跌
-- **movement_confidence**: [0, 1]，当前证据的充分程度
+{_score_field_desc()}
 - **next_focus**: 下轮分析需验证的关键点，不包含交易建议"""
 
 # ======================================================================
