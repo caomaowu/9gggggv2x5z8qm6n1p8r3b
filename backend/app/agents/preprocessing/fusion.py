@@ -35,6 +35,15 @@ def _get_thresholds():
     except Exception:
         return (0.35, 0.52)
 
+
+def _get_always_direction() -> bool:
+    """Lazy-load FUSION_ALWAYS_DIRECTION from settings."""
+    try:
+        from app.core.config import settings
+        return getattr(settings, "FUSION_ALWAYS_DIRECTION", True)
+    except Exception:
+        return True
+
 # ======================================================================
 # Constants (1:1 brale)
 # ======================================================================
@@ -221,10 +230,14 @@ def compute_consensus(
     resonance = _compute_resonance(evidences, sum_base, score)
     confidence = min(1.0, base_conf + resonance["bonus"])
 
-    # 动态读取 .env 配置的阈值
+    # 动态读取 .env 配置的阈值和开关
     score_threshold, conf_threshold = _get_thresholds()
+    always_direction = _get_always_direction()
 
-    if abs(score) >= score_threshold and confidence >= conf_threshold:
+    if always_direction:
+        # 强制输出方向：score >= 0 → long, score < 0 → short
+        direction = "long" if score >= 0 else "short"
+    elif abs(score) >= score_threshold and confidence >= conf_threshold:
         direction = "long" if score > 0 else "short"
     else:
         direction = "none"

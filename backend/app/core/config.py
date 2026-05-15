@@ -88,12 +88,17 @@ class Settings(BaseSettings):
     # ---------- Agent 评分模式 & Fusion 阈值 ----------
     # conservative: 证据不足/矛盾时 score=0（保守）
     # lean:         证据不足/矛盾时也给出微偏倾向
-    AGENT_SCORE_MODE: str = "conservative"
+    AGENT_SCORE_MODE: str = "lean"
 
     # Fusion 共识分数/置信度门槛
     # 默认值对应 brale 原版 (0.35 / 0.52)
     FUSION_SCORE_THRESHOLD: float = 0.35
     FUSION_CONFIDENCE_THRESHOLD: float = 0.52
+
+    # 强制输出方向开关
+    # true:  每次分析必定输出 long/short（score≥0→long, score<0→short）
+    # false: 低于阈值时输出 none（HOLD），恢复 brale 原版行为
+    FUSION_ALWAYS_DIRECTION: bool = True
 
     model_config = SettingsConfigDict(
         env_file=".env",
