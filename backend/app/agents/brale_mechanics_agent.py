@@ -150,6 +150,15 @@ def create_brale_mechanics_agent(llm: Any, system_prompt: str | None = None):
             logger.warning("[brale-mechanics] No mechanics_compressed; returning default.")
             return {"mechanics_summary": _DEFAULT_OUTPUT.copy()}
 
+        # 核心衍生品数据大量缺失（≥4/5 不可用）→ 跳过 LLM，直接返回零分
+        missing = compressed.get("missing") or []
+        if len(missing) >= 4:
+            logger.info(
+                "[brale-mechanics] %d/%d mechanics data missing (%s); forcing score=0, skipping LLM.",
+                len(missing), 5, ", ".join(missing),
+            )
+            return {"mechanics_summary": _DEFAULT_OUTPUT.copy()}
+
         interval = state.get("time_frame", "")
         symbol = state.get("stock_name", "") or compressed.get("symbol", "")
 
