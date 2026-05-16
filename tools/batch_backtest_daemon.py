@@ -199,8 +199,12 @@ def main():
                     current_equity = new_equity
                     
                     # Process Result
-                    res["AGENT_MODEL"] = config.get("agent_model", "")
-                    res["GRAPH_MODEL"] = config.get("graph_model", "")
+                    # 优先使用 engine 从 API 响应 llm_config 提取的模型信息，
+                    # daemon config 中的值仅作回退。
+                    if not res.get("AGENT_MODEL"):
+                        res["AGENT_MODEL"] = config.get("agent_model", "")
+                    if not res.get("GRAPH_MODEL"):
+                        res["GRAPH_MODEL"] = config.get("graph_model", "")
                     res["回测模式"] = backtest_mode
                     
                     # Update Stats

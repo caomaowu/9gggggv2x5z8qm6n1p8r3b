@@ -44,7 +44,7 @@ frontend/*.local
 .vscode/
 *.swp
 *.swo
-
+opencode.json
 
 # SSL 证书
 caomaowu.lol-ssl-bundle/

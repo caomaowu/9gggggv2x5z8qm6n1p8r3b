@@ -594,9 +594,11 @@ def render_execute(
             nonlocal completed, stats_wins_1, stats_losses_1, stats_wins_2, stats_losses_2, failed
 
             agent_model, graph_model = store.load_env_models()
-            if agent_model:
+            # 优先使用 engine 从 API 响应 llm_config 中提取的模型信息，
+            # .env 读取仅作为回退（当 API 响应中缺失时）。
+            if agent_model and not result_row.get("AGENT_MODEL"):
                 result_row["AGENT_MODEL"] = agent_model
-            if graph_model:
+            if graph_model and not result_row.get("GRAPH_MODEL"):
                 result_row["GRAPH_MODEL"] = graph_model
 
             result_row["回测模式"] = backtest_mode

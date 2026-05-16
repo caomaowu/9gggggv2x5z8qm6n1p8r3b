@@ -38,6 +38,13 @@ def save_favorites(assets: list[str]) -> None:
 
 
 def load_env_models() -> Tuple[str, str]:
+    """从 backend/.env 读取模型名称，兼容新旧两种 key 格式。
+
+    优先读取 brale-core 重构后的 key（LLM_MODEL / BRALE_*_MODEL），
+    同时兼容旧 key（AGENT_MODEL / GRAPH_MODEL）。
+    agent_model 取 LLM_MODEL（默认模型），graph_model 同样取 LLM_MODEL
+    （重构后 Graph 不再独立配置模型）。
+    """
     agent_model = ""
     graph_model = ""
     try:
@@ -46,10 +53,30 @@ def load_env_models() -> Tuple[str, str]:
                 line = raw_line.strip()
                 if not line or line.startswith("#"):
                     continue
-                if line.startswith("AGENT_MODEL="):
-                    agent_model = line.split("=", 1)[1].strip()
+
+                # 新 key（brale-core 重构后）
+                if line.startswith("LLM_MODEL="):
+                    val = line.split("=", 1)[1].strip()
+                    if val:
+                        agent_model = val
+                        graph_model = val  # Graph 使用相同默认模型
+
+                # 各 Agent 独立模型（如果配置了，优先使用 Indicator Agent 的模型）
+                elif line.startswith("BRALE_INDICATOR_MODEL="):
+                    val = line.split("=", 1)[1].strip()
+                    if val:
+                        agent_model = val
+
+                # 兼容旧 key
+                elif line.startswith("AGENT_MODEL="):
+                    val = line.split("=", 1)[1].strip()
+                    if val and not agent_model:
+                        agent_model = val
                 elif line.startswith("GRAPH_MODEL="):
-                    graph_model = line.split("=", 1)[1].strip()
+                    val = line.split("=", 1)[1].strip()
+                    if val and not graph_model:
+                        graph_model = val
+
         return agent_model, graph_model
     except FileNotFoundError:
         return "", ""

@@ -166,6 +166,17 @@ def _extract_low(item: Dict[str, Any]) -> Optional[float]:
     return None
 
 
+def _extract_model_from_response(result: Dict[str, Any], key: str) -> str:
+    """从 brale-core API 响应 llm_config 中提取模型名称。
+
+    key: "agent" 或 "graph"
+    返回模型名，若不存在则返回空字符串。
+    """
+    llm_config = result.get("llm_config") or {}
+    section = llm_config.get(key) or {}
+    return str(section.get("model", "") or "")
+
+
 def _normalize_action(action: Any) -> str:
     if action is None:
         return "HOLD"
@@ -540,6 +551,8 @@ def run_one_task(
             "kline_count": kline_count,
             "future_kline_count": future_kline_count,
             "error": "",
+            "AGENT_MODEL": _extract_model_from_response(result, "agent"),
+            "GRAPH_MODEL": _extract_model_from_response(result, "graph"),
         }
     except Exception as e:
         duration_s = round(time.perf_counter() - started, 3)
@@ -567,6 +580,8 @@ def run_one_task(
             "kline_count": kline_count,
             "future_kline_count": future_kline_count,
             "error": str(e),
+            "AGENT_MODEL": "",
+            "GRAPH_MODEL": "",
         }
 
 
@@ -920,6 +935,8 @@ def run_one_task_with_funds(
             "平仓原因": exit_reason,
             "本次盈亏": f"{float(pnl):+.2f}",
             "本次盈亏百分比": f"{float(pnl_pct):+.2f}%" if pnl_pct is not None else "N/A",
+            "AGENT_MODEL": _extract_model_from_response(result, "agent"),
+            "GRAPH_MODEL": _extract_model_from_response(result, "graph"),
         }
 
         # 添加仓位状态到返回结果
@@ -966,6 +983,8 @@ def run_one_task_with_funds(
             "平仓原因": "执行失败",
             "本次盈亏": "+0.00",
             "本次盈亏百分比": "N/A",
+            "AGENT_MODEL": "",
+            "GRAPH_MODEL": "",
         }
         # 添加仓位状态到返回结果（异常情况下保持当前状态）
         result_row["_is_aggressive"] = position_state.get("is_aggressive", False)

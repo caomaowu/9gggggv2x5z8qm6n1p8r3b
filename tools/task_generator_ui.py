@@ -200,11 +200,6 @@ class TaskGeneratorApp:
         self.kline_count_var = tk.IntVar(value=40)
         ttk.Entry(step2_frame, textvariable=self.kline_count_var, width=10).grid(row=14, column=1, sticky='w')
 
-        ttk.Label(step2_frame, text="AI Version:", font=("Arial", 8)).grid(row=15, column=0, sticky='w', pady=2)
-        self.ai_version_var = tk.StringVar(value="lite")
-        self.ai_version_combo = ttk.Combobox(step2_frame, textvariable=self.ai_version_var, values=["lite", "original"], state="readonly", width=10)
-        self.ai_version_combo.grid(row=15, column=1, sticky='w')
-        
         ttk.Label(step2_frame, text="Future Kline:", font=("Arial", 8)).grid(row=16, column=0, sticky='w', pady=2)
         self.future_kline_var = tk.IntVar(value=13)
         ttk.Entry(step2_frame, textvariable=self.future_kline_var, width=10).grid(row=16, column=1, sticky='w')
@@ -258,14 +253,14 @@ class TaskGeneratorApp:
         self.preview_info.pack(anchor='w', pady=(0, 10))
         
         # 表格
-        cols = ("task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "ai_version", "data_method", "status")
+        cols = ("task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "data_method", "status")
         self.tree = ttk.Treeview(right_frame, columns=cols, show='headings', height=25)
         
         # 设置列宽
         col_widths = {
             "task_id": 50, "asset": 80, "timeframe": 60, "end_date": 90, 
             "end_time": 70, "kline_count": 60, "future_kline_count": 60,
-            "ai_version": 70, "data_method": 70, "status": 80
+            "data_method": 70, "status": 80
         }
         
         for col in cols:
@@ -736,7 +731,6 @@ class TaskGeneratorApp:
 
                 tasks = []
                 task_id = 1
-                ai_version = self.ai_version_var.get()
 
                 for i in range(cycle_count):
                     if current_dt > end_boundary:
@@ -753,7 +747,6 @@ class TaskGeneratorApp:
                         "end_time": t,
                         "kline_count": k_count,
                         "future_kline_count": fut_count,
-                        "ai_version": ai_version,
                         "data_method": "to_end",
                         "status": "Pending"
                     }
@@ -766,7 +759,7 @@ class TaskGeneratorApp:
                 for item in self.tree.get_children():
                     self.tree.delete(item)
                 for task in tasks:
-                    cols_order = ["task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "ai_version", "data_method", "status"]
+                    cols_order = ["task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "data_method", "status"]
                     values = [task[k] for k in cols_order]
                     self.tree.insert('', 'end', values=values)
                 self.preview_info.config(text=f"预览: {len(self.generated_tasks)} 条任务")
@@ -852,8 +845,6 @@ class TaskGeneratorApp:
             should_validate = False
             if hasattr(self, 'validate_data_var') and self.validate_data_var.get():
                 should_validate = True
-            
-            ai_version = self.ai_version_var.get()
 
             for asset in assets_list:
                 seen_dates_for_asset = set()
@@ -890,7 +881,6 @@ class TaskGeneratorApp:
                                 "end_time": end_time_value,
                                 "kline_count": k_count,
                                 "future_kline_count": fut_count,
-                                "ai_version": ai_version,
                                 "data_method": "to_end",
                                 "status": "Pending"
                             }
@@ -939,7 +929,6 @@ class TaskGeneratorApp:
                                 "end_time": end_time_value,
                                 "kline_count": k_count,
                                 "future_kline_count": fut_count,
-                                "ai_version": ai_version,
                                 "data_method": "to_end",
                                 "status": "Pending"
                             }
@@ -957,7 +946,7 @@ class TaskGeneratorApp:
 
             self.generated_tasks = tasks
             for task in tasks:
-                cols_order = ["task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "ai_version", "data_method", "status"]
+                cols_order = ["task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "data_method", "status"]
                 values = [task[k] for k in cols_order]
                 self.tree.insert('', 'end', values=values)
 
@@ -1025,8 +1014,8 @@ class TaskGeneratorApp:
                         if not curr_vals: 
                             curr_vals = list(v)
                             
-                        if len(curr_vals) >= 10:
-                            curr_vals[9] = s
+                        if len(curr_vals) >= 9:
+                            curr_vals[8] = s
                         else:
                             curr_vals.append(s)
                             
@@ -1065,7 +1054,7 @@ class TaskGeneratorApp:
             self.tree.delete(item)
             
         for task in self.generated_tasks:
-            cols_order = ["task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "ai_version", "data_method", "status"]
+            cols_order = ["task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "data_method", "status"]
             values = [task[k] for k in cols_order]
             
             # Restore tag based on status
@@ -1120,7 +1109,7 @@ class TaskGeneratorApp:
         try:
             df = pd.DataFrame(self.generated_tasks)
             # 确保列顺序
-            cols_order = ["task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "ai_version", "data_method"]
+            cols_order = ["task_id", "asset", "timeframe", "end_date", "end_time", "kline_count", "future_kline_count", "data_method"]
             df = df[cols_order]
             df.to_csv(filepath, index=False)
             messagebox.showinfo("成功", f"文件已保存至:\n{filepath}")
