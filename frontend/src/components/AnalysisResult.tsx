@@ -12,6 +12,7 @@ import styles from './AnalysisResult.module.css';
 
 export default function AnalysisResult() {
     const { analysisResult } = useAppStore();
+    const history_chart_base64 = analysisResult?.history_chart_base64;
 
     useEffect(() => {
         // 主题检测 (复刻 output.html 的 head script)
@@ -48,7 +49,24 @@ export default function AnalysisResult() {
                     <TrendPanel />
                 </section>
 
-                {/* 页脚 */}
+                {/* 历史K线走势图（底部小尺寸） */}
+                {history_chart_base64 && (
+                    <section className={styles.resultsSection} style={{ marginTop: '1rem' }}>
+                        <img
+                            src={`data:image/png;base64,${history_chart_base64}`}
+                            alt="历史K线走势"
+                            style={{
+                                maxWidth: '780px',
+                                width: '100%',
+                                borderRadius: '6px',
+                                border: '1px solid #374151',
+                                display: 'block',
+                                margin: '0 auto'
+                            }}
+                        />
+                    </section>
+                )}
+
                 <Footer />
             </main>
         </div>

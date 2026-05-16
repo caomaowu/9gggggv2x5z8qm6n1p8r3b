@@ -491,6 +491,200 @@ async def analyze_market(
             result['future_15m_kline_data'] = future_15m_kline_list
             result['future_15m_chart_base64'] = future_15m_chart_base64
         
+        # ======================================================================
+        # 哈雷酱：回测验证模块（Agent独立验证 + 15m周期纯度验证）
+        # ======================================================================
+        is_backtest = request.data_method in ["to_end", "date_range"]
+
+        # (A) Agent 独立验证 —— 检查各Agent方向预测 vs 第一根未来K线实际方向
+        if is_backtest:
+            try:
+                if future_kline_list:
+                    first_kline = future_kline_list[0]
+                    actual_open = float(first_kline.get('open', 0))
+                    actual_close = float(first_kline.get('close', 0))
+                    if actual_close > actual_open:
+                        actual_direction = "up"
+                    elif actual_close < actual_open:
+                        actual_direction = "down"
+                    else:
+                        actual_direction = "unknown"
+
+                    def _agent_direction(score_val):
+                        if score_val is None:
+                            return "neutral"
+                        if score_val > 0:
+                            return "up"
+                        elif score_val < 0:
+                            return "down"
+                        else:
+                            return "neutral"
+
+                    indicator_sum = result.get('indicator_summary') or {}
+                    structure_sum = result.get('structure_summary') or {}
+                    mechanics_sum = result.get('mechanics_summary') or {}
+
+                    # Fusion 方向获取
+                    fusion_direction = None
+                    fusion_score = None
+                    if result.get('decision', {}).get('fusion_raw'):
+                        fusion_direction = result['decision']['fusion_raw'].get('direction')
+                        fusion_score = result['decision']['fusion_raw'].get('score')
+                    elif result.get('fusion_result'):
+                        fusion_direction = result['fusion_result'].get('direction')
+                        fusion_score = result['fusion_result'].get('score')
+
+                    fusion_dir_mapped = "neutral"
+                    if fusion_direction in ("long", "up"):
+                        fusion_dir_mapped = "up"
+                    elif fusion_direction in ("short", "down"):
+                        fusion_dir_mapped = "down"
+
+                    has_any_agent = any([
+                        indicator_sum, structure_sum, mechanics_sum,
+                        fusion_direction is not None,
+                    ])
+
+                    if has_any_agent:
+                        agent_verification = {
+                            "actual_direction": actual_direction,
+                            "period": timeframe_for_result,
+                            "agents": {
+                                "indicator": {
+                                    "score": round(float(indicator_sum.get('movement_score', 0)), 4),
+                                    "direction": _agent_direction(indicator_sum.get('movement_score')),
+                                    "matched": (_agent_direction(indicator_sum.get('movement_score')) == actual_direction) if actual_direction != "unknown" else None,
+                                },
+                                "structure": {
+                                    "score": round(float(structure_sum.get('movement_score', 0)), 4),
+                                    "direction": _agent_direction(structure_sum.get('movement_score')),
+                                    "matched": (_agent_direction(structure_sum.get('movement_score')) == actual_direction) if actual_direction != "unknown" else None,
+                                },
+                                "mechanics": {
+                                    "score": round(float(mechanics_sum.get('movement_score', 0)), 4),
+                                    "direction": _agent_direction(mechanics_sum.get('movement_score')),
+                                    "matched": (_agent_direction(mechanics_sum.get('movement_score')) == actual_direction) if actual_direction != "unknown" else None,
+                                },
+                                "fusion": {
+                                    "score": round(float(fusion_score if fusion_score is not None else 0), 4),
+                                    "direction": fusion_dir_mapped,
+                                    "matched": (fusion_dir_mapped == actual_direction) if actual_direction != "unknown" else None,
+                                },
+                            }
+                        }
+                        result['agent_verification'] = agent_verification
+                        logger.info(
+                            f"[{result_id}] Agent verification: actual={actual_direction}, "
+                            f"indicator={agent_verification['agents']['indicator']['matched']}, "
+                            f"structure={agent_verification['agents']['structure']['matched']}, "
+                            f"mechanics={agent_verification['agents']['mechanics']['matched']}, "
+                            f"fusion={agent_verification['agents']['fusion']['matched']}"
+                        )
+            except Exception as e:
+                logger.warning(f"[{result_id}] Agent verification failed (non-blocking): {e}")
+
+        # (B) 15m 周期纯度验证 —— 检查第一周期内15m K线是否保持"纯净"于预测方向
+        if is_backtest:
+            try:
+                if future_15m_kline_list:
+                    predicted_direction = None
+                    if result.get('decision', {}).get('fusion_raw'):
+                        raw_dir = result['decision']['fusion_raw'].get('direction')
+                    elif result.get('fusion_result'):
+                        raw_dir = result['fusion_result'].get('direction')
+                    else:
+                        raw_dir = None
+
+                    if raw_dir in ("long",):
+                        predicted_direction = "up"
+                    elif raw_dir in ("short",):
+                        predicted_direction = "down"
+                    else:
+                        predicted_direction = "neutral"
+
+                    # 基准价格
+                    baseline_price = result.get('decision', {}).get('entry_point')
+                    if baseline_price is None:
+                        if isinstance(df, dict):
+                            first_tf = list(df.keys())[0]
+                            ref_df = df[first_tf]
+                        else:
+                            ref_df = df
+                        if hasattr(ref_df, 'iloc') and not ref_df.empty:
+                            baseline_price = float(ref_df['Close'].iloc[-1])
+
+                    if baseline_price and predicted_direction in ("up", "down"):
+                        _TIMEFRAME_TO_15M_COUNT = {
+                            "1m": 1, "3m": 1, "5m": 1, "15m": 1,
+                            "30m": 2, "1h": 4, "4h": 16, "1d": 96, "1w": 672,
+                        }
+                        primary_tf = timeframe_for_result.split(",")[0] if "," in timeframe_for_result else timeframe_for_result
+                        candles_to_check = _TIMEFRAME_TO_15M_COUNT.get(primary_tf.lower(), 4)
+                        candles_to_check = min(candles_to_check, len(future_15m_kline_list))
+
+                        threshold = settings.FUTURE_15M_PURITY_THRESHOLD
+                        violations = []
+
+                        for i in range(candles_to_check):
+                            kline = future_15m_kline_list[i]
+                            close_val = float(kline.get('close', 0))
+
+                            if predicted_direction == "up":
+                                if close_val < baseline_price * (1 - threshold):
+                                    deviation_pct = round((close_val - baseline_price) / baseline_price * 100, 4)
+                                    violations.append({
+                                        "index": i,
+                                        "close": close_val,
+                                        "deviation_pct": deviation_pct,
+                                    })
+                            elif predicted_direction == "down":
+                                if close_val > baseline_price * (1 + threshold):
+                                    deviation_pct = round((close_val - baseline_price) / baseline_price * 100, 4)
+                                    violations.append({
+                                        "index": i,
+                                        "close": close_val,
+                                        "deviation_pct": deviation_pct,
+                                    })
+
+                        purity_verification = {
+                            "threshold": threshold,
+                            "timeframe": primary_tf,
+                            "candles_checked": candles_to_check,
+                            "baseline_price": round(baseline_price, 4),
+                            "predicted_direction": predicted_direction,
+                            "violations": violations,
+                            "is_pure": len(violations) == 0,
+                        }
+                        result['purity_verification'] = purity_verification
+                        logger.info(
+                            f"[{result_id}] Purity verification: direction={predicted_direction}, "
+                            f"candles={candles_to_check}, violations={len(violations)}, "
+                            f"is_pure={purity_verification['is_pure']}"
+                        )
+            except Exception as e:
+                logger.warning(f"[{result_id}] 15m purity verification failed (non-blocking): {e}")
+
+        # 回测模式：生成最近30根K线历史走势图（小尺寸，供结果页展示）
+        if is_backtest:
+            try:
+                from app.utils.chart_generator import chart_generator
+                primary_df = None
+                if isinstance(df, dict):
+                    primary_tf = timeframe_for_result.split(",")[0] if "," in timeframe_for_result else list(df.keys())[0]
+                    primary_df = df.get(primary_tf)
+                else:
+                    primary_df = df
+                if primary_df is not None and not primary_df.empty and len(primary_df) >= 2:
+                    recent_df = primary_df.tail(30)
+                    history_chart = chart_generator.generate_kline_chart(
+                        recent_df,
+                        title=f"{display_asset_name} 最近{len(recent_df)}根K线"
+                    )
+                    result['history_chart_base64'] = history_chart
+                    logger.info(f"[{result_id}] History chart generated: {len(recent_df)} bars")
+            except Exception as e:
+                logger.warning(f"[{result_id}] History chart generation failed (non-blocking): {e}")
+
         # Determine analysis time display
         analysis_time_display = None
         if request.data_method == "to_end" and end_dt_str:

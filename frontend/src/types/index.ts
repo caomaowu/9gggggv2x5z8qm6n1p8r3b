@@ -74,6 +74,39 @@ export interface FusionResult {
   };
 }
 
+export interface AgentVerificationItem {
+  score: number;
+  direction: "up" | "down" | "neutral";
+  matched: boolean;
+}
+
+export interface AgentVerification {
+  actual_direction: "up" | "down" | "unknown";
+  period: string;
+  agents: {
+    indicator: AgentVerificationItem;
+    structure: AgentVerificationItem;
+    mechanics: AgentVerificationItem;
+    fusion: AgentVerificationItem;
+  };
+}
+
+export interface PurityViolation {
+  index: number;
+  close: number;
+  deviation_pct: number;
+}
+
+export interface PurityVerification {
+  threshold: number;
+  timeframe: string;
+  candles_checked: number;
+  baseline_price: number;
+  predicted_direction: "up" | "down";
+  violations: PurityViolation[];
+  is_pure: boolean;
+}
+
 export interface IndicatorSummary {
   expansion: string;
   alignment: string;
@@ -157,6 +190,9 @@ export interface AnalysisResult {
   future_kline_data?: FutureKlineDataRow[];
   future_15m_chart_base64?: string;
   future_15m_kline_data?: FutureKlineDataRow[];
+  agent_verification?: AgentVerification;
+  purity_verification?: PurityVerification;
+  history_chart_base64?: string;
   latest_price?: number;
   price_info?: Record<string, unknown>;
   messages?: unknown[];

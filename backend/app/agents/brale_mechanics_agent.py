@@ -150,12 +150,20 @@ def create_brale_mechanics_agent(llm: Any, system_prompt: str | None = None):
             logger.warning("[brale-mechanics] No mechanics_compressed; returning default.")
             return {"mechanics_summary": _DEFAULT_OUTPUT.copy()}
 
-        # 核心衍生品数据大量缺失（≥4/5 不可用）→ 跳过 LLM，直接返回零分
+        # 核心衍生品数据不足 → 跳过 LLM，直接返回零分
+        # 阈值由 MECHANICS_MIN_DATA_SOURCES 控制（默认需 ≥3 个数据源可用）
+        try:
+            from app.core.config import settings
+            min_sources = max(1, settings.MECHANICS_MIN_DATA_SOURCES)
+        except Exception:
+            min_sources = 3
+        total_sources = 5
         missing = compressed.get("missing") or []
-        if len(missing) >= 4:
+        if len(missing) > (total_sources - min_sources):
             logger.info(
-                "[brale-mechanics] %d/%d mechanics data missing (%s); forcing score=0, skipping LLM.",
-                len(missing), 5, ", ".join(missing),
+                "[brale-mechanics] %d/%d mechanics data missing (%s); "
+                "need ≥%d sources, forcing score=0, skipping LLM.",
+                len(missing), total_sources, ", ".join(missing), min_sources,
             )
             return {"mechanics_summary": _DEFAULT_OUTPUT.copy()}
 

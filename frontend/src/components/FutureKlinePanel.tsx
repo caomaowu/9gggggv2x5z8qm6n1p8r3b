@@ -1,5 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
-import type { FutureKlineDataRow } from '../types';
+import type { FutureKlineDataRow, AgentVerification, PurityVerification } from '../types';
 import styles from './FutureKlinePanel.module.css';
 
 export default function FutureKlinePanel() {
@@ -12,7 +12,9 @@ export default function FutureKlinePanel() {
         future_15m_chart_base64,
         latest_price,
         decision: singleDecision,
-        timeframe // Get timeframe
+        timeframe, // Get timeframe
+        agent_verification,
+        purity_verification
     } = analysisResult;
 
     const stopLoss = singleDecision?.stop_loss;
@@ -22,6 +24,9 @@ export default function FutureKlinePanel() {
     // Normalize Action
     const isLong = action.toLowerCase().includes('buy') || action.toLowerCase().includes('long') || action.includes('做多');
     const isShort = action.toLowerCase().includes('sell') || action.toLowerCase().includes('short') || action.includes('做空');
+
+    // 预测方向是否正确（用于纯度验证的条件判断）
+    const fusionMatched = agent_verification?.agents?.fusion?.matched;
 
     // 3. Verification Logic
     let slTriggered = false;
@@ -139,6 +144,28 @@ export default function FutureKlinePanel() {
         if (!latestVal) return '';
         const pct = ((target - latestVal) / latestVal) * 100;
         return (pct > 0 ? '+' : '') + pct.toFixed(2) + '%';
+    };
+
+    // Inline style constants for new verification sections
+    const thStyle: React.CSSProperties = {
+        padding: '8px 10px',
+        textAlign: 'left',
+        fontWeight: 600,
+        color: '#374151',
+        fontSize: '0.78rem',
+        borderBottom: '1px solid #e5e7eb'
+    };
+    const tdStyle: React.CSSProperties = {
+        padding: '7px 10px',
+        color: '#4b5563',
+        fontSize: '0.83rem'
+    };
+    const infoRowStyle: React.CSSProperties = {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        marginBottom: '6px',
+        fontSize: '0.83rem'
     };
 
     return (
@@ -331,6 +358,198 @@ export default function FutureKlinePanel() {
                                     )}
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Agent Independent Verification & 15m Purity Verification */}
+                    {(agent_verification || purity_verification) && (
+                        <div className={styles.analysisGrid} style={{ marginTop: '1.25rem' }}>
+                            {/* Card A: Agent Independent Verification */}
+                            {agent_verification && (
+                                <div className={styles.dataCard}>
+                                    <div className={styles.cardHeader}>
+                                        <i className="fas fa-brain me-2"></i> Agent 独立方向验证
+                                    </div>
+                                    <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '12px' }}>
+                                        三个分析 Agent + Fusion 共识各自的方向判断 vs 第一根未来K线实际方向
+                                    </div>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                                        <thead>
+                                            <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                                                <th style={thStyle}>Agent</th>
+                                                <th style={thStyle}>Score</th>
+                                                <th style={thStyle}>预测方向</th>
+                                                <th style={thStyle}>实际方向</th>
+                                                <th style={thStyle}>结果</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {(['indicator', 'structure', 'mechanics', 'fusion'] as const).map((key) => {
+                                                const agent = agent_verification.agents[key];
+                                                const isFusion = key === 'fusion';
+                                                const agentNames: Record<string, string> = {
+                                                    indicator: 'Indicator',
+                                                    structure: 'Structure',
+                                                    mechanics: 'Mechanics',
+                                                    fusion: 'Fusion'
+                                                };
+                                                const dirArrow = agent.direction === 'up' ? '↑' : agent.direction === 'down' ? '↓' : '—';
+                                                const dirColor = agent.direction === 'up' ? '#10b981' : agent.direction === 'down' ? '#ef4444' : '#6b7280';
+                                                const actualArrow = agent_verification.actual_direction === 'up' ? '↑' : agent_verification.actual_direction === 'down' ? '↓' : '—';
+                                                const actualColor = agent_verification.actual_direction === 'up' ? '#10b981' : agent_verification.actual_direction === 'down' ? '#ef4444' : '#6b7280';
+                                                const scoreColor = agent.score > 0 ? '#10b981' : agent.score < 0 ? '#ef4444' : '#6b7280';
+                                                return (
+                                                    <tr key={key} style={{
+                                                        borderBottom: '1px solid #f3f4f6',
+                                                        backgroundColor: isFusion ? '#f8fafc' : 'transparent',
+                                                        fontWeight: isFusion ? 600 : 400
+                                                    }}>
+                                                        <td style={tdStyle}>
+                                                            {isFusion && <i className="fas fa-star" style={{ color: '#f59e0b', marginRight: '4px', fontSize: '0.7rem' }}></i>}
+                                                            {agentNames[key]}
+                                                        </td>
+                                                        <td style={{ ...tdStyle, color: scoreColor, fontWeight: 600 }}>
+                                                            {agent.score > 0 ? '+' : ''}{agent.score.toFixed(1)}
+                                                        </td>
+                                                        <td style={{ ...tdStyle, color: dirColor, fontSize: '1.1rem' }}>
+                                                            {dirArrow}
+                                                        </td>
+                                                        <td style={{ ...tdStyle, color: actualColor, fontSize: '1.1rem' }}>
+                                                            {actualArrow}
+                                                        </td>
+                                                        <td style={tdStyle}>
+                                                            {agent.matched ? (
+                                                                <span style={{
+                                                                    display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                                                    color: '#10b981', fontWeight: 600
+                                                                }}>
+                                                                    <i className="fas fa-check-circle"></i> 正确
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{
+                                                                    display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                                                    color: '#ef4444', fontWeight: 600
+                                                                }}>
+                                                                    <i className="fas fa-times-circle"></i> 错误
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {/* Card B: 15m Purity Verification — 仅预测正确时展示纯度，否则显示预测失败 */}
+                            {purity_verification && (
+                                <div className={styles.dataCard}>
+                                    <div className={styles.cardHeader}>
+                                        <i className="fas fa-shield-alt me-2"></i> 15m 周期方向纯度验证
+                                    </div>
+                                    {fusionMatched ? (
+                                        <>
+                                            <div style={{ marginBottom: '12px' }}>
+                                        <div style={infoRowStyle}>
+                                            <span style={{ color: '#6b7280' }}>偏差阈值:</span>
+                                            <span style={{ fontWeight: 600, color: '#f59e0b' }}>
+                                                {(purity_verification.threshold * 100).toFixed(1)}%
+                                            </span>
+                                            <span style={{ fontSize: '0.7rem', color: '#9ca3af' }}>（超过此偏差即判定为"不纯"）</span>
+                                        </div>
+                                        <div style={infoRowStyle}>
+                                            <span style={{ color: '#6b7280' }}>基准价格:</span>
+                                            <span style={{ fontWeight: 600 }}>{formatPrice(purity_verification.baseline_price)}</span>
+                                        </div>
+                                        <div style={infoRowStyle}>
+                                            <span style={{ color: '#6b7280' }}>验证窗口:</span>
+                                            <span style={{ fontWeight: 600 }}>
+                                                首个{purity_verification.timeframe}周期内 {purity_verification.candles_checked} 根15m K线
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Big Result Indicator */}
+                                    <div style={{
+                                        padding: '14px 16px',
+                                        borderRadius: '8px',
+                                        marginBottom: '14px',
+                                        backgroundColor: purity_verification.is_pure ? '#ecfdf5' : '#fef2f2',
+                                        border: `1px solid ${purity_verification.is_pure ? '#a7f3d0' : '#fecaca'}`,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '10px'
+                                    }}>
+                                        <i className={`fas fa-${purity_verification.is_pure ? 'check' : 'exclamation'}-circle`}
+                                            style={{ fontSize: '1.5rem', color: purity_verification.is_pure ? '#10b981' : '#f59e0b' }}></i>
+                                        <div>
+                                            <div style={{
+                                                fontWeight: 700,
+                                                fontSize: '0.95rem',
+                                                color: purity_verification.is_pure ? '#059669' : '#dc2626'
+                                            }}>
+                                                方向{purity_verification.is_pure ? '纯净' : '不纯'} {purity_verification.is_pure ? '✓' : '✗'}
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '2px' }}>
+                                                {purity_verification.is_pure
+                                                    ? '所有15m收盘价均未突破基准价'
+                                                    : `发现 ${purity_verification.violations.length} 次方向偏离`}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Violations Table */}
+                                    {purity_verification.violations.length > 0 && (
+                                        <div>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
+                                                <thead>
+                                                    <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                                                        <th style={thStyle}>#</th>
+                                                        <th style={thStyle}>收盘价</th>
+                                                        <th style={thStyle}>偏离基准</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {purity_verification.violations.map((v) => (
+                                                        <tr key={v.index} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                                            <td style={tdStyle}>{v.index + 1}</td>
+                                                            <td style={tdStyle}>{formatPrice(v.close)}</td>
+                                                            <td style={{ ...tdStyle, color: '#ef4444', fontWeight: 600 }}>
+                                                                {v.deviation_pct > 0 ? '+' : ''}{v.deviation_pct.toFixed(2)}%
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                            <div style={{
+                                                fontSize: '0.7rem',
+                                                color: '#9ca3af',
+                                                marginTop: '6px',
+                                                fontStyle: 'italic'
+                                            }}>
+                                                偏离基准 = 该K线收盘价与基准价的百分比差值，越过阈值即算偏离
+                                            </div>
+                                        </div>
+                                    )}
+                          </>
+                          ) : (
+                              <div style={{
+                                  padding: '20px 16px',
+                                  textAlign: 'center',
+                              }}>
+                                  <i className="fas fa-times-circle"
+                                      style={{ fontSize: '1.5rem', color: '#ef4444', marginBottom: '8px', display: 'block' }}></i>
+                                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#dc2626', marginBottom: '4px' }}>
+                                      预测失败 ✗
+                                  </div>
+                                  <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
+                                      方向判断错误，跳过纯度验证
+                                  </div>
+                              </div>
+                          )}
+                                </div>
+                            )}
                         </div>
                     )}
 

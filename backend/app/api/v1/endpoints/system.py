@@ -17,6 +17,16 @@ class LLMConfigUpdate(BaseModel):
     graph_model: Optional[str] = None
     graph_temperature: Optional[float] = None
     decision_agent_version: Optional[str] = None
+    # brale per-agent override
+    indicator_provider: Optional[str] = None
+    indicator_model: Optional[str] = None
+    indicator_temperature: Optional[float] = None
+    structure_provider: Optional[str] = None
+    structure_model: Optional[str] = None
+    structure_temperature: Optional[float] = None
+    mechanics_provider: Optional[str] = None
+    mechanics_model: Optional[str] = None
+    mechanics_temperature: Optional[float] = None
 
 class ThinkingModeUpdate(BaseModel):
     indicator_thinking_mode: Optional[bool] = None
@@ -105,6 +115,16 @@ async def get_llm_config():
                 "graph_model": settings.GRAPH_MODEL,
                 "graph_temperature": settings.GRAPH_TEMPERATURE,
                 "decision_agent_version": settings.DECISION_AGENT_VERSION,
+                # brale per-agent
+                "indicator_provider": settings.BRALE_INDICATOR_PROVIDER,
+                "indicator_model": settings.BRALE_INDICATOR_MODEL,
+                "indicator_temperature": settings.BRALE_INDICATOR_TEMPERATURE,
+                "structure_provider": settings.BRALE_STRUCTURE_PROVIDER,
+                "structure_model": settings.BRALE_STRUCTURE_MODEL,
+                "structure_temperature": settings.BRALE_STRUCTURE_TEMPERATURE,
+                "mechanics_provider": settings.BRALE_MECHANICS_PROVIDER,
+                "mechanics_model": settings.BRALE_MECHANICS_MODEL,
+                "mechanics_temperature": settings.BRALE_MECHANICS_TEMPERATURE,
             },
             "options": {
                 "providers": providers_info,
@@ -132,6 +152,16 @@ async def update_llm_config(config: LLMConfigUpdate):
         if config.graph_model is not None: updates["GRAPH_MODEL"] = config.graph_model
         if config.graph_temperature is not None: updates["GRAPH_TEMPERATURE"] = str(config.graph_temperature)
         if config.decision_agent_version is not None: updates["DECISION_AGENT_VERSION"] = config.decision_agent_version
+        # brale per-agent
+        if config.indicator_provider is not None: updates["BRALE_INDICATOR_PROVIDER"] = config.indicator_provider
+        if config.indicator_model is not None: updates["BRALE_INDICATOR_MODEL"] = config.indicator_model
+        if config.indicator_temperature is not None: updates["BRALE_INDICATOR_TEMPERATURE"] = str(config.indicator_temperature)
+        if config.structure_provider is not None: updates["BRALE_STRUCTURE_PROVIDER"] = config.structure_provider
+        if config.structure_model is not None: updates["BRALE_STRUCTURE_MODEL"] = config.structure_model
+        if config.structure_temperature is not None: updates["BRALE_STRUCTURE_TEMPERATURE"] = str(config.structure_temperature)
+        if config.mechanics_provider is not None: updates["BRALE_MECHANICS_PROVIDER"] = config.mechanics_provider
+        if config.mechanics_model is not None: updates["BRALE_MECHANICS_MODEL"] = config.mechanics_model
+        if config.mechanics_temperature is not None: updates["BRALE_MECHANICS_TEMPERATURE"] = str(config.mechanics_temperature)
 
         if updates:
             update_env_config(updates)
@@ -147,6 +177,15 @@ async def update_llm_config(config: LLMConfigUpdate):
                 "graph_provider": settings.GRAPH_PROVIDER,
                 "graph_model": settings.GRAPH_MODEL,
                 "decision_agent_version": settings.DECISION_AGENT_VERSION,
+                "indicator_provider": settings.BRALE_INDICATOR_PROVIDER,
+                "indicator_model": settings.BRALE_INDICATOR_MODEL,
+                "indicator_temperature": settings.BRALE_INDICATOR_TEMPERATURE,
+                "structure_provider": settings.BRALE_STRUCTURE_PROVIDER,
+                "structure_model": settings.BRALE_STRUCTURE_MODEL,
+                "structure_temperature": settings.BRALE_STRUCTURE_TEMPERATURE,
+                "mechanics_provider": settings.BRALE_MECHANICS_PROVIDER,
+                "mechanics_model": settings.BRALE_MECHANICS_MODEL,
+                "mechanics_temperature": settings.BRALE_MECHANICS_TEMPERATURE,
             }
         }
 
