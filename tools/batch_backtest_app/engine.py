@@ -519,6 +519,39 @@ def run_one_task(
                     profit_pct_2_str = f"{-raw_pct_2:+.2f}%"
 
         duration_s = round(time.perf_counter() - started, 3)
+
+        # 逆势波动提取（仅预测正确时存在）
+        adverse_exc = result.get("adverse_excursion") or {}
+        adverse_has = "是" if (adverse_exc and adverse_exc.get("violations")) else ("否" if adverse_exc else "")
+        adverse_count = len(adverse_exc.get("violations") or []) if adverse_exc else 0
+        adverse_max_pct = ""
+        if adverse_exc:
+            violations = adverse_exc.get("violations") or []
+            if violations:
+                max_dev = max(abs(v.get("deviation_pct", 0)) for v in violations)
+                adverse_max_pct = f"{max_dev:.2f}%"
+
+        # Agent 分数提取
+        fusion_raw = result.get("decision", {}).get("fusion_raw") or {}
+        indicator_sum = result.get("indicator_summary") or {}
+        structure_sum = result.get("structure_summary") or {}
+        mechanics_sum = result.get("mechanics_summary") or {}
+
+        fusion_score = round(float(fusion_raw.get("score", 0)), 4) if fusion_raw else ""
+        fusion_confidence = round(float(fusion_raw.get("confidence", 0)), 4) if fusion_raw else ""
+        indicator_score = round(float(indicator_sum.get("movement_score", 0)), 4) if indicator_sum else ""
+        structure_score = round(float(structure_sum.get("movement_score", 0)), 4) if structure_sum else ""
+        mechanics_score = round(float(mechanics_sum.get("movement_score", 0)), 4) if mechanics_sum else ""
+
+        # Agent 独立验证（预测方向 vs 实际方向）
+        agent_ver = result.get("agent_verification") or {}
+        agents = agent_ver.get("agents") or {}
+        def _matched_str(key):
+            v = agents.get(key, {}).get("matched")
+            if v is True: return "是"
+            if v is False: return "否"
+            return ""
+
         return {
             "task_id": task_id,
             "asset": asset,
@@ -553,6 +586,18 @@ def run_one_task(
             "error": "",
             "AGENT_MODEL": _extract_model_from_response(result, "agent"),
             "GRAPH_MODEL": _extract_model_from_response(result, "graph"),
+            "逆势_有偏离": adverse_has,
+            "逆势_偏离次数": adverse_count,
+            "逆势_最大偏离%": adverse_max_pct,
+            "fusion_score": fusion_score,
+            "fusion_confidence": fusion_confidence,
+            "indicator_score": indicator_score,
+            "structure_score": structure_score,
+            "mechanics_score": mechanics_score,
+            "indicator_匹配": _matched_str("indicator"),
+            "structure_匹配": _matched_str("structure"),
+            "mechanics_匹配": _matched_str("mechanics"),
+            "fusion_匹配": _matched_str("fusion"),
         }
     except Exception as e:
         duration_s = round(time.perf_counter() - started, 3)
@@ -582,6 +627,18 @@ def run_one_task(
             "error": str(e),
             "AGENT_MODEL": "",
             "GRAPH_MODEL": "",
+            "逆势_有偏离": "",
+            "逆势_偏离次数": "",
+            "逆势_最大偏离%": "",
+            "fusion_score": "",
+            "fusion_confidence": "",
+            "indicator_score": "",
+            "structure_score": "",
+            "mechanics_score": "",
+            "indicator_匹配": "",
+            "structure_匹配": "",
+            "mechanics_匹配": "",
+            "fusion_匹配": "",
         }
 
 

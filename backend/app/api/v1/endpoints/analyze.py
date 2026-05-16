@@ -583,24 +583,16 @@ async def analyze_market(
             except Exception as e:
                 logger.warning(f"[{result_id}] Agent verification failed (non-blocking): {e}")
 
-        # (B) 15m 周期纯度验证 —— 检查第一周期内15m K线是否保持"纯净"于预测方向
+        # (B) 逆势波动验证 —— 仅预测方向正确时才统计，检查第一周期内15m K线是否出现逆向偏移
         if is_backtest:
             try:
-                if future_15m_kline_list:
-                    predicted_direction = None
-                    if result.get('decision', {}).get('fusion_raw'):
-                        raw_dir = result['decision']['fusion_raw'].get('direction')
-                    elif result.get('fusion_result'):
-                        raw_dir = result['fusion_result'].get('direction')
-                    else:
-                        raw_dir = None
+                # 仅预测方向正确时才统计逆势波动
+                agent_ver = result.get('agent_verification') or {}
+                fusion_matched = agent_ver.get('agents', {}).get('fusion', {}).get('matched')
+                actual_direction = agent_ver.get('actual_direction')
 
-                    if raw_dir in ("long",):
-                        predicted_direction = "up"
-                    elif raw_dir in ("short",):
-                        predicted_direction = "down"
-                    else:
-                        predicted_direction = "neutral"
+                if future_15m_kline_list and fusion_matched:
+                    predicted_direction = actual_direction  # fusion 已确认匹配实际方向
 
                     # 基准价格
                     baseline_price = result.get('decision', {}).get('entry_point')
@@ -622,7 +614,7 @@ async def analyze_market(
                         candles_to_check = _TIMEFRAME_TO_15M_COUNT.get(primary_tf.lower(), 4)
                         candles_to_check = min(candles_to_check, len(future_15m_kline_list))
 
-                        threshold = settings.FUTURE_15M_PURITY_THRESHOLD
+                        threshold = settings.ADVERSE_EXCURSION_THRESHOLD
                         violations = []
 
                         for i in range(candles_to_check):
@@ -646,23 +638,28 @@ async def analyze_market(
                                         "deviation_pct": deviation_pct,
                                     })
 
-                        purity_verification = {
+                        adverse_excursion = {
                             "threshold": threshold,
                             "timeframe": primary_tf,
                             "candles_checked": candles_to_check,
                             "baseline_price": round(baseline_price, 4),
                             "predicted_direction": predicted_direction,
                             "violations": violations,
-                            "is_pure": len(violations) == 0,
+                            "is_clean": len(violations) == 0,
                         }
-                        result['purity_verification'] = purity_verification
+                        result['adverse_excursion'] = adverse_excursion
                         logger.info(
-                            f"[{result_id}] Purity verification: direction={predicted_direction}, "
+                            f"[{result_id}] Adverse excursion: direction={predicted_direction}, "
                             f"candles={candles_to_check}, violations={len(violations)}, "
-                            f"is_pure={purity_verification['is_pure']}"
+                            f"is_clean={adverse_excursion['is_clean']}"
+                        )
+                    else:
+                        logger.info(
+                            f"[{result_id}] Adverse excursion skipped: "
+                            f"fusion_matched={fusion_matched}, actual={actual_direction}"
                         )
             except Exception as e:
-                logger.warning(f"[{result_id}] 15m purity verification failed (non-blocking): {e}")
+                logger.warning(f"[{result_id}] Adverse excursion failed (non-blocking): {e}")
 
         # 回测模式：生成最近30根K线历史走势图（小尺寸，供结果页展示）
         if is_backtest:

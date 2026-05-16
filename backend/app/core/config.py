@@ -100,9 +100,9 @@ class Settings(BaseSettings):
     # false: 低于阈值时输出 none（HOLD），恢复 brale 原版行为
     FUSION_ALWAYS_DIRECTION: bool = True
 
-    # 未来15m纯度验证阈值（默认0.005 = 0.5%）
-    # 回测验证中，15m K线偏离预测方向超过该比例即视为violation
-    FUTURE_15M_PURITY_THRESHOLD: float = 0.005
+    # 逆势波动阈值（默认0.005 = 0.5%）
+    # 回测中仅当预测方向正确时统计：15m K线逆向偏离基准价超过该比例视为 violation
+    ADVERSE_EXCURSION_THRESHOLD: float = 0.005
 
     # Mechanics Agent：需要多少核心数据源可用才允许 LLM 评分
     # 5=全部可用, 4=≥1缺静默, 3=≥3缺静默（推荐）, 2=≥4缺静默（宽松）

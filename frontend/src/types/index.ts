@@ -91,20 +91,20 @@ export interface AgentVerification {
   };
 }
 
-export interface PurityViolation {
+export interface ExcursionViolation {
   index: number;
   close: number;
   deviation_pct: number;
 }
 
-export interface PurityVerification {
+export interface ExcursionVerification {
   threshold: number;
   timeframe: string;
   candles_checked: number;
   baseline_price: number;
   predicted_direction: "up" | "down";
-  violations: PurityViolation[];
-  is_pure: boolean;
+  violations: ExcursionViolation[];
+  is_clean: boolean;
 }
 
 export interface IndicatorSummary {
@@ -191,7 +191,7 @@ export interface AnalysisResult {
   future_15m_chart_base64?: string;
   future_15m_kline_data?: FutureKlineDataRow[];
   agent_verification?: AgentVerification;
-  purity_verification?: PurityVerification;
+  adverse_excursion?: ExcursionVerification;
   history_chart_base64?: string;
   latest_price?: number;
   price_info?: Record<string, unknown>;

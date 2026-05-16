@@ -49,6 +49,21 @@ OUTPUT_FIELDNAMES = [
     "平仓原因",
     "本次盈亏",
     "本次盈亏百分比",
+    # 逆势波动验证（仅预测正确时统计）
+    "逆势_有偏离",
+    "逆势_偏离次数",
+    "逆势_最大偏离%",
+    # Agent 分数
+    "fusion_score",
+    "fusion_confidence",
+    "indicator_score",
+    "structure_score",
+    "mechanics_score",
+    # Agent 独立验证（预测方向 vs 实际方向）
+    "indicator_匹配",
+    "structure_匹配",
+    "mechanics_匹配",
+    "fusion_匹配",
 ]
 
 DEFAULT_EXECUTE_DISPLAY_COLS = [
@@ -69,6 +84,14 @@ DEFAULT_EXECUTE_DISPLAY_COLS = [
     "下单金额",
     "资金_当前",
     "本次盈亏百分比",
+    "逆势_偏离次数",
+    "逆势_最大偏离%",
+    "fusion_score",
+    "fusion_confidence",
+    "indicator_匹配",
+    "structure_匹配",
+    "mechanics_匹配",
+    "fusion_匹配",
 ]
 
 DEFAULT_RESULTS_DISPLAY_COLS = [
@@ -89,6 +112,14 @@ DEFAULT_RESULTS_DISPLAY_COLS = [
     "下单金额",
     "资金_当前",
     "本次盈亏百分比",
+    "逆势_偏离次数",
+    "逆势_最大偏离%",
+    "fusion_score",
+    "fusion_confidence",
+    "indicator_匹配",
+    "structure_匹配",
+    "mechanics_匹配",
+    "fusion_匹配",
 ]
 
 

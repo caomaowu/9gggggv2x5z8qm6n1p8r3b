@@ -1,5 +1,5 @@
 import { useAppStore } from '../store/useAppStore';
-import type { FutureKlineDataRow, AgentVerification, PurityVerification } from '../types';
+import type { FutureKlineDataRow, AgentVerification } from '../types';
 import styles from './FutureKlinePanel.module.css';
 
 export default function FutureKlinePanel() {
@@ -14,7 +14,7 @@ export default function FutureKlinePanel() {
         decision: singleDecision,
         timeframe, // Get timeframe
         agent_verification,
-        purity_verification
+        adverse_excursion
     } = analysisResult;
 
     const stopLoss = singleDecision?.stop_loss;
@@ -24,9 +24,6 @@ export default function FutureKlinePanel() {
     // Normalize Action
     const isLong = action.toLowerCase().includes('buy') || action.toLowerCase().includes('long') || action.includes('做多');
     const isShort = action.toLowerCase().includes('sell') || action.toLowerCase().includes('short') || action.includes('做空');
-
-    // 预测方向是否正确（用于纯度验证的条件判断）
-    const fusionMatched = agent_verification?.agents?.fusion?.matched;
 
     // 3. Verification Logic
     let slTriggered = false;
@@ -361,8 +358,8 @@ export default function FutureKlinePanel() {
                         </div>
                     )}
 
-                    {/* Agent Independent Verification & 15m Purity Verification */}
-                    {(agent_verification || purity_verification) && (
+                    {/* Agent Independent Verification & 逆势波动验证 */}
+                    {(agent_verification || adverse_excursion) && (
                         <div className={styles.analysisGrid} style={{ marginTop: '1.25rem' }}>
                             {/* Card A: Agent Independent Verification */}
                             {agent_verification && (
@@ -442,30 +439,31 @@ export default function FutureKlinePanel() {
                                 </div>
                             )}
 
-                            {/* Card B: 15m Purity Verification — 仅预测正确时展示纯度，否则显示预测失败 */}
-                            {purity_verification && (
+                            {/* Card B: 逆势波动验证 — 仅预测正确时展示 */}
+                            {adverse_excursion && (
                                 <div className={styles.dataCard}>
                                     <div className={styles.cardHeader}>
-                                        <i className="fas fa-shield-alt me-2"></i> 15m 周期方向纯度验证
+                                        <i className="fas fa-shield-alt me-2"></i> 逆势波动验证
                                     </div>
-                                    {fusionMatched ? (
-                                        <>
-                                            <div style={{ marginBottom: '12px' }}>
+                                    <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '12px' }}>
+                                        预测方向正确时，检查15m K线是否出现逆向偏移（反向突破阈值即记录）
+                                    </div>
+                                    <div style={{ marginBottom: '12px' }}>
                                         <div style={infoRowStyle}>
                                             <span style={{ color: '#6b7280' }}>偏差阈值:</span>
                                             <span style={{ fontWeight: 600, color: '#f59e0b' }}>
-                                                {(purity_verification.threshold * 100).toFixed(1)}%
+                                                {(adverse_excursion.threshold * 100).toFixed(1)}%
                                             </span>
-                                            <span style={{ fontSize: '0.7rem', color: '#9ca3af' }}>（超过此偏差即判定为"不纯"）</span>
+                                            <span style={{ fontSize: '0.7rem', color: '#9ca3af' }}>（逆向偏移超过此比例即记录）</span>
                                         </div>
                                         <div style={infoRowStyle}>
                                             <span style={{ color: '#6b7280' }}>基准价格:</span>
-                                            <span style={{ fontWeight: 600 }}>{formatPrice(purity_verification.baseline_price)}</span>
+                                            <span style={{ fontWeight: 600 }}>{formatPrice(adverse_excursion.baseline_price)}</span>
                                         </div>
                                         <div style={infoRowStyle}>
                                             <span style={{ color: '#6b7280' }}>验证窗口:</span>
                                             <span style={{ fontWeight: 600 }}>
-                                                首个{purity_verification.timeframe}周期内 {purity_verification.candles_checked} 根15m K线
+                                                首个{adverse_excursion.timeframe}周期内 {adverse_excursion.candles_checked} 根15m K线
                                             </span>
                                         </div>
                                     </div>
@@ -475,43 +473,43 @@ export default function FutureKlinePanel() {
                                         padding: '14px 16px',
                                         borderRadius: '8px',
                                         marginBottom: '14px',
-                                        backgroundColor: purity_verification.is_pure ? '#ecfdf5' : '#fef2f2',
-                                        border: `1px solid ${purity_verification.is_pure ? '#a7f3d0' : '#fecaca'}`,
+                                        backgroundColor: adverse_excursion.is_clean ? '#ecfdf5' : '#fef2f2',
+                                        border: `1px solid ${adverse_excursion.is_clean ? '#a7f3d0' : '#fecaca'}`,
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '10px'
                                     }}>
-                                        <i className={`fas fa-${purity_verification.is_pure ? 'check' : 'exclamation'}-circle`}
-                                            style={{ fontSize: '1.5rem', color: purity_verification.is_pure ? '#10b981' : '#f59e0b' }}></i>
+                                        <i className={`fas fa-${adverse_excursion.is_clean ? 'check' : 'exclamation'}-circle`}
+                                            style={{ fontSize: '1.5rem', color: adverse_excursion.is_clean ? '#10b981' : '#f59e0b' }}></i>
                                         <div>
                                             <div style={{
                                                 fontWeight: 700,
                                                 fontSize: '0.95rem',
-                                                color: purity_verification.is_pure ? '#059669' : '#dc2626'
+                                                color: adverse_excursion.is_clean ? '#059669' : '#dc2626'
                                             }}>
-                                                方向{purity_verification.is_pure ? '纯净' : '不纯'} {purity_verification.is_pure ? '✓' : '✗'}
+                                                走势{adverse_excursion.is_clean ? '干净' : '存在逆向偏移'} {adverse_excursion.is_clean ? '✓' : '✗'}
                                             </div>
                                             <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '2px' }}>
-                                                {purity_verification.is_pure
-                                                    ? '所有15m收盘价均未突破基准价'
-                                                    : `发现 ${purity_verification.violations.length} 次方向偏离`}
+                                                {adverse_excursion.is_clean
+                                                    ? '所有15m收盘价均未逆向突破基准价'
+                                                    : `发现 ${adverse_excursion.violations.length} 次逆向偏移`}
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Violations Table */}
-                                    {purity_verification.violations.length > 0 && (
+                                    {adverse_excursion.violations.length > 0 && (
                                         <div>
                                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.83rem' }}>
                                                 <thead>
                                                     <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
                                                         <th style={thStyle}>#</th>
                                                         <th style={thStyle}>收盘价</th>
-                                                        <th style={thStyle}>偏离基准</th>
+                                                        <th style={thStyle}>逆向偏离</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {purity_verification.violations.map((v) => (
+                                                    {adverse_excursion.violations.map((v) => (
                                                         <tr key={v.index} style={{ borderBottom: '1px solid #f3f4f6' }}>
                                                             <td style={tdStyle}>{v.index + 1}</td>
                                                             <td style={tdStyle}>{formatPrice(v.close)}</td>
@@ -528,26 +526,10 @@ export default function FutureKlinePanel() {
                                                 marginTop: '6px',
                                                 fontStyle: 'italic'
                                             }}>
-                                                偏离基准 = 该K线收盘价与基准价的百分比差值，越过阈值即算偏离
+                                                逆向偏离 = 该K线收盘价与基准价的差值越过阈值，代表方向性预测受到了反向干扰
                                             </div>
                                         </div>
                                     )}
-                          </>
-                          ) : (
-                              <div style={{
-                                  padding: '20px 16px',
-                                  textAlign: 'center',
-                              }}>
-                                  <i className="fas fa-times-circle"
-                                      style={{ fontSize: '1.5rem', color: '#ef4444', marginBottom: '8px', display: 'block' }}></i>
-                                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#dc2626', marginBottom: '4px' }}>
-                                      预测失败 ✗
-                                  </div>
-                                  <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                                      方向判断错误，跳过纯度验证
-                                  </div>
-                              </div>
-                          )}
                                 </div>
                             )}
                         </div>
