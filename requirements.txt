@@ -15,6 +15,7 @@ openai==1.109.1
 jinja2
 playwright
 mplfinance
+plotly>=5.18.0
 matplotlib
 TA-Lib
 streamlit
