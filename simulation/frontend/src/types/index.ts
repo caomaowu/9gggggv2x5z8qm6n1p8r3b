@@ -8,6 +8,7 @@ export type WsMessageType =
   | 'task_started'
   | 'task_stopped'
   | 'task_deleted'
+  | 'task_updated'
   | 'round_completed'
   | 'stats_updated';
 
@@ -58,10 +59,14 @@ export interface RoundResponse {
   entry_point: number | null;
   indicator_score: number | null;
   indicator_confidence: number | null;
+  indicator_summary: string | null;
   structure_score: number | null;
   structure_confidence: number | null;
+  structure_summary: string | null;
   mechanics_score: number | null;
   mechanics_confidence: number | null;
+  mechanics_summary: string | null;
+  fusion_raw: Record<string, unknown> | null;
   bet_direction: string | null;
   bet_amount: number | null;
   fee_amount: number;

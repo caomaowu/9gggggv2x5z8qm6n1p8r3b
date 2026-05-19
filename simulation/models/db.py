@@ -203,6 +203,25 @@ async def update_task_last_kline(db: aiosqlite.Connection, task_id: str, kline_t
     await db.commit()
 
 
+async def update_task_params(db: aiosqlite.Connection, task_id: str, **kwargs) -> None:
+    """动态更新任务参数字段，只更新非 None 的字段。"""
+    now = _now()
+    set_parts = ["updated_at = :now"]
+    params: dict = {"now": now, "id": task_id}
+
+    for key, value in kwargs.items():
+        if value is not None:
+            set_parts.append(f"{key} = :{key}")
+            params[key] = value
+
+    if len(set_parts) == 1:
+        return  # nothing to update
+
+    sql = f"UPDATE tasks SET {', '.join(set_parts)} WHERE id = :id"
+    await db.execute(sql, params)
+    await db.commit()
+
+
 async def delete_task(db: aiosqlite.Connection, task_id: str) -> None:
     await db.execute("DELETE FROM rounds WHERE task_id = ?", (task_id,))
     await db.execute("DELETE FROM tasks WHERE id = ?", (task_id,))

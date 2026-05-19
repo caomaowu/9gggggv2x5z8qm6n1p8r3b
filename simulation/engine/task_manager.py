@@ -19,6 +19,7 @@ from models.db import (
     settle_round,
     update_task_capital,
     update_task_last_kline,
+    update_task_params,
     update_task_status,
 )
 from engine.betting import calculate_pnl
@@ -112,6 +113,20 @@ class TaskManager:
             await self._ws.broadcast({"type": "task_deleted", "task_id": task_id, "data": {}})
 
         return True
+
+    # ── 更新 ──
+
+    async def update_task(self, task_id: str, **kwargs) -> dict | None:
+        task = await get_task(self._db, task_id)
+        if not task:
+            return None
+
+        await update_task_params(self._db, task_id, **kwargs)
+
+        if self._ws:
+            await self._ws.broadcast({"type": "task_updated", "task_id": task_id, "data": {}})
+
+        return await get_task(self._db, task_id)
 
     # ── 查询 ──
 

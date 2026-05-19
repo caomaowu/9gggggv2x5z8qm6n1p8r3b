@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from models.schemas import TaskCreateRequest, TaskResponse
+from models.schemas import TaskCreateRequest, TaskResponse, TaskUpdateRequest
 from engine.task_manager import TaskManager
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -56,6 +56,20 @@ async def start_task(task_id: str, tm: TaskManager = Depends(get_task_manager)):
 @router.post("/{task_id}/stop", response_model=TaskResponse)
 async def stop_task(task_id: str, tm: TaskManager = Depends(get_task_manager)):
     task = await tm.stop_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    return TaskResponse(**task)
+
+
+@router.patch("/{task_id}", response_model=TaskResponse)
+async def update_task(task_id: str, req: TaskUpdateRequest, tm: TaskManager = Depends(get_task_manager)):
+    task = await tm.update_task(
+        task_id,
+        bet_amount=req.bet_amount,
+        bet_mode=req.bet_mode.value if req.bet_mode else None,
+        bet_percent=req.bet_percent,
+        fee_rate=req.fee_rate,
+    )
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
     return TaskResponse(**task)

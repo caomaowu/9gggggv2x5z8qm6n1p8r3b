@@ -3,9 +3,10 @@ import { useSimStore } from '../store/useSimStore';
 
 interface Props {
   task: TaskResponse;
+  onEdit: (task: TaskResponse) => void;
 }
 
-export default function TaskCard({ task }: Props) {
+export default function TaskCard({ task, onEdit }: Props) {
   const { selectTask, selectedTaskId, startSelected, stopSelected, deleteSelected } = useSimStore();
   const isSelected = selectedTaskId === task.id;
   const isRunning = task.status === 'RUNNING';
@@ -24,7 +25,16 @@ export default function TaskCard({ task }: Props) {
       {/* 顶部资产信息 */}
       <div className="px-4 pt-3 pb-2">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="font-bold text-sm text-text-primary tracking-tight">{task.asset}</span>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-sm text-text-primary tracking-tight">{task.asset}</span>
+            <button
+              className="px-2 py-0.5 rounded text-[10px] font-medium text-accent-300 hover:text-white hover:bg-accent/20 border border-accent/20 hover:border-accent/40 transition-all duration-150"
+              onClick={(e) => { e.stopPropagation(); onEdit(task); }}
+              title="编辑参数"
+            >
+              编辑
+            </button>
+          </div>
           <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wide
             ${isRunning
               ? 'bg-profit/15 text-profit border border-profit/20'

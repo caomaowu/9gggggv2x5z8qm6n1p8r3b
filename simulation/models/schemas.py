@@ -42,6 +42,7 @@ class WsMessageType(StrEnum):
     TASK_STARTED = "task_started"
     TASK_STOPPED = "task_stopped"
     TASK_DELETED = "task_deleted"
+    TASK_UPDATED = "task_updated"
     ROUND_COMPLETED = "round_completed"
     STATS_UPDATED = "stats_updated"
 
@@ -82,6 +83,7 @@ class TaskUpdateRequest(BaseModel):
     """Request body for updating an existing task's parameters."""
 
     bet_amount: float | None = Field(default=None, gt=0)
+    bet_mode: BetMode | None = Field(default=None)
     bet_percent: float | None = Field(default=None, gt=0, le=1.0)
     fee_rate: float | None = Field(default=None, ge=0, lt=1.0)
 

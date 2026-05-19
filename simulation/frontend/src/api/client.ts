@@ -50,6 +50,11 @@ export async function getEquity(id: string): Promise<EquityPoint[]> {
   return data;
 }
 
+export async function updateTask(id: string, req: Partial<TaskCreateRequest>): Promise<TaskResponse> {
+  const { data } = await api.patch(`/tasks/${id}`, req);
+  return data;
+}
+
 export async function getRounds(id: string, offset = 0, limit = 50): Promise<RoundListResponse> {
   const { data } = await api.get(`/tasks/${id}/rounds`, { params: { offset, limit } });
   return data;

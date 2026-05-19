@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react';
 import './App.css';
 import { useSimStore } from './store/useSimStore';
 import { useWebSocket } from './hooks/useWebSocket';
+import type { TaskResponse } from './types';
 import TaskCard from './components/TaskCard';
 import CreateTaskModal from './components/CreateTaskModal';
+import EditTaskModal from './components/EditTaskModal';
 import EquityChart from './components/EquityChart';
 import StatsPanel from './components/StatsPanel';
 import RoundTable from './components/RoundTable';
+import PositionBar from './components/PositionBar';
+import ToastContainer from './components/ToastContainer';
 
 function App() {
   const {
@@ -14,6 +18,7 @@ function App() {
     fetchTasks, handleWsMessage,
   } = useSimStore();
   const [modalOpen, setModalOpen] = useState(false);
+  const [editModalTask, setEditModalTask] = useState<TaskResponse | null>(null);
 
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
   useWebSocket(handleWsMessage);
@@ -63,7 +68,9 @@ function App() {
               <p className="text-text-muted/60 text-xs mt-1">点击右上角按钮开始</p>
             </div>
           )}
-          {tasks.map(t => <TaskCard key={t.id} task={t} />)}
+          {tasks.map(t => (
+            <TaskCard key={t.id} task={t} onEdit={setEditModalTask} />
+          ))}
         </aside>
 
         {/* 右侧主区域 */}
@@ -80,6 +87,7 @@ function App() {
             </div>
           ) : (
             <div className="p-6 space-y-5 max-w-6xl mx-auto">
+              <PositionBar taskId={selectedTaskId} />
               <StatsPanel stats={stats} />
               <EquityChart data={equity} />
               <RoundTable rounds={rounds} total={roundsTotal} />
@@ -89,6 +97,12 @@ function App() {
       </div>
 
       <CreateTaskModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      <EditTaskModal
+        task={editModalTask}
+        open={!!editModalTask}
+        onClose={() => setEditModalTask(null)}
+      />
+      <ToastContainer />
     </div>
   );
 }
