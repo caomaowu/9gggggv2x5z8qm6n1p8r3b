@@ -1,3 +1,4 @@
+import { useState, useEffect, useMemo } from 'react';
 import type { TaskResponse } from '../types';
 import { useSimStore } from '../store/useSimStore';
 
@@ -6,12 +7,89 @@ interface Props {
   onEdit: (task: TaskResponse) => void;
 }
 
+const TIMEFRAME_SECONDS: Record<string, number> = {
+  '1m': 60,
+  '3m': 180,
+  '5m': 300,
+  '15m': 900,
+  '1h': 3600,
+  '4h': 14400,
+  '1d': 86400,
+};
+
 export default function TaskCard({ task, onEdit }: Props) {
-  const { selectTask, selectedTaskId, startSelected, stopSelected, deleteSelected } = useSimStore();
+  const { selectTask, selectedTaskId, startSelected, stopSelected, deleteSelected, clearSelectedRounds } = useSimStore();
   const isSelected = selectedTaskId === task.id;
   const isRunning = task.status === 'RUNNING';
   const isProfitable = task.current_capital >= task.initial_capital;
   const pnlPercent = ((task.current_capital - task.initial_capital) / task.initial_capital * 100);
+
+  // ── 连胜/连败 badge ──
+  const streakBadge = useMemo(() => {
+    if (!task.current_streak) return null;
+    const streak = task.current_streak;
+    if (streak.startsWith('W')) {
+      const count = streak.slice(1);
+      return { emoji: '\uD83D\uDD25', label: `连胜${count}`, color: 'bg-profit/10 text-profit border-profit/20' };
+    }
+    if (streak.startsWith('L')) {
+      const count = streak.slice(1);
+      return { label: `连败${count}`, color: 'bg-loss/10 text-loss border-loss/20' };
+    }
+    return null;
+  }, [task.current_streak]);
+
+  // ── K线倒计时 ──
+  const timeframeSeconds = useMemo(
+    () => TIMEFRAME_SECONDS[task.timeframe] ?? 0,
+    [task.timeframe],
+  );
+
+  const [countdown, setCountdown] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!task.last_kline_ts || task.status !== 'RUNNING' || !timeframeSeconds) {
+      setCountdown(null);
+      return;
+    }
+
+    const calcCountdown = () => {
+      const lastTs = new Date(task.last_kline_ts!).getTime();
+      const nextTrigger = lastTs + timeframeSeconds * 1000;
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((nextTrigger - now) / 1000));
+
+      if (remaining <= 0) {
+        setCountdown('触发中...');
+        return;
+      }
+
+      const minutes = Math.floor(remaining / 60);
+      const seconds = remaining % 60;
+      if (minutes > 0) {
+        setCountdown(`下次触发: ${minutes}m ${seconds.toString().padStart(2, '0')}s`);
+      } else {
+        setCountdown(`下次触发: ${seconds}s`);
+      }
+    };
+
+    calcCountdown();
+    const timer = setInterval(calcCountdown, 1000);
+    return () => clearInterval(timer);
+  }, [task.last_kline_ts, task.status, timeframeSeconds]);
+
+  const klineDisplay = useMemo(() => {
+    if (!task.last_kline_ts) return null;
+    if (task.status !== 'RUNNING') {
+      return <span className="text-[10px] text-text-muted">已停止</span>;
+    }
+    if (countdown == null) return null;
+    return (
+      <span className={`text-[10px] font-mono ${countdown === '触发中...' ? 'text-accent-300 animate-pulse' : 'text-text-muted'}`}>
+        {countdown}
+      </span>
+    );
+  }, [task.last_kline_ts, task.status, countdown]);
 
   return (
     <div
@@ -85,6 +163,16 @@ export default function TaskCard({ task, onEdit }: Props) {
             </span>
           )}
         </div>
+
+        {/* 连胜/连败 + K线倒计时 */}
+        <div className="flex items-center justify-between mt-1.5 min-h-[18px]">
+          {streakBadge && (
+            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${streakBadge.color}`}>
+              {streakBadge.emoji} {streakBadge.label}
+            </span>
+          )}
+          {klineDisplay}
+        </div>
       </div>
 
       {/* 操作按钮 */}
@@ -100,7 +188,7 @@ export default function TaskCard({ task, onEdit }: Props) {
         ) : (
           <button
             className="flex-1 px-2 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-[11px] font-semibold rounded-lg
-                       transition-all duration-150 hover:shadow-sm hover:shadow-amber-500/10 active:scale-[0.97]"
+                        transition-all duration-150 hover:shadow-sm hover:shadow-amber-500/10 active:scale-[0.97]"
             onClick={() => { selectTask(task.id); stopSelected(); }}
           >
             停止
@@ -113,6 +201,16 @@ export default function TaskCard({ task, onEdit }: Props) {
         >
           删除
         </button>
+        {task.total_rounds > 0 && (
+          <button
+            className="px-2 py-1.5 bg-surface-700 hover:bg-surface-600 text-text-muted hover:text-text-secondary text-[11px] font-medium rounded-lg
+                       transition-all duration-150 active:scale-[0.97]"
+            onClick={() => { selectTask(task.id); clearSelectedRounds(); }}
+            title="清空交易记录和分析数据"
+          >
+            清空
+          </button>
+        )}
       </div>
     </div>
   );

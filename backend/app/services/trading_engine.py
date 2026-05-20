@@ -14,7 +14,7 @@ def _build_action(direction: str) -> str:
     return {"long": "LONG", "short": "SHORT"}.get(direction, "HOLD")
 
 
-def _build_decision_from_fusion(result: dict, latest_price: float | None) -> dict:
+def _build_decision_from_fusion(result: dict, latest_price: float | None, kline_open: float | None = None) -> dict:
     """Construct a frontend/backtest-compatible decision dict from brale Fusion output."""
     fusion = result.get("fusion_result") or {}
     indicator = result.get("indicator_summary") or {}
@@ -73,6 +73,8 @@ def _build_decision_from_fusion(result: dict, latest_price: float | None) -> dic
         "reasoning": reasoning,
         "justification": reasoning,
         "entry_point": entry_price,
+        "kline_open": kline_open,
+        "kline_close": latest_price,
         "stop_loss": None,
         "take_profit": None,
         "risk_reward_ratio": None,
@@ -163,15 +165,20 @@ class TradingEngine:
 
         is_multi_tf = isinstance(data, dict) and not hasattr(data, 'to_dict')
         latest_price = None
+        kline_open = None
 
         if is_multi_tf:
             first_tf = list(data.keys())[0]
             first_df = data[first_tf]
             if isinstance(first_df, pd.DataFrame) and not first_df.empty and 'Close' in first_df.columns:
                 latest_price = float(first_df['Close'].iloc[-1])
+            if isinstance(first_df, pd.DataFrame) and not first_df.empty and 'Open' in first_df.columns:
+                kline_open = float(first_df['Open'].iloc[-1])
         elif isinstance(data, pd.DataFrame):
             if not data.empty and 'Close' in data.columns:
                 latest_price = float(data['Close'].iloc[-1])
+            if not data.empty and 'Open' in data.columns:
+                kline_open = float(data['Open'].iloc[-1])
 
         initial_state = {
             "kline_data": data,
@@ -179,6 +186,7 @@ class TradingEngine:
             "stock_name": symbol,
             "messages": [],
             "latest_price": latest_price,
+            "kline_open": kline_open,
             "multi_timeframe_mode": is_multi_tf,
             "timeframes": list(data.keys()) if is_multi_tf else None,
             "derivative_data": derivative_data or {},
@@ -193,7 +201,7 @@ class TradingEngine:
 
             if "error" not in result:
                 # Build decision from Fusion (replaces old Decision Agent)
-                result["decision"] = _build_decision_from_fusion(result, latest_price)
+                result["decision"] = _build_decision_from_fusion(result, latest_price, kline_open)
 
                 fusion = result.get("fusion_result") or {}
                 indicator_sum = result.get("indicator_summary") or {}

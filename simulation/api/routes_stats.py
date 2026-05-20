@@ -6,7 +6,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from models.schemas import EquityPoint, RoundListResponse, RoundResponse, StatsResponse
-from models.db import get_equity_curve, get_rounds_by_task, get_round_count, get_task_stats, get_task
+from models.db import (
+    get_equity_curve, get_rounds_by_task, get_round_count, get_task_stats, get_task,
+    delete_rounds_by_task, reset_task_stats,
+)
 
 router = APIRouter(prefix="/api/tasks", tags=["stats"])
 
@@ -50,3 +53,14 @@ async def task_rounds(
         offset=offset,
         limit=limit,
     )
+
+
+@router.delete("/{task_id}/rounds")
+async def clear_task_rounds(task_id: str, db=Depends(_get_db)):
+    """清空某任务的全部交易记录和分析数据，重置统计到初始状态。"""
+    task = await get_task(db, task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    await delete_rounds_by_task(db, task_id)
+    await reset_task_stats(db, task_id, task["initial_capital"])
+    return {"ok": True}

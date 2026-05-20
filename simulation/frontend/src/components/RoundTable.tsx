@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { RoundResponse } from '../types';
+import { useState, useMemo } from 'react';
+import type { RoundResponse, RoundFilter, RoundResult, Direction } from '../types';
 import { useSimStore } from '../store/useSimStore';
 
 interface Props {
@@ -9,6 +9,11 @@ interface Props {
 
 function formatTs(ts: string) {
   return new Date(ts).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function formatNumber(v: number | null, decimals = 2): string {
+  if (v == null) return '—';
+  return v.toFixed(decimals);
 }
 
 function DirectionBadge({ dir }: { dir: string | null }) {
@@ -276,10 +281,156 @@ function FusionPanel({ fusionRaw }: { fusionRaw: unknown }) {
   );
 }
 
+// ── K线数据 panel (inside expanded row) ──
+function KlinePanel({ round }: { round: RoundResponse }) {
+  const hasData = round.trigger_kline_open != null || round.trigger_kline_close != null
+    || round.settle_kline_ts != null || round.settle_price != null;
+  if (!hasData) return null;
+
+  return (
+    <div className="rounded-lg bg-surface-800 border border-border/40 p-3">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">K线数据</span>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-2">
+        {round.trigger_kline_open != null && (
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-text-muted">开盘价</span>
+            <span className="text-[11px] font-mono text-text-secondary">{formatNumber(round.trigger_kline_open, 4)}</span>
+          </div>
+        )}
+        {round.trigger_kline_close != null && (
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-text-muted">收盘价</span>
+            <span className="text-[11px] font-mono text-text-secondary">{formatNumber(round.trigger_kline_close, 4)}</span>
+          </div>
+        )}
+        {round.settle_kline_ts != null && (
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-text-muted">结算时间</span>
+            <span className="text-[11px] font-mono text-text-secondary">{formatTs(round.settle_kline_ts)}</span>
+          </div>
+        )}
+        {round.settle_price != null && (
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-text-muted">结算价</span>
+            <span className="text-[11px] font-mono text-text-secondary">{formatNumber(round.settle_price, 4)}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Filter Bar ──
+function FilterBar({
+  filter, onChange, activeCount,
+}: {
+  filter: RoundFilter;
+  onChange: (f: RoundFilter) => void;
+  activeCount: number;
+}) {
+  return (
+    <div className="px-4 py-2 border-b border-border bg-surface-800/40">
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Result filter */}
+        <div className="flex items-center rounded-md border border-border overflow-hidden">
+          {(['', 'WIN', 'LOSE', 'SKIP'] as const).map(val => (
+            <button
+              key={val}
+              className={`px-2 py-1 text-[10px] font-medium transition-colors
+                ${filter.result === val
+                  ? 'bg-accent/20 text-accent-300'
+                  : 'text-text-muted hover:text-text-secondary'
+                }`}
+              onClick={() => onChange({ ...filter, result: val })}
+            >
+              {val === '' ? '全部' : val === 'WIN' ? '盈利' : val === 'LOSE' ? '亏损' : '跳过'}
+            </button>
+          ))}
+        </div>
+
+        {/* Direction filter */}
+        <div className="flex items-center rounded-md border border-border overflow-hidden">
+          {(['', 'long', 'short', 'none'] as const).map(val => (
+            <button
+              key={val}
+              className={`px-2 py-1 text-[10px] font-medium transition-colors
+                ${filter.direction === val
+                  ? 'bg-accent/20 text-accent-300'
+                  : 'text-text-muted hover:text-text-secondary'
+                }`}
+              onClick={() => onChange({ ...filter, direction: val })}
+            >
+              {val === '' ? '全部' : val === 'long' ? '做多' : val === 'short' ? '做空' : '观望'}
+            </button>
+          ))}
+        </div>
+
+        {/* Search input */}
+        <div className="flex items-center gap-1.5">
+          <input
+            type="text"
+            className="w-32 px-2 py-1 rounded-md border border-border bg-surface-900 text-text-primary text-[10px] font-mono
+                       placeholder:text-text-muted/50 outline-none focus:border-accent/40 focus:bg-surface-800 transition-colors"
+            placeholder="轮次/日期..."
+            value={filter.search || ''}
+            onChange={e => onChange({ ...filter, search: e.target.value })}
+          />
+        </div>
+
+        {/* Clear button */}
+        {activeCount > 0 && (
+          <button
+            className="px-2 py-1 rounded-md text-[10px] font-medium text-text-muted hover:text-text-secondary
+                       hover:bg-surface-700 transition-colors"
+            onClick={() => onChange({})}
+          >
+            重置
+            <span className="ml-1 px-1 rounded bg-surface-700 text-[9px]">{activeCount}</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function RoundTable({ rounds, total }: Props) {
   const { loadMoreRounds } = useSimStore();
   const hasMore = rounds.length < total;
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<RoundFilter>({});
+
+  // Count active filters
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filter.result) count++;
+    if (filter.direction) count++;
+    if (filter.search && filter.search.trim()) count++;
+    return count;
+  }, [filter]);
+
+  // Client-side filtering
+  const filteredRounds = useMemo(() => {
+    let result = rounds;
+    if (filter.result) {
+      result = result.filter(r => r.result === filter.result);
+    }
+    if (filter.direction) {
+      result = result.filter(r => r.direction === filter.direction);
+    }
+    if (filter.search && filter.search.trim()) {
+      const s = filter.search.trim().toLowerCase();
+      result = result.filter(r =>
+        String(r.round_seq).includes(s) ||
+        r.trigger_kline_ts.toLowerCase().includes(s)
+      );
+    }
+    return result;
+  }, [rounds, filter]);
+
+  const filteredCount = filteredRounds.length;
+  const totalDisplay = filteredCount !== rounds.length
+    ? `${filteredCount}/${total}`
+    : `${total}`;
 
   if (rounds.length === 0) {
     return (
@@ -302,9 +453,12 @@ export default function RoundTable({ rounds, total }: Props) {
       <div className="px-5 py-3 border-b border-border flex items-center justify-between">
         <h3 className="text-sm font-semibold text-text-primary">
           交易记录
-          <span className="ml-2 text-text-muted font-normal text-xs">({total} 条)</span>
+          <span className="ml-2 text-text-muted font-normal text-xs">({totalDisplay} 条)</span>
         </h3>
       </div>
+
+      {/* Filter bar */}
+      <FilterBar filter={filter} onChange={setFilter} activeCount={activeFilterCount} />
 
       <div className="overflow-auto max-h-[480px]">
         <table className="w-full text-xs">
@@ -321,7 +475,7 @@ export default function RoundTable({ rounds, total }: Props) {
             </tr>
           </thead>
           <tbody>
-            {rounds.map((r, i) => {
+            {filteredRounds.map((r, i) => {
               const isExpanded = expandedId === r.id;
               return (
                 <tr key={r.id} className="contents">
@@ -382,6 +536,9 @@ export default function RoundTable({ rounds, total }: Props) {
 
                           {/* Fusion Consensus */}
                           {r.fusion_raw != null && <FusionPanel fusionRaw={r.fusion_raw} />}
+
+                          {/* K线数据 */}
+                          <KlinePanel round={r} />
                         </div>
                       </td>
                     </tr>

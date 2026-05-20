@@ -7,10 +7,12 @@ import type {
   WsMessage,
   BetMode,
   TaskCreateRequest,
+  ConnectionStatus,
 } from '../types';
 import {
   listTasks, createTask, startTask, stopTask, deleteTask,
   getStats, getEquity, getRounds, updateTask as updateTaskClient,
+  clearTaskRounds,
 } from '../api/client';
 
 interface ToastItem {
@@ -30,6 +32,8 @@ interface SimState {
   roundsTotal: number;
   latestRound: RoundResponse | null;
   toasts: ToastItem[];
+  connectionStatus: ConnectionStatus;
+  reconnectAttempt: number;
 
   // 操作
   fetchTasks: () => Promise<void>;
@@ -43,6 +47,8 @@ interface SimState {
   loadMoreRounds: () => Promise<void>;
   addToast: (msg: Omit<ToastItem, 'id'>) => void;
   removeToast: (id: string) => void;
+  setConnectionStatus: (status: ConnectionStatus, attempt?: number) => void;
+  clearSelectedRounds: () => Promise<void>;
 
   // WebSocket 处理
   handleWsMessage: (msg: WsMessage) => void;
@@ -59,6 +65,8 @@ export const useSimStore = create<SimState>((set, get) => ({
   roundsTotal: 0,
   latestRound: null,
   toasts: [],
+  connectionStatus: 'connecting',
+  reconnectAttempt: 0,
 
   async fetchTasks() {
     const tasks = await listTasks();
@@ -95,6 +103,15 @@ export const useSimStore = create<SimState>((set, get) => ({
     await deleteTask(id);
     set({ selectedTaskId: null, stats: null, equity: [], rounds: [], latestRound: null });
     await get().fetchTasks();
+  },
+
+  async clearSelectedRounds() {
+    const id = get().selectedTaskId;
+    if (!id) return;
+    await clearTaskRounds(id);
+    set({ stats: null, equity: [], rounds: [], roundsTotal: 0, latestRound: null });
+    await get().fetchTasks();
+    if (get().selectedTaskId === id) await get().loadTaskData(id);
   },
 
   async updateTask(id: string, req: Partial<TaskCreateRequest>) {
@@ -135,6 +152,10 @@ export const useSimStore = create<SimState>((set, get) => ({
     set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
   },
 
+  setConnectionStatus(status: ConnectionStatus, attempt?: number) {
+    set({ connectionStatus: status, ...(attempt !== undefined ? { reconnectAttempt: attempt } : {}) });
+  },
+
   handleWsMessage(msg: WsMessage) {
     const taskId = msg.task_id;
     const data = msg.data as Record<string, unknown> | undefined;
@@ -160,6 +181,8 @@ export const useSimStore = create<SimState>((set, get) => ({
         });
       }
 
+      // 刷新任务列表（更新 last_kline_ts 等字段）+ 选中任务详情
+      get().fetchTasks();
       if (taskId === get().selectedTaskId) {
         get().loadTaskData(taskId);
       }
@@ -178,6 +201,21 @@ export const useSimStore = create<SimState>((set, get) => ({
     if (msg.type === 'task_deleted') {
       get().addToast({ type: 'task_deleted', message: '任务已删除', taskId });
       get().fetchTasks();
+    }
+
+    if (msg.type === 'stats_updated') {
+      if (taskId === get().selectedTaskId) {
+        Promise.all([getStats(taskId), getEquity(taskId)]).then(([stats, equity]) => {
+          set({ stats, equity });
+        });
+      }
+    }
+
+    if (msg.type === 'task_updated') {
+      get().fetchTasks();
+      if (taskId === get().selectedTaskId) {
+        get().loadTaskData(taskId);
+      }
     }
   },
 }));

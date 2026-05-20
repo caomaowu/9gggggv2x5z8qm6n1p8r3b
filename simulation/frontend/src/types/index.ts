@@ -53,6 +53,8 @@ export interface RoundResponse {
   round_seq: number;
   status: RoundStatus;
   trigger_kline_ts: string;
+  trigger_kline_open: number | null;
+  trigger_kline_close: number | null;
   direction: string | null;
   score: number | null;
   confidence: number | null;
@@ -70,6 +72,7 @@ export interface RoundResponse {
   bet_direction: string | null;
   bet_amount: number | null;
   fee_amount: number;
+  settle_kline_ts: string | null;
   settle_price: number | null;
   result: RoundResult | null;
   pnl: number | null;
@@ -114,3 +117,16 @@ export interface WsMessage {
   task_id: string;
   data: Record<string, unknown>;
 }
+
+// ── 筛选 ──
+export interface RoundFilter {
+  result?: RoundResult | '';
+  direction?: Direction | '';
+  search?: string; // 搜索轮次号或时间
+}
+
+// ── 导出 ──
+export type ExportFormat = 'csv' | 'json';
+
+// ── 连接状态 ──
+export type ConnectionStatus = 'connected' | 'connecting' | 'disconnected';

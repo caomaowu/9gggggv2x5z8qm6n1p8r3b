@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import './App.css';
 import { useSimStore } from './store/useSimStore';
 import { useWebSocket } from './hooks/useWebSocket';
+import { usePollingFallback } from './hooks/usePollingFallback';
 import type { TaskResponse } from './types';
 import TaskCard from './components/TaskCard';
 import CreateTaskModal from './components/CreateTaskModal';
@@ -11,23 +12,26 @@ import StatsPanel from './components/StatsPanel';
 import RoundTable from './components/RoundTable';
 import PositionBar from './components/PositionBar';
 import ToastContainer from './components/ToastContainer';
+import ConnectionStatus from './components/ConnectionStatus';
+import ExportMenu from './components/ExportMenu';
 
 function App() {
   const {
     tasks, selectedTaskId, stats, equity, rounds, roundsTotal,
-    fetchTasks, handleWsMessage,
+    fetchTasks, handleWsMessage, setConnectionStatus,
   } = useSimStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [editModalTask, setEditModalTask] = useState<TaskResponse | null>(null);
 
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
-  useWebSocket(handleWsMessage);
+  const { connectionStatus } = useWebSocket(handleWsMessage, setConnectionStatus);
+  usePollingFallback();
 
   return (
     <div className="h-screen flex flex-col bg-surface-950 text-text-primary">
       {/* 顶栏 */}
       <header className="bg-surface-900 border-b border-border shrink-0">
-        <div className="flex items-center justify-between px-6 py-3">
+        <div className="flex items-center justify-between px-6 py-3 gap-3">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
               <span className="text-accent-300 text-sm font-bold">Q</span>
@@ -39,13 +43,23 @@ function App() {
               <p className="text-[11px] text-text-muted -mt-0.5">模拟交易系统</p>
             </div>
           </div>
-          <button
-            className="px-4 py-2 bg-accent hover:bg-accent-400 text-white text-sm font-medium rounded-lg
-                       transition-all duration-200 hover:shadow-lg hover:shadow-accent/25 active:scale-[0.97]"
-            onClick={() => setModalOpen(true)}
-          >
-            + 新建任务
-          </button>
+
+          <div className="flex items-center gap-3">
+            <ConnectionStatus status={connectionStatus} />
+            {selectedTaskId && rounds.length > 0 && (
+              <ExportMenu
+                rounds={rounds}
+                taskName={tasks.find(t => t.id === selectedTaskId)?.asset}
+              />
+            )}
+            <button
+              className="px-4 py-2 bg-accent hover:bg-accent-400 text-white text-sm font-medium rounded-lg
+                         transition-all duration-200 hover:shadow-lg hover:shadow-accent/25 active:scale-[0.97]"
+              onClick={() => setModalOpen(true)}
+            >
+              + 新建任务
+            </button>
+          </div>
         </div>
       </header>
 

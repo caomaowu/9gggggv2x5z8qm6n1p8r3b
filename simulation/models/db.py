@@ -385,3 +385,28 @@ async def get_task_stats(db: aiosqlite.Connection, task_id: str) -> dict:
 def _now() -> str:
     from datetime import datetime, timezone
     return datetime.now(timezone.utc).isoformat()
+
+
+# ── 清理 ──
+
+async def delete_rounds_by_task(db: aiosqlite.Connection, task_id: str) -> None:
+    """删除某任务的所有回合记录（含分析数据）。"""
+    await db.execute("DELETE FROM rounds WHERE task_id = ?", (task_id,))
+    await db.commit()
+
+
+async def reset_task_stats(db: aiosqlite.Connection, task_id: str, initial_capital: float) -> None:
+    """重置任务统计到初始状态，保留任务配置（asset/timeframe/bet 参数不变）。"""
+    await db.execute(
+        """UPDATE tasks SET
+            current_capital = :cap,
+            total_rounds = 0,
+            wins = 0, losses = 0, skips = 0,
+            best_win_streak = 0, worst_lose_streak = 0,
+            current_streak = NULL,
+            last_kline_ts = NULL,
+            updated_at = :now
+        WHERE id = :id""",
+        {"cap": initial_capital, "now": _now(), "id": task_id},
+    )
+    await db.commit()

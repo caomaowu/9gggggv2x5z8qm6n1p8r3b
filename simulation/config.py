@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     ANALYZE_RETRY_COUNT: int = 2
     ANALYZE_RETRY_DELAY: int = 10
 
+    # ── 行情数据（OKX v5 透传代理）──
+    MARKET_DATA_API_URL: str = "https://webui.caomaowu.lol"
+    MARKET_DATA_API_TOKEN: str = ""
+
     # ── 模拟模块自身服务 ──
     SIM_HOST: str = "0.0.0.0"
     SIM_PORT: int = 18520

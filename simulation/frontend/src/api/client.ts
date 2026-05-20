@@ -59,3 +59,7 @@ export async function getRounds(id: string, offset = 0, limit = 50): Promise<Rou
   const { data } = await api.get(`/tasks/${id}/rounds`, { params: { offset, limit } });
   return data;
 }
+
+export async function clearTaskRounds(id: string): Promise<void> {
+  await api.delete(`/tasks/${id}/rounds`);
+}

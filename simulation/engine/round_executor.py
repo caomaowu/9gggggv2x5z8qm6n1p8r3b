@@ -121,7 +121,7 @@ async def execute_round(db, task_id: str, ws_manager=None) -> dict | None:
         "status": round_status,
         "trigger_kline_ts": trigger_kline_ts,
         "trigger_kline_open": analyze_result.get("trigger_kline_open"),
-        "trigger_kline_close": entry_point,
+        "trigger_kline_close": analyze_result.get("trigger_kline_close") or entry_point,
         "direction": direction,
         "score": score,
         "confidence": confidence,
@@ -225,7 +225,8 @@ def _parse_analyze_response(data: dict) -> dict:
         "score": decision.get("score") or fusion.get("score", 0),
         "confidence": decision.get("confidence") or fusion.get("confidence", 0),
         "entry_point": decision.get("entry_point"),
-        "trigger_kline_open": None,  # API 不直接返回，用 None
+        "trigger_kline_open": decision.get("kline_open"),
+        "trigger_kline_close": decision.get("kline_close") or decision.get("entry_point"),
 
         "indicator_score": indicator.get("movement_score"),
         "indicator_confidence": indicator.get("movement_confidence"),
@@ -242,9 +243,50 @@ def _parse_analyze_response(data: dict) -> dict:
 
 
 async def _fetch_current_price(asset: str) -> float | None:
-    """获取当前价格（简化：复用分析 API 的最后一根 K 线收盘价）"""
-    # 实际应用中可调用 OKX 行情接口，这里返回 None 让调用方使用 K 线收盘价
-    return None
+    """通过 OKX v5 透传代理获取实时 ticker 价格，用于回合结算。
+
+    失败时返回 None，调用方会回退到 trigger_kline_close。
+    """
+    if not settings.MARKET_DATA_API_TOKEN:
+        return None
+
+    # 转换 symbol: BTC-USDT → BTC-USDT-SWAP
+    symbol = (asset or "").strip().upper().replace("/", "-")
+    if not symbol.endswith("-SWAP") and not symbol.endswith("-SPOT"):
+        symbol = f"{symbol}-SWAP" if symbol.endswith("-USDT") else f"{symbol}-USDT-SWAP"
+
+    import logging
+    _log = logging.getLogger("simulation")
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(
+                f"{settings.MARKET_DATA_API_URL}/api/v5/market/ticker",
+                params={"instId": symbol},
+                headers={"Authorization": f"Bearer {settings.MARKET_DATA_API_TOKEN}"},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+            if data.get("code") != "0":
+                _log.warning(f"OKX ticker API error: code={data.get('code')} msg={data.get('msg')}")
+                return None
+
+            tickers = data.get("data") or []
+            if not tickers:
+                return None
+
+            last = tickers[0].get("last")
+            if last is None:
+                return None
+
+            price = float(last)
+            _log.debug(f"当前价格: {symbol} = {price}")
+            return price
+
+    except Exception as e:
+        _log.warning(f"获取当前价格失败 ({symbol}): {e}")
+        return None
 
 
 def _get_latest_kline_close(timeframe: str) -> str:
