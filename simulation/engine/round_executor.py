@@ -51,20 +51,33 @@ async def execute_round(db, task_id: str, ws_manager=None) -> dict | None:
         prev_direction = prev_round["bet_direction"]
         entry_price = prev_round["trigger_kline_close"] or 0
 
-        if prev_direction == "long":
-            won = settle_price > entry_price
-        elif prev_direction == "short":
-            won = settle_price < entry_price
+        # 价格无效时跳过结算
+        if not settle_price or settle_price <= 0:
+            _log.warning(f"结算价格无效 (settle_price={settle_price})，跳过本轮结算 task={task_id}")
+        elif not entry_price or entry_price <= 0:
+            _log.error(f"入场价格无效 (entry_price={entry_price})，跳过本轮结算 task={task_id}")
         else:
-            won = False
+            if prev_direction == "long":
+                won = settle_price > entry_price
+            elif prev_direction == "short":
+                won = settle_price < entry_price
+            else:
+                won = False
 
-        result = "WIN" if won else "LOSE"
-        pnl = calculate_pnl(prev_direction, result, prev_round["bet_amount"], task["fee_rate"])
-        new_capital = task["current_capital"] + pnl
+            result = "WIN" if won else "LOSE"
+            pnl = calculate_pnl(prev_direction, result, prev_round["bet_amount"], task["fee_rate"])
+            new_capital = task["current_capital"] + pnl
 
-        await settle_round(db, prev_round["id"], settle_price, result, pnl)
-        await update_task_capital(db, task_id, new_capital, result)
-        prev_result = {"result": result, "pnl": pnl}
+            # 事务性写入：结算 + 更新资金
+            await db.execute("BEGIN IMMEDIATE")
+            try:
+                await settle_round(db, prev_round["id"], settle_price, result, pnl)
+                await update_task_capital(db, task_id, new_capital, result)
+                await db.commit()
+            except Exception:
+                await db.execute("ROLLBACK")
+                raise
+            prev_result = {"result": result, "pnl": pnl}
 
         # 刷新 task
         task = await get_task(db, task_id)
@@ -149,9 +162,15 @@ async def execute_round(db, task_id: str, ws_manager=None) -> dict | None:
     # 更新 task.last_kline_ts
     await update_task_last_kline(db, task_id, trigger_kline_ts)
 
-    # 如果是 SKIP，更新资金统计
+    # 如果是 SKIP，更新资金统计（事务性）
     if direction == "none":
-        await update_task_capital(db, task_id, task["current_capital"], "SKIP")
+        await db.execute("BEGIN IMMEDIATE")
+        try:
+            await update_task_capital(db, task_id, task["current_capital"], "SKIP")
+            await db.commit()
+        except Exception:
+            await db.execute("ROLLBACK")
+            raise
 
     # ── ⑤ WebSocket 推送 ──
     round_data["id"] = round_id

@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import heapq
 import math
+import threading
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -50,6 +51,10 @@ class KlineScheduler:
         self._event = asyncio.Event()
         self._running = False
         self._buffer = buffer_seconds
+        # threading.Lock 而非 asyncio.Lock，因为 schedule()/cancel() 是同步方法
+        # （被 _schedule_next 等同步调用方使用），不能使用 async with 语法。
+        # 在单线程 asyncio 事件循环中，只要不在持有锁期间 await，threading.Lock 完全安全。
+        self._lock = threading.Lock()
 
     # -- public API ---------------------------------------------------------
 
@@ -65,43 +70,72 @@ class KlineScheduler:
         (re-entrant).
         """
         fire_ts = trigger_ts + self._buffer
-        heapq.heappush(self._heap, (fire_ts, task_id, callback))
+        with self._lock:
+            heapq.heappush(self._heap, (fire_ts, task_id, callback))
         self._event.set()
 
     def cancel(self, task_id: str) -> None:
-        """Cancel all pending and future events for *task_id*."""
-        self._cancelled.add(task_id)
+        """Cancel all pending and future events for *task_id*.
+
+        主动从堆中移除该任务的所有条目，防止已取消事件在堆中累积（内存泄漏），
+        也避免 run() 被已取消事件频繁唤醒。
+        """
+        with self._lock:
+            self._cancelled.add(task_id)
+            # 过滤堆中该任务的所有条目并重建堆
+            self._heap = [
+                (ts, tid, cb)
+                for ts, tid, cb in self._heap
+                if tid != task_id
+            ]
+            heapq.heapify(self._heap)
+        # 唤醒 run()：堆顶可能已变化（新堆顶时间不同、或堆变空）
+        self._event.set()
 
     async def run(self) -> None:
-        """Main scheduling loop.  Exits when :meth:`stop` is called."""
+        """Main scheduling loop.  Exits when :meth:`stop` is called.
+
+        临界区（读堆顶 / 检查 cancelled / pop）用 self._lock 保护；
+        锁在 await 前释放，避免跨协程持有锁。
+        """
         self._running = True
         while self._running:
-            # --- wait until the heap is non-empty --------------------------
+            # --- 等待堆非空 ------------------------------------------------
             while not self._heap:
                 if not self._running:
                     return
                 await self._event.wait()
                 self._event.clear()
 
-            fire_ts, task_id, callback = self._heap[0]
-            now = time.time()
+            # --- 临界区：检查堆顶事件 --------------------------------------
+            with self._lock:
+                # cancel() 可能清空了堆，需要重新检查
+                if not self._heap:
+                    continue
 
-            if task_id in self._cancelled:
-                heapq.heappop(self._heap)
-                continue
+                fire_ts, task_id, callback = self._heap[0]
+                now = time.time()
 
-            if fire_ts <= now:
-                heapq.heappop(self._heap)
-                asyncio.create_task(self._safe_fire(task_id, callback))
-            else:
-                try:
-                    await asyncio.wait_for(
-                        self._event.wait(),
-                        timeout=fire_ts - now,
-                    )
-                except TimeoutError:
-                    pass
-                self._event.clear()
+                if task_id in self._cancelled:
+                    heapq.heappop(self._heap)
+                    continue
+
+                if fire_ts <= now:
+                    heapq.heappop(self._heap)
+                    asyncio.create_task(self._safe_fire(task_id, callback))
+                    continue
+
+                # fire_ts > now：释放锁后再等待超时
+                wait_seconds = fire_ts - now
+
+            try:
+                await asyncio.wait_for(
+                    self._event.wait(),
+                    timeout=wait_seconds,
+                )
+            except TimeoutError:
+                pass
+            self._event.clear()
 
     def stop(self) -> None:
         """Signal :meth:`run` to exit gracefully at the next iteration."""

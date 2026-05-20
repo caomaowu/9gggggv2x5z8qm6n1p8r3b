@@ -5,8 +5,9 @@ Response models use from_attributes=True to work with dict data.
 """
 
 from enum import StrEnum
+from typing import ClassVar
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # ── Enums ────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,8 @@ class WsMessageType(StrEnum):
 class TaskCreateRequest(BaseModel):
     """Request body for creating a new simulation task."""
 
+    VALID_TIMEFRAMES: ClassVar[set[str]] = {"5m", "15m", "1h", "4h", "1d"}
+
     asset: str = Field(..., min_length=1, max_length=20, description="交易对, e.g. BTC-USDT")
     timeframe: str = Field(..., min_length=1, description="K线周期, e.g. 15m, 1h, 4h, 1d")
     bet_mode: BetMode = Field(default=BetMode.FIXED, description="押注模式")
@@ -64,19 +67,20 @@ class TaskCreateRequest(BaseModel):
     @field_validator("timeframe")
     @classmethod
     def validate_timeframe(cls, v: str) -> str:
-        """Ensure timeframe is non-empty after stripping whitespace."""
+        """Ensure timeframe is non-empty and matches valid periods (5m, 15m, 1h, 4h, 1d)."""
         stripped = v.strip()
         if not stripped:
             raise ValueError("timeframe must not be empty")
+        if stripped not in cls.VALID_TIMEFRAMES:
+            raise ValueError(f"timeframe must be one of {cls.VALID_TIMEFRAMES}, got '{stripped}'")
         return stripped
 
-    @field_validator("bet_percent")
-    @classmethod
-    def validate_bet_percent(cls, v: float | None, info) -> float | None:
-        """When bet_mode is PERCENT, bet_percent is required."""
-        if v is None:
-            return None
-        return v
+    @model_validator(mode="after")
+    def validate_bet_mode_percent(self):
+        """bet_percent is required when bet_mode is PERCENT."""
+        if self.bet_mode == BetMode.PERCENT and self.bet_percent is None:
+            raise ValueError("bet_percent is required when bet_mode is percent")
+        return self
 
 
 class TaskUpdateRequest(BaseModel):

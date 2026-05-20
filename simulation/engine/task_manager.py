@@ -3,10 +3,11 @@
 """
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import datetime, timezone
 
-from engine.round_executor import execute_round
+from engine.round_executor import execute_round, _fetch_current_price
 from engine.scheduler import KlineScheduler
 from models.db import (
     create_task as db_create_task,
@@ -36,6 +37,7 @@ class TaskManager:
         self._db = db
         self._scheduler = scheduler
         self._ws = ws_manager
+        self._active_tasks: dict[str, "asyncio.Task"] = {}
 
     # ── 创建 ──
 
@@ -73,8 +75,9 @@ class TaskManager:
         await update_task_status(self._db, task_id, "RUNNING")
 
         # 立即执行首轮（不用等 K 线收盘）
-        import asyncio
-        asyncio.create_task(execute_round(self._db, task_id, self._ws))
+        self._active_tasks[task_id] = asyncio.create_task(
+            self._wrap_execute_round(task_id, self._db, task_id, self._ws)
+        )
 
         # 同时注册后续调度
         self._schedule_next(task_id, task["timeframe"])
@@ -92,6 +95,9 @@ class TaskManager:
             return None
 
         self._scheduler.cancel(task_id)
+        active_task = self._active_tasks.pop(task_id, None)
+        if active_task and not active_task.done():
+            active_task.cancel()
         await update_task_status(self._db, task_id, "STOPPED")
 
         if self._ws:
@@ -107,6 +113,9 @@ class TaskManager:
             return False
 
         self._scheduler.cancel(task_id)
+        active_task = self._active_tasks.pop(task_id, None)
+        if active_task and not active_task.done():
+            active_task.cancel()
         await db_delete_task(self._db, task_id)
 
         if self._ws:
@@ -145,31 +154,46 @@ class TaskManager:
             # 结算上一局（如有）
             unsettled = await get_unsettled_round(self._db, task["id"])
             if unsettled:
-                # 用上一根 K 线收盘价作为结算价
-                settle_price = unsettled.get("trigger_kline_close") or 0
-                direction = unsettled["bet_direction"]
-                entry_price = unsettled.get("trigger_kline_close") or 0
-
-                if direction == "long":
-                    won = settle_price > entry_price
-                elif direction == "short":
-                    won = settle_price < entry_price
+                # 用实时价格作为结算价（和 execute_round 保持一致）
+                settle_price = await _fetch_current_price(task["asset"])
+                if settle_price is None:
+                    import logging
+                    logging.getLogger("simulation").warning(
+                        f"恢复时无法获取当前价格，跳过结算 task={task['id']}"
+                    )
+                    # 不结算，直接进入调度
                 else:
-                    won = False
+                    direction = unsettled["bet_direction"]
+                    entry_price = unsettled.get("trigger_kline_close") or 0
 
-                result = "WIN" if won else "LOSE"
-                pnl = calculate_pnl(direction, result, unsettled["bet_amount"], task["fee_rate"])
-                new_capital = task["current_capital"] + pnl
+                    if direction == "long":
+                        won = settle_price > entry_price
+                    elif direction == "short":
+                        won = settle_price < entry_price
+                    else:
+                        won = False
 
-                await settle_round(self._db, unsettled["id"], settle_price, result, pnl)
-                await update_task_capital(self._db, task["id"], new_capital, result)
+                    result = "WIN" if won else "LOSE"
+                    pnl = calculate_pnl(direction, result, unsettled["bet_amount"], task["fee_rate"])
+                    new_capital = task["current_capital"] + pnl
+
+                    await settle_round(self._db, unsettled["id"], settle_price, result, pnl)
+                    await update_task_capital(self._db, task["id"], new_capital, result)
 
             # 重新入调度 + 立即执行一轮
             self._schedule_next(task["id"], task["timeframe"])
-            import asyncio
-            asyncio.create_task(execute_round(self._db, task["id"], self._ws))
+            self._active_tasks[task["id"]] = asyncio.create_task(
+                self._wrap_execute_round(task["id"], self._db, task["id"], self._ws)
+            )
 
     # ── 内部 ──
+
+    async def _wrap_execute_round(self, task_id: str, db, inner_task_id: str, ws) -> None:
+        """包装 execute_round，完成后自动清理 _active_tasks 中的引用"""
+        try:
+            await execute_round(db, inner_task_id, ws)
+        finally:
+            self._active_tasks.pop(task_id, None)
 
     def _schedule_next(self, task_id: str, timeframe: str) -> None:
         """计算下个 K 线收盘时间并入调度器"""

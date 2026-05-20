@@ -202,9 +202,11 @@ class TestTaskCreateRequest:
         """String values should be accepted and coerced to Enum."""
         data = valid_task_create_data()
         data["bet_mode"] = "percent"
+        data["bet_percent"] = 0.5  # required for percent mode
         model = TaskCreateRequest(**data)
         assert isinstance(model.bet_mode, BetMode)
         assert model.bet_mode == BetMode.PERCENT
+        assert model.bet_percent == 0.5
 
 
 # ── TaskUpdateRequest tests ──────────────────────────────────────────────

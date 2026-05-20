@@ -1,8 +1,11 @@
 """
 异步 SQLite 数据库层 — 任务表 + 回合表 CRUD
 """
-import aiosqlite
+import asyncio
 from contextlib import asynccontextmanager
+
+import aiosqlite
+
 from config import settings
 
 # ── 表结构 DDL ──
@@ -70,7 +73,8 @@ CREATE TABLE IF NOT EXISTS rounds (
     pnl                 REAL,
 
     created_at          TEXT NOT NULL,
-    settled_at          TEXT
+    settled_at          TEXT,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
 )
 """
 
@@ -146,53 +150,59 @@ async def update_task_status(db: aiosqlite.Connection, task_id: str, status: str
     await db.commit()
 
 
+# 按 task_id 维度的锁，防止 update_task_capital 并发竞争
+_capital_locks: dict[str, asyncio.Lock] = {}
+
+
 async def update_task_capital(db: aiosqlite.Connection, task_id: str, new_capital: float, result: str) -> None:
     """更新资金，同时更新胜负统计和连胜/连败"""
-    task = await get_task(db, task_id)
-    if not task:
-        return
+    lock = _capital_locks.setdefault(task_id, asyncio.Lock())
+    async with lock:
+        task = await get_task(db, task_id)
+        if not task:
+            return
 
-    wins = task["wins"]
-    losses = task["losses"]
-    skips = task["skips"]
-    best_ws = task["best_win_streak"]
-    worst_ls = task["worst_lose_streak"]
-    cur_streak = task["current_streak"]
+        wins = task["wins"]
+        losses = task["losses"]
+        skips = task["skips"]
+        best_ws = task["best_win_streak"]
+        worst_ls = task["worst_lose_streak"]
+        cur_streak = task["current_streak"]
 
-    if result == "WIN":
-        wins += 1
-        if cur_streak and cur_streak.startswith("W"):
-            streak_count = int(cur_streak[1:]) + 1
-        else:
-            streak_count = 1
-        cur_streak = f"W{streak_count}"
-        best_ws = max(best_ws, streak_count)
-    elif result == "LOSE":
-        losses += 1
-        if cur_streak and cur_streak.startswith("L"):
-            streak_count = int(cur_streak[1:]) + 1
-        else:
-            streak_count = 1
-        cur_streak = f"L{streak_count}"
-        worst_ls = max(worst_ls, streak_count)
-    elif result == "SKIP":
-        skips += 1
-        cur_streak = None
+        if result == "WIN":
+            wins += 1
+            if cur_streak and cur_streak.startswith("W"):
+                streak_count = int(cur_streak[1:]) + 1
+            else:
+                streak_count = 1
+            cur_streak = f"W{streak_count}"
+            best_ws = max(best_ws, streak_count)
+        elif result == "LOSE":
+            losses += 1
+            if cur_streak and cur_streak.startswith("L"):
+                streak_count = int(cur_streak[1:]) + 1
+            else:
+                streak_count = 1
+            cur_streak = f"L{streak_count}"
+            worst_ls = max(worst_ls, streak_count)
+        elif result == "SKIP":
+            skips += 1
+            cur_streak = None
 
-    await db.execute(
-        """UPDATE tasks SET current_capital = :cap, total_rounds = :total,
-           wins = :wins, losses = :losses, skips = :skips,
-           best_win_streak = :bws, worst_lose_streak = :wls,
-           current_streak = :streak, updated_at = :now
-           WHERE id = :id""",
-        {
-            "cap": new_capital, "total": task["total_rounds"] + 1,
-            "wins": wins, "losses": losses, "skips": skips,
-            "bws": best_ws, "wls": worst_ls, "streak": cur_streak,
-            "now": _now(), "id": task_id,
-        },
-    )
-    await db.commit()
+        await db.execute(
+            """UPDATE tasks SET current_capital = :cap, total_rounds = :total,
+               wins = :wins, losses = :losses, skips = :skips,
+               best_win_streak = :bws, worst_lose_streak = :wls,
+               current_streak = :streak, updated_at = :now
+               WHERE id = :id""",
+            {
+                "cap": new_capital, "total": task["total_rounds"] + 1,
+                "wins": wins, "losses": losses, "skips": skips,
+                "bws": best_ws, "wls": worst_ls, "streak": cur_streak,
+                "now": _now(), "id": task_id,
+            },
+        )
+        await db.commit()
 
 
 async def update_task_last_kline(db: aiosqlite.Connection, task_id: str, kline_ts: str) -> None:

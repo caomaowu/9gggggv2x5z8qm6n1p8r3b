@@ -57,6 +57,13 @@ async def lifespan(app: FastAPI):
         await scheduler_task
     except asyncio.CancelledError:
         pass
+
+    # 等待已取消的调度任务彻底退出
+    await asyncio.sleep(1)
+
+    # 等待后台火即忘任务（如 execute_round）自然完成
+    await asyncio.sleep(3)
+
     await _db.close()
 
 
