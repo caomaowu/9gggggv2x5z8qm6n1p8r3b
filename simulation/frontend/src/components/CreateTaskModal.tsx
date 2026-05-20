@@ -30,12 +30,21 @@ export default function CreateTaskModal({ open, onClose }: Props) {
   const [betAmount, setBetAmount] = useState(100);
   const [feeRate, setFeeRate] = useState(0.002);
   const [initialCapital, setInitialCapital] = useState(10000);
+  const [submitting, setSubmitting] = useState(false);
 
   if (!open) return null;
 
   const handleSubmit = async () => {
-    await addTask({ asset, timeframe, bet_mode: betMode as BetMode, bet_amount: betAmount, fee_rate: feeRate, initial_capital: initialCapital });
-    onClose();
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await addTask({ asset, timeframe, bet_mode: betMode as BetMode, bet_amount: betAmount, fee_rate: feeRate, initial_capital: initialCapital });
+    } catch {
+      // addTask 失败时静默关闭，backend 错误不阻塞 UI
+    } finally {
+      setSubmitting(false);
+      onClose();
+    }
   };
 
   return (
@@ -153,10 +162,15 @@ export default function CreateTaskModal({ open, onClose }: Props) {
             取消
           </button>
           <button
-            className="px-5 py-2.5 text-sm font-semibold text-white bg-accent hover:bg-accent-400 rounded-lg shadow-sm shadow-accent/25 hover:shadow-md hover:shadow-accent/30 transition-all duration-150 active:scale-[0.97]"
+            className={`px-5 py-2.5 text-sm font-semibold text-white rounded-lg shadow-sm shadow-accent/25 transition-all duration-150 active:scale-[0.97] ${
+              submitting
+                ? 'bg-accent-400/70 cursor-not-allowed'
+                : 'bg-accent hover:bg-accent-400 hover:shadow-md hover:shadow-accent/30'
+            }`}
             onClick={handleSubmit}
+            disabled={submitting}
           >
-            创建任务
+            {submitting ? '创建中...' : '创建任务'}
           </button>
         </div>
       </div>

@@ -50,7 +50,7 @@ export function useWebSocket(
     };
 
     ws.onerror = () => {
-      ws.close();
+      // 连接失败时浏览器会自动 close → 触发 onclose → 重连，无需手动 close
     };
   }, [onMessage, onStatusChange]);
 
@@ -58,7 +58,14 @@ export function useWebSocket(
     connect();
     return () => {
       clearTimeout(timerRef.current);
-      wsRef.current?.close();
+      const ws = wsRef.current;
+      if (ws) {
+        ws.onclose = null; // 阻止清理时触发重连
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close(1000, 'unmount');
+        }
+        wsRef.current = null;
+      }
     };
   }, [connect]);
 

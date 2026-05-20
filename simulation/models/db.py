@@ -3,6 +3,7 @@
 """
 import asyncio
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import aiosqlite
 
@@ -88,6 +89,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_rounds_trigger ON rounds(task_id, trigger_
 async def init_db(db_path: str | None = None) -> aiosqlite.Connection:
     """初始化数据库：创建表 + 索引，返回连接"""
     path = db_path or settings.DB_PATH
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     db = await aiosqlite.connect(path)
     db.row_factory = aiosqlite.Row
     await db.execute("PRAGMA journal_mode=WAL")

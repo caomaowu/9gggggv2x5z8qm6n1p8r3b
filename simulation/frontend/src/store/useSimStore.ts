@@ -79,8 +79,16 @@ export const useSimStore = create<SimState>((set, get) => ({
   },
 
   async addTask(req) {
-    await createTask(req);
-    await get().fetchTasks();
+    const task = await createTask(req);
+    // 直接插入列表顶部，不依赖 fetchTasks
+    set((s) => ({ tasks: [task, ...s.tasks] }));
+    get().addToast({
+      type: 'task_created',
+      message: `任务已创建: ${task.asset} ${task.timeframe}`,
+      taskId: task.id,
+    });
+    // 后台静默刷新确保数据一致，失败无所谓
+    try { await get().fetchTasks(); } catch { /* 静默 */ }
   },
 
   async startSelected() {

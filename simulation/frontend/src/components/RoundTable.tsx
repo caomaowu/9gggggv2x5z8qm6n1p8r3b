@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import type { RoundResponse, RoundFilter, RoundResult, Direction } from '../types';
 import { useSimStore } from '../store/useSimStore';
 
@@ -478,7 +478,7 @@ export default function RoundTable({ rounds, total }: Props) {
             {filteredRounds.map((r, i) => {
               const isExpanded = expandedId === r.id;
               return (
-                <tr key={r.id} className="contents">
+                <Fragment key={r.id}>
                   <tr
                     className={`border-t border-border/50 transition-colors duration-100 cursor-pointer
                       ${isExpanded ? 'bg-surface-750' : i % 2 === 0 ? 'bg-surface-800/20' : 'bg-surface-800/50'}
@@ -543,7 +543,7 @@ export default function RoundTable({ rounds, total }: Props) {
                       </td>
                     </tr>
                   )}
-                </tr>
+                </Fragment>
               );
             })}
           </tbody>

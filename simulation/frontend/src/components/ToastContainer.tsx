@@ -17,6 +17,11 @@ const TOAST_STYLES: Record<string, { border: string; bg: string; icon: string }>
     bg: 'bg-accent/10',
     icon: 'M5.25 5.653c-.44-.059-1.53 0-2.25 0-.156 0-.25.15-.25.36v12.48c0 .21.094.36.25.36h2.25M16.5 5.653c.44-.059 1.53 0 2.25 0 .156 0 .25.15.25.36v12.48c0 .21-.094.36-.25.36H16.5',
   },
+  task_created: {
+    border: 'border-l-accent',
+    bg: 'bg-accent/10',
+    icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+  },
   task_stopped: {
     border: 'border-l-surface-600',
     bg: 'bg-surface-800',
