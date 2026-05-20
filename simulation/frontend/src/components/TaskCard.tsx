@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { TaskResponse } from '../types';
 import { useSimStore } from '../store/useSimStore';
+import ConfirmDialog from './ConfirmDialog';
 
 interface Props {
   task: TaskResponse;
@@ -46,6 +47,8 @@ export default function TaskCard({ task, onEdit }: Props) {
   );
 
   const [countdown, setCountdown] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
 
   useEffect(() => {
     if (!task.last_kline_ts || task.status !== 'RUNNING' || !timeframeSeconds) {
@@ -197,7 +200,7 @@ export default function TaskCard({ task, onEdit }: Props) {
         <button
           className="px-2 py-1.5 bg-loss/10 hover:bg-loss/20 text-loss/70 hover:text-loss text-[11px] font-semibold rounded-lg
                      transition-all duration-150 active:scale-[0.97]"
-          onClick={() => { selectTask(task.id); deleteSelected(); }}
+          onClick={(e) => { e.stopPropagation(); selectTask(task.id); setConfirmDelete(true); }}
         >
           删除
         </button>
@@ -205,13 +208,35 @@ export default function TaskCard({ task, onEdit }: Props) {
           <button
             className="px-2 py-1.5 bg-surface-700 hover:bg-surface-600 text-text-muted hover:text-text-secondary text-[11px] font-medium rounded-lg
                        transition-all duration-150 active:scale-[0.97]"
-            onClick={() => { selectTask(task.id); clearSelectedRounds(); }}
+            onClick={(e) => { e.stopPropagation(); selectTask(task.id); setConfirmClear(true); }}
             title="清空交易记录和分析数据"
           >
             清空
           </button>
         )}
       </div>
+
+      {/* 删除确认 */}
+      <ConfirmDialog
+        open={confirmDelete}
+        title="删除任务"
+        message={`确定要删除任务「${task.asset} ${task.timeframe}」吗？该操作不可撤销，所有关联的交易记录也将被删除。`}
+        confirmLabel="删除"
+        confirmDanger
+        onConfirm={() => { deleteSelected(); setConfirmDelete(false); }}
+        onCancel={() => setConfirmDelete(false)}
+      />
+
+      {/* 清空确认 */}
+      <ConfirmDialog
+        open={confirmClear}
+        title="清空交易记录"
+        message={`确定要清空任务「${task.asset} ${task.timeframe}」的所有交易记录和分析数据吗？该操作不可撤销。`}
+        confirmLabel="清空"
+        confirmDanger
+        onConfirm={() => { clearSelectedRounds(); setConfirmClear(false); }}
+        onCancel={() => setConfirmClear(false)}
+      />
     </div>
   );
 }
