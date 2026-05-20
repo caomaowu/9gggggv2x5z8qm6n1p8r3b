@@ -294,34 +294,43 @@ def compress_mechanics(
         out["oi"] = {"value": None, "timestamp": "", "price": current_price,
                       "price_timestamp": price_ts, "missing": True}
 
-    # --- OI history (change over time) ---
+    # --- OI history (change over multiple lookback windows, brale-style multi-period) ---
     oi_filtered = _filter_rubik_to_kline_window(
         oi_history, ohlcv_data, ts_field="ts", interval=interval
     )
     oi_by_interval: dict[str, Any] = {}
     if opts.require_oi and oi_filtered:
         oi_vals = [r.get("oi", 0) for r in oi_filtered if r.get("oi") is not None]
-        if len(oi_vals) >= 2:
-            first_oi = oi_vals[0]
-            last_oi = oi_vals[-1]
-            change_pct = round(((last_oi - first_oi) / abs(first_oi)) * 100, 4) if abs(first_oi) > 1e-12 else 0.0
-        else:
-            change_pct = 0.0
         latest_oi = oi_vals[-1] if oi_vals else None
-        # Price change over OI window
-        price_change_pct = 0.0
-        if ohlcv_data is not None and len(ohlcv_data) >= 2 and len(oi_vals) >= 2:
-            first_close = float(ohlcv_data["Close"].iloc[0])
-            last_close = float(ohlcv_data["Close"].iloc[-1])
-            if abs(first_close) > 1e-12:
-                price_change_pct = round(((last_close - first_close) / abs(first_close)) * 100, 4)
-        oi_by_interval[interval] = {
-            "value": latest_oi,
-            "change_pct": change_pct,
-            "price": current_price,
-            "price_change_pct": price_change_pct,
-            "missing": False,
-        }
+
+        def _oi_change(vals: list[float], lookback_frac: float) -> dict:
+            """Compute OI change_pct + price_change_pct over a fractional lookback window."""
+            n = len(vals)
+            if n < 2:
+                return {"change_pct": 0.0, "price_change_pct": 0.0, "value": latest_oi}
+            idx = max(1, int(n * (1 - lookback_frac)))
+            segment = vals[idx:]
+            first_oi = segment[0] if segment else vals[0]
+            last_oi = segment[-1] if segment else vals[-1]
+            cp = round(((last_oi - first_oi) / abs(first_oi)) * 100, 4) if abs(first_oi) > 1e-12 else 0.0
+            # Price change over same segment
+            pp = 0.0
+            if ohlcv_data is not None and len(ohlcv_data) >= 2:
+                all_closes = ohlcv_data["Close"].values.astype(np.float64)
+                close_idx = max(1, int(len(all_closes) * (1 - lookback_frac)))
+                fc = float(all_closes[close_idx])
+                lc = float(all_closes[-1])
+                if abs(fc) > 1e-12:
+                    pp = round(((lc - fc) / abs(fc)) * 100, 4)
+            return {"change_pct": cp, "price_change_pct": pp, "value": last_oi}
+
+        # Short window (~recent 25%), mid (~50%), full
+        oi_by_interval["short"] = _oi_change(oi_vals, 0.25)
+        oi_by_interval["mid"] = _oi_change(oi_vals, 0.50)
+        oi_by_interval["full"] = _oi_change(oi_vals, 1.0)
+        # Mark data as present if we have values
+        for k in oi_by_interval:
+            oi_by_interval[k]["missing"] = False
     else:
         oi_by_interval[interval] = {"value": None, "change_pct": 0.0, "price": current_price,
                                      "price_change_pct": 0.0, "missing": True}
@@ -329,7 +338,7 @@ def compress_mechanics(
 
     # 回测检测：OI 历史明确提供但无法覆盖 K 线时间窗口 → 远期回测
     _is_backtest = opts.require_oi and oi_history is not None and len(oi_history) > 0 \
-                   and oi_by_interval.get(interval, {}).get("missing", False)
+                   and oi_by_interval.get("full", {}).get("missing", False)
     if _is_backtest:
         out["oi"]["missing"] = True
 
@@ -374,35 +383,70 @@ def compress_mechanics(
     out["long_short_by_interval"] = ls_by_interval
 
     # --- CVD (estimated from taker volume ratio) ---
+    # brale: builds CVD series per-bar from taker buy/sell, then detects divergence + peak_flip.
     taker_filtered = _filter_rubik_to_kline_window(
         taker_volume_history, ohlcv_data, ts_field="ts", interval=interval
     )
     cvd_by_interval: dict[str, Any] = {}
-    buy_cum = 0.0; sell_cum = 0.0  # reused by futures sentiment below
+    buy_cum = 0.0
+    sell_cum = 0.0  # reused by futures sentiment below
     if opts.require_cvd:
         if taker_filtered and len(taker_filtered) > 0:
+            # Build cumulative CVD series (one point per taker record)
+            cvd_series: list[float] = []
+            c_sum = 0.0
             for r in taker_filtered:
                 buy_cum += r.get("buyVol", 0)
                 sell_cum += r.get("sellVol", 0)
-            cvd_val = round(buy_cum - sell_cum, 4)
+                c_sum = buy_cum - sell_cum
+                cvd_series.append(c_sum)
+            cvd_val = round(c_sum, 4)
             total_vol = buy_cum + sell_cum
             normalized = round(cvd_val / total_vol, 4) if total_vol > 1e-12 else 0.0
+
+            # -- momentum: last minus 6th-from-last (brale: momentum = cvd[-1] - cvd[-6])
+            momentum = 0.0
+            if len(cvd_series) > 6:
+                momentum = round(cvd_series[-1] - cvd_series[-6], 4)
+
+            # -- divergence: compare price direction vs CVD direction over ~6 bars (brale: no thresholds, directional only)
+            divergence = "neutral"
+            if ohlcv_data is not None and len(ohlcv_data) >= 6 and len(cvd_series) >= 6:
+                closes = ohlcv_data["Close"].values.astype(np.float64)
+                price_now = float(closes[-1])
+                price_prev = float(closes[-6])
+                cvd_now = cvd_series[-1]
+                cvd_prev = cvd_series[-6]
+                if price_now > price_prev and cvd_now < cvd_prev:
+                    divergence = "down"   # price up but CVD down → bearish divergence
+                elif price_now < price_prev and cvd_now > cvd_prev:
+                    divergence = "up"     # price down but CVD up → bullish divergence
+
+            # -- peak_flip: last 3 CVD values pattern (brale: a<b>c→local_top, a>b<c→local_bottom)
+            peak_flip = "none"
+            if len(cvd_series) >= 3:
+                a, b, c_val = cvd_series[-1], cvd_series[-2], cvd_series[-3]
+                if a < b and b > c_val:
+                    peak_flip = "local_top"
+                elif a > b and b < c_val:
+                    peak_flip = "local_bottom"
+
             cvd_by_interval[interval] = {
                 "value": cvd_val,
-                "momentum": normalized,
+                "momentum": momentum,
                 "normalized": normalized,
-                "divergence": "none",
-                "peak_flip": "none",
+                "divergence": divergence,
+                "peak_flip": peak_flip,
                 "timestamp": taker_filtered[-1].get("ts", ""),
                 "missing": False,
             }
         else:
             cvd_by_interval[interval] = {"value": None, "momentum": 0.0,
-                                          "normalized": 0.0, "divergence": "none",
+                                          "normalized": 0.0, "divergence": "neutral",
                                           "peak_flip": "none", "timestamp": "", "missing": True}
     else:
         cvd_by_interval[interval] = {"value": None, "momentum": 0.0,
-                                      "normalized": 0.0, "divergence": "none",
+                                      "normalized": 0.0, "divergence": "neutral",
                                       "peak_flip": "none", "timestamp": "", "missing": True}
     out["cvd_by_interval"] = cvd_by_interval
 
@@ -426,79 +470,153 @@ def compress_mechanics(
         out["fear_greed_history"] = []
         out["fear_greed_next_update_sec"] = 0
 
-    # --- Liquidations ---
+    # --- Liquidations (multi-window: 5m / 1h / 4h, brale-style) ---
+    # brale uses 3 fixed windows. Status and source metadata track data quality.
+    _LIQ_WINDOWS: list[tuple[str, int]] = [("5m", 300), ("1h", 3600), ("4h", 14400)]
+    liq_now_ts = int(time.time())
     if opts.require_liquidations and not _is_backtest:
         if liquidation_orders and len(liquidation_orders) > 0:
-            long_liq = sum(r.get("sz", 0) for r in liquidation_orders if r.get("posSide") == "long")
-            short_liq = sum(r.get("sz", 0) for r in liquidation_orders if r.get("posSide") == "short")
+            # Parse + sort orders
+            parsed: list[tuple[int, dict]] = []
+            for r in liquidation_orders:
+                ts_raw = r.get("ts", "")
+                try:
+                    ts_val = int(str(ts_raw))
+                    if ts_val > 1_000_000_000_000:
+                        ts_val //= 1000
+                except (ValueError, TypeError):
+                    continue
+                parsed.append((ts_val, r))
+            parsed.sort(key=lambda x: x[0])
+
+            # Global aggregate
+            long_liq = sum(r.get("sz", 0) for _, r in parsed if r.get("posSide") == "long")
+            short_liq = sum(r.get("sz", 0) for _, r in parsed if r.get("posSide") == "short")
             total_liq = long_liq + short_liq
             imbalance = round((long_liq - short_liq) / total_liq, 4) if total_liq > 1e-12 else 0.0
+
+            min_ts = parsed[0][0]
+            max_ts = parsed[-1][0]
+            coverage_sec_total = max_ts - min_ts
+
             out["liquidations"] = {
                 "volume": round(total_liq, 4),
                 "long_vol": round(long_liq, 4),
                 "short_vol": round(short_liq, 4),
                 "imbalance": imbalance,
-                "count": len(liquidation_orders),
-                "timestamp": liquidation_orders[0].get("ts", ""),
+                "sample_count": len(parsed),
+                "coverage_sec": coverage_sec_total,
+                "last_event_age_sec": liq_now_ts - max_ts,
+                "timestamp": str(parsed[-1][1].get("ts", "")),
                 "missing": False,
             }
 
-            # --- Window bucketing + ZScore ---
-            windows = _bucket_liquidation_windows(liquidation_orders, bucket_sec=300)
+            # --- Per-window aggregation (brale: classifyLiquidationState picks highest stress) ---
+            oi_val = out.get("oi", {}).get("value")
             liq_by_window: dict[str, Any] = {}
-            if windows and len(windows) >= 2:
-                # Compute per-window aggregates
-                win_vols = []
-                for w in windows:
-                    w_long = sum(r.get("sz", 0) for r in w if r.get("posSide") == "long")
-                    w_short = sum(r.get("sz", 0) for r in w if r.get("posSide") == "short")
-                    w_total = w_long + w_short
-                    win_vols.append({
-                        "total_vol": w_total,
-                        "long_vol": w_long,
-                        "short_vol": w_short,
-                        "imbalance": (w_long - w_short) / w_total if w_total > 1e-12 else 0.0,
-                        "sample_count": len(w),
-                    })
+            for win_name, win_sec in _LIQ_WINDOWS:
+                cutoff = max_ts - win_sec
+                win_orders = [(ts, r) for ts, r in parsed if ts >= cutoff]
+                if not win_orders:
+                    liq_by_window[win_name] = {
+                        "total_vol": 0.0, "long_vol": 0.0, "short_vol": 0.0,
+                        "imbalance": 0.0, "sample_count": 0,
+                        "coverage_sec": 0, "status": "unavailable", "complete": False,
+                    }
+                    continue
 
-                # Stats for ZScore
-                vols = [w["total_vol"] for w in win_vols]
-                mean_v = sum(vols) / len(vols)
-                std_v = (sum((v - mean_v) ** 2 for v in vols) / len(vols)) ** 0.5
+                w_long = sum(r.get("sz", 0) for _, r in win_orders if r.get("posSide") == "long")
+                w_short = sum(r.get("sz", 0) for _, r in win_orders if r.get("posSide") == "short")
+                w_total = w_long + w_short
+                w_imbalance = round((w_long - w_short) / w_total, 4) if w_total > 1e-12 else 0.0
+                w_coverage = max_ts - win_orders[0][0]
 
-                latest = win_vols[-1]
-                z_score = round((latest["total_vol"] - mean_v) / std_v, 4) if std_v > 1e-12 else 0.0
+                # Window status (brale: warming_up if coverage < window duration)
+                win_complete = w_coverage >= win_sec
+                if win_complete:
+                    win_status = "ok"
+                elif w_coverage > 0:
+                    win_status = "warming_up"
+                else:
+                    win_status = "unavailable"
 
-                # VolOverOI
-                oi_val = out.get("oi", {}).get("value") or oi_snapshot.get("oi") if oi_snapshot else None
-                vol_over_oi = round(latest["total_vol"] / oi_val, 6) if oi_val and oi_val > 1e-12 else 0.0
+                # Rel metrics
+                vol_over_oi = round(w_total / oi_val, 6) if oi_val and oi_val > 1e-12 else 0.0
+                vol_over_volume = 0.0
+                if ohlcv_data is not None and len(ohlcv_data) >= 2 and w_total > 1e-12:
+                    # Sum candle volume within the window's time range
+                    if isinstance(ohlcv_data.index, pd.DatetimeIndex):
+                        win_end = pd.Timestamp(max_ts, unit='s', tz='UTC')
+                        win_start = win_end - pd.Timedelta(seconds=win_sec)
+                        mask = (ohlcv_data.index >= win_start) & (ohlcv_data.index <= win_end)
+                        candle_vol = float(ohlcv_data.loc[mask, "Volume"].sum()) if mask.any() else 0.0
+                        if candle_vol > 1e-12:
+                            vol_over_volume = round(w_total / candle_vol, 6)
 
-                liq_by_window["5m"] = {
-                    "long_vol": round(latest["long_vol"], 4),
-                    "short_vol": round(latest["short_vol"], 4),
-                    "total_vol": round(latest["total_vol"], 4),
-                    "imbalance": round(latest["imbalance"], 4),
-                    "sample_count": latest["sample_count"],
+                # Z-score: simple over available windows (not rolling history — single analysis)
+                z_score_val = 0.0
+                if w_total > 1e-12 and len(liq_by_window) >= 1:
+                    prev_vols = [v["total_vol"] for v in liq_by_window.values()
+                                 if v.get("total_vol", 0) > 1e-12]
+                    all_vols = prev_vols + [w_total]
+                    if len(all_vols) >= 2:
+                        mean_v = sum(all_vols) / len(all_vols)
+                        std_v = (sum((v - mean_v) ** 2 for v in all_vols) / len(all_vols)) ** 0.5
+                        if std_v > 1e-12:
+                            z_score_val = round((w_total - mean_v) / std_v, 4)
+
+                liq_by_window[win_name] = {
+                    "long_vol": round(w_long, 4),
+                    "short_vol": round(w_short, 4),
+                    "total_vol": round(w_total, 4),
+                    "imbalance": w_imbalance,
+                    "sample_count": len(win_orders),
+                    "coverage_sec": w_coverage,
+                    "status": win_status,
+                    "complete": win_complete,
                     "rel": {
                         "vol_over_oi": vol_over_oi,
-                        "zscore": z_score,
-                        "spike": z_score >= 2.5,
+                        "vol_over_volume": vol_over_volume,
+                        "zscore": z_score_val,
+                        "spike": z_score_val >= 2.0,  # brale: spike threshold is 2.0
                     },
                 }
-            else:
-                # Too few windows for stats, fall back to simple aggregate
-                liq_by_window["5m"] = {
-                    "long_vol": round(long_liq, 4), "short_vol": round(short_liq, 4),
-                    "total_vol": round(total_liq, 4), "imbalance": imbalance,
-                }
+
             out["liquidations_by_window"] = liq_by_window
-            out["liquidation_source"] = "order_book"
+
+            # Liquidation source metadata (brale: LiqSource struct)
+            source_status = "ok"
+            if coverage_sec_total < 300:
+                source_status = "warming_up"
+            last_event_age = liq_now_ts - max_ts
+            if last_event_age > 3600:
+                source_status = "stale"
+            out["liquidation_source"] = {
+                "source": "rubik_order_book",
+                "coverage": "order_book_snapshot",
+                "status": source_status,
+                "stream_connected": False,
+                "coverage_sec": coverage_sec_total,
+                "sample_count": len(parsed),
+                "last_event_age_sec": last_event_age,
+                "complete": coverage_sec_total >= 300,
+            }
         else:
             out["liquidations"] = {"volume": None, "timestamp": "", "missing": True}
-            out["liquidation_source"] = "unavailable"
+            out["liquidations_by_window"] = {}
+            out["liquidation_source"] = {
+                "source": "", "coverage": "", "status": "unavailable",
+                "stream_connected": False, "coverage_sec": 0,
+                "sample_count": 0, "last_event_age_sec": 0, "complete": False,
+            }
     else:
         out["liquidations"] = {"volume": None, "timestamp": "", "missing": True}
-        out["liquidation_source"] = "disabled"
+        out["liquidations_by_window"] = {}
+        out["liquidation_source"] = {
+            "source": "", "coverage": "", "status": "disabled",
+            "stream_connected": False, "coverage_sec": 0,
+            "sample_count": 0, "last_event_age_sec": 0, "complete": False,
+        }
 
     # --- Futures sentiment (computed from available data) ---
     fs: dict[str, Any] = {

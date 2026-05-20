@@ -426,6 +426,7 @@ def _hma(values: np.ndarray, period: int) -> np.ndarray:
 def _compute_supertrend(
     highs: np.ndarray, lows: np.ndarray, closes: np.ndarray,
     period: int = 14, multiplier: float = 2.5,
+    interval: str = "",
 ) -> dict[str, Any] | None:
     """HMA-based SuperTrend (brale: computeSuperTrendSeries + buildSuperTrendSnapshot)."""
     n = len(closes)
@@ -494,7 +495,7 @@ def _compute_supertrend(
             continue
         state = "UP" if close_v >= level else "DOWN"
         return {
-            "interval": "",
+            "interval": interval,
             "state": state,
             "level": round(float(level), 4),
             "distance_pct": round(abs(close_v - level) / close_v * 100.0, 4),
@@ -800,7 +801,7 @@ def compress_structure(
     # SuperTrend (HMA-based, ported from brale trend_supertrend.go)
     supertrend = None
     if opts.supertrend_period > 0:
-        supertrend = _compute_supertrend(highs, lows, closes, opts.supertrend_period, opts.supertrend_multiplier)
+        supertrend = _compute_supertrend(highs, lows, closes, opts.supertrend_period, opts.supertrend_multiplier, interval=interval)
 
     # SMC: OrderBlock + FVG
     smc = None

@@ -238,23 +238,44 @@ def _classify_liquidation(compressed: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _summarize_liquidation_window(name: str, window: dict[str, Any]) -> dict[str, Any]:
+    # If window has status field and it's not "ok" → data quality insufficient (brale: returns Stress="unknown")
+    status = str(window.get("status", "")).strip().lower()
+    if status and status not in ("", "ok"):
+        return {
+            "window": name,
+            "stress": "unknown",
+            "status": status,
+            "complete": bool(window.get("complete", False)),
+            "zscore": 0.0, "vol_over_oi": 0.0, "vol_over_volume": 0.0,
+            "spike": False, "imbalance": 0.0,
+            "sample_count": int(window.get("sample_count", 0) or 0),
+            "coverage_sec": int(window.get("coverage_sec", 0) or 0),
+        }
+
     imbalance = float(window.get("imbalance", 0) or 0)
 
     rel = window.get("rel") or window.get("Rel")
     zscore = 0.0
     vol_over_oi = 0.0
+    vol_over_volume = 0.0
     spike = False
     if rel and isinstance(rel, dict):
         zscore = float(rel.get("zscore", rel.get("ZScore", 0)) or 0)
         vol_over_oi = float(rel.get("vol_over_oi", rel.get("VolOverOI", 0)) or 0)
+        vol_over_volume = float(rel.get("vol_over_volume", rel.get("VolOverVolume", 0)) or 0)
         spike = bool(rel.get("spike", rel.get("Spike", False)))
 
     base = {
         "window": name,
         "zscore": round(zscore, 4),
         "vol_over_oi": round(vol_over_oi, 4),
+        "vol_over_volume": round(vol_over_volume, 6),
         "spike": spike,
         "imbalance": round(imbalance, 4),
+        "sample_count": int(window.get("sample_count", 0) or 0),
+        "coverage_sec": int(window.get("coverage_sec", 0) or 0),
+        "status": "ok",
+        "complete": bool(window.get("complete", False)),
     }
 
     stress = "low"
