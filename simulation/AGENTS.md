@@ -142,7 +142,7 @@ Scheduler 触发回调 ──> execute_round(task_id)
 | `SIM_HOST` | `0.0.0.0` | 服务监听地址 |
 | `SIM_PORT` | `18520` | 服务端口 |
 | `DB_PATH` | `./data/simulation.db` | SQLite 数据库路径 |
-| `KLINE_BUFFER_SECONDS` | `30` | K线收盘后延迟触发（秒） |
+| `KLINE_BUFFER_SECONDS` | `0` | K线收盘后延迟触发（秒），预分析模式下无需延迟 |
 | `DEFAULT_INITIAL_CAPITAL` | `10000.0` | 默认初始资金 |
 | `DEFAULT_BET_AMOUNT` | `100.0` | 默认固定押注金额 |
 | `WS_HEARTBEAT_INTERVAL` | `30` | WebSocket 心跳间隔（秒） |

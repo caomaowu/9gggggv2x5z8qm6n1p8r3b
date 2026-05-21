@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import asyncio
+import time
 import uuid
 from datetime import datetime, timezone
 
-from engine.round_executor import execute_round, _fetch_current_price
+from config import settings
+from engine.round_executor import execute_round, pre_analyze, _fetch_current_price
 from engine.scheduler import KlineScheduler
 from models.db import (
     create_task as db_create_task,
@@ -38,6 +40,7 @@ class TaskManager:
         self._scheduler = scheduler
         self._ws = ws_manager
         self._active_tasks: dict[str, "asyncio.Task"] = {}
+        self._pre_analysis: dict[str, dict] = {}  # task_id → 预分析结果（用于双回调间传递）
 
     # ── 创建 ──
 
@@ -204,19 +207,76 @@ class TaskManager:
             self._active_tasks.pop(task_id, None)
 
     def _schedule_next(self, task_id: str, timeframe: str) -> None:
-        """计算下个 K 线收盘时间并入调度器"""
-        db = self._db
-        ws = self._ws
+        """调度下一轮：预分析（收盘前） + 执行（收盘时）双回调"""
+        next_close = KlineScheduler.calc_next_kline_close(timeframe)
+        offset = settings.PRE_ANALYZE_OFFSETS.get(timeframe, 60)
+        pre_trigger = next_close - offset
 
-        async def callback():
+        # ① 预分析事件：收盘前 offset 秒触发
+        if pre_trigger > time.time():
+            async def pre_callback():
+                await self._wrap_pre_analyze(task_id)
+            self._scheduler.schedule(pre_trigger, task_id, pre_callback)
+
+        # ② 执行事件：收盘时触发（沿用 KLINE_BUFFER_SECONDS 延迟）
+        async def exec_callback():
             try:
-                await execute_round(db, task_id, ws)
+                await self._wrap_scheduled_round(task_id)
             except Exception:
                 import logging
                 logging.getLogger("simulation").exception(f"回合执行异常 task={task_id}")
             finally:
-                # 无论成败都继续调度下一个
                 self._schedule_next(task_id, timeframe)
 
-        next_close = KlineScheduler.calc_next_kline_close(timeframe)
-        self._scheduler.schedule(next_close, task_id, callback)
+        self._scheduler.schedule(next_close, task_id, exec_callback)
+
+    # ── 预分析回调 ──
+
+    async def _wrap_pre_analyze(self, task_id: str) -> None:
+        """收盘前预分析：调用分析 API，结果存入 _pre_analysis。
+
+        成功存入完整分析字典，失败存入空字典 {}。
+        如果任务已不在运行状态，静默跳过。
+        """
+        import logging
+        _log = logging.getLogger("simulation")
+
+        task = await get_task(self._db, task_id)
+        if not task or task["status"] != "RUNNING":
+            return
+
+        _log.info(f"预分析开始: {task['asset']} {task['timeframe']} task={task_id}")
+        result = await pre_analyze(task["asset"], task["timeframe"])
+        self._pre_analysis[task_id] = result
+        if result:
+            _log.info(f"预分析完成: {task['asset']} dir={result.get('direction', '?')} task={task_id}")
+        else:
+            _log.warning(f"预分析失败（收盘时将记录 SKIP）: {task['asset']} task={task_id}")
+
+    # ── 收盘执行回调 ──
+
+    async def _wrap_scheduled_round(self, task_id: str) -> None:
+        """收盘时执行回合，消费 _pre_analysis 中的预分析结果。
+
+        - 若预分析已执行（key 存在）：传入结果，跳过 API 调用
+        - 若预分析未执行（key 不存在）：传入 None，execute_round 自行调 API（回退）
+        """
+        import logging
+        _log = logging.getLogger("simulation")
+
+        task = await get_task(self._db, task_id)
+        if not task or task["status"] != "RUNNING":
+            self._pre_analysis.pop(task_id, None)
+            return
+
+        pre_result = self._pre_analysis.pop(task_id, None)
+        if pre_result is None:
+            _log.warning(f"预分析结果缺失（未调度或异常），回退到同步分析 task={task_id}")
+        elif not pre_result:
+            _log.warning(f"预分析失败，本轮将记录 SKIP task={task_id}")
+
+        # pre_result:
+        #   None  → execute_round 自行调用分析 API（回退）
+        #   {}    → execute_round 识别 direction="none" → 记录 SKIP 回合
+        #   {...} → execute_round 使用预分析结果，零等待
+        await execute_round(self._db, task_id, self._ws, analyze_result=pre_result)

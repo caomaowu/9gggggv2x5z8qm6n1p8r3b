@@ -26,9 +26,16 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-async def execute_round(db, task_id: str, ws_manager=None) -> dict | None:
+async def execute_round(db, task_id: str, ws_manager=None, *, analyze_result: dict | None = None) -> dict | None:
     """
     执行一个完整回合
+
+    参数
+    ----------
+    analyze_result:
+        - None: 未启用预分析，同步调用分析 API（首轮 / 崩溃恢复路径）
+        - {} 空字典: 预分析失败，跳过本次押注（记录 SKIP 回合）
+        - {direction, score, ...}: 预分析成功，直接使用结果（跳过 API 调用）
     """
     import logging
     _log = logging.getLogger("simulation")
@@ -84,10 +91,15 @@ async def execute_round(db, task_id: str, ws_manager=None) -> dict | None:
         if not task:
             return None
 
-    # ── ② 调用分析 API ──
-    analyze_result = await _call_analyze_api(task["asset"], task["timeframe"])
+    # ── ② 获取分析结果 ──
     if analyze_result is None:
-        return None
+        # 未启用预分析：同步调用分析 API（首轮 / 崩溃恢复）
+        analyze_result = await _call_analyze_api(task["asset"], task["timeframe"])
+        if analyze_result is None:
+            _log.warning(f"分析 API 调用失败，跳过本轮 task={task_id}")
+            return None
+    # analyze_result 已就绪（预分析路径或同步路径）；
+    # 若为 {} 则 direction 取默认值 "none" → 走 SKIP 逻辑
 
     direction = analyze_result.get("direction", "none")
     score = analyze_result.get("score", 0)
@@ -105,6 +117,15 @@ async def execute_round(db, task_id: str, ws_manager=None) -> dict | None:
     # ── ③ 确定本回合触发 K 线时间 ──
     now_ts = _now()
     trigger_kline_ts = _get_latest_kline_close(task["timeframe"])
+
+    # ── ③½ 修正入场价（预分析路径专用）──
+    # 预分析在收盘前调用，API 返回的 trigger_kline_close 不是 K 线最终收盘价。
+    # 此处用收盘时刻的 OKX 实时 ticker 价格覆盖，确保入场价准确。
+    if analyze_result and direction != "none":
+        real_close = await _fetch_current_price(task["asset"])
+        if real_close:
+            analyze_result["trigger_kline_close"] = real_close
+            _log.debug(f"入场价修正: {task['asset']} pre={analyze_result.get('entry_point')} real={real_close}")
 
     # ── ④ 记录 + 押注 ──
     round_id = str(uuid.uuid4())
@@ -322,3 +343,24 @@ def _get_latest_kline_close(timeframe: str) -> str:
     next_close_ts = KlineScheduler.calc_next_kline_close(timeframe)
     prev_close_ts = next_close_ts - period
     return datetime.fromtimestamp(prev_close_ts, tz=timezone.utc).isoformat()
+
+
+# ═══════════════════════════════════════════
+#  公开 API（供 task_manager 调度层调用）
+# ═══════════════════════════════════════════
+
+
+async def pre_analyze(asset: str, timeframe: str) -> dict:
+    """K线收盘前提前调用分析 API，获取交易方向预测。
+
+    task_manager 在收盘前 ``PRE_ANALYZE_OFFSET`` 秒调用此函数，
+    以便在 K 线收盘时分析结果已就绪，零等待即可执行押注。
+
+    Returns
+    -------
+    dict
+        成功: 完整的分析结果字典（direction / score / confidence / ...）
+        失败: 空字典 ``{}``（execute_round 收到空字典会记录 SKIP 回合）
+    """
+    result = await _call_analyze_api(asset, timeframe)
+    return result if result is not None else {}

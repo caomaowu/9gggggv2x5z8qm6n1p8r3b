@@ -283,7 +283,9 @@ function FusionPanel({ fusionRaw }: { fusionRaw: unknown }) {
 
 // ── K线数据 panel (inside expanded row) ──
 function KlinePanel({ round }: { round: RoundResponse }) {
-  const hasData = round.trigger_kline_open != null || round.trigger_kline_close != null
+  // trigger_kline_close 是触发本次分析的 K 线收盘价，押注以此为入场参考价
+  // settle_price 是结算时的实时市场价（OKX ticker），用于判定上局胜负
+  const hasData = round.trigger_kline_close != null
     || round.settle_kline_ts != null || round.settle_price != null;
   if (!hasData) return null;
 
@@ -291,15 +293,9 @@ function KlinePanel({ round }: { round: RoundResponse }) {
     <div className="rounded-lg bg-surface-800 border border-border/40 p-3">
       <span className="text-[10px] font-semibold uppercase tracking-wider text-text-muted">K线数据</span>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-2">
-        {round.trigger_kline_open != null && (
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-text-muted">开盘价</span>
-            <span className="text-[11px] font-mono text-text-secondary">{formatNumber(round.trigger_kline_open, 4)}</span>
-          </div>
-        )}
         {round.trigger_kline_close != null && (
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-text-muted">收盘价</span>
+            <span className="text-[10px] text-text-muted">进场价</span>
             <span className="text-[11px] font-mono text-text-secondary">{formatNumber(round.trigger_kline_close, 4)}</span>
           </div>
         )}
