@@ -9,6 +9,9 @@ PROVIDERS = {
             "Qwen/Qwen3-Next-80B-A3B-Instruct",
             "Qwen/Qwen3-235B-A22B-Instruct",
             "ZhipuAI/GLM-4.7",
+            "deepseek-ai/DeepSeek-V4-Flash",
+            "MiniMax/MiniMax-M2.7",
+            "moonshotai/Kimi-K2.5",
         ],
         "graph_models": [
             "Qwen/Qwen3-VL-30B-A3B-Instruct",
@@ -28,35 +31,6 @@ PROVIDERS = {
             "deepseek-v4-pro",
         ],
     },
-    "iflow": {
-        "name": "Iflow",
-        "base_url": "https://apis.iflow.cn/v1",
-        "api_key_env": "IFLOW_API_KEY",
-        "agent_models": [
-            "qwen3-max",
-            "kimi-k2-0905",
-            "qwen3-235b-a22b-instruct",
-        ],
-        "graph_models": [
-            "qwen3-max",
-            "qwen3-vl-plus",
-           
-        ],
-    },
-    "iflow2": {
-        "name": "Iflow2",
-        "base_url": "https://apis.iflow.cn/v1",
-        "api_key_env": "IFLOW2_API_KEY",
-        "agent_models": [
-            "qwen3-max",
-            "kimi-k2-0905",
-            "qwen3-235b-a22b-instruct",
-        ],
-        "graph_models": [
-            "qwen3-max",
-            "qwen3-vl-plus",
-        ],
-    },
     "openrouter": {
         "name": "OpenRouter",
         "base_url": "https://openrouter.ai/api/v1",
@@ -73,6 +47,8 @@ PROVIDERS = {
             "qwen/qwen3-next-80b-a3b-instruct",
             "openai/gpt-4o-mini",
             "xiaomi/mimo-v2-flash:free",
+            "stepfun/step-3.5-flash",
+            "deepseek/deepseek-v4-flash",
         ],
         "graph_models": [
             "anthropic/claude-haiku-4.5",
@@ -87,30 +63,8 @@ PROVIDERS = {
             "openai/gpt-4o-mini",
             "z-ai/glm-4.6v",
             "nvidia/nemotron-nano-12b-v2-vl:free",
-        ],
-    },
-    "ark": {
-        "name": "Ark",
-        "base_url": "https://ark.cn-beijing.volces.com/api/coding/v3",
-        "api_key_env": "ARK_API_KEY",
-        "agent_models": [
-            "ark-code-latest",
-        ],
-        "graph_models": [
-            "ark-code-latest",
-        ],
-    },
-    "codex": {
-        "name": "Codex",
-        "base_url": "https://codex.caomaowu.lol/v1",
-        "api_key_env": "CODEX_API_KEY",
-        "agent_models": [
-            "gpt-5.2",
-            "gpt-5.2codex",
-        ],
-        "graph_models": [
-            "gpt-5.2",
-            "gpt-5.2codex",
+            "stepfun/step-3.5-flash",
+            "deepseek/deepseek-v4-flash",
         ],
     },
     "soul": {
@@ -150,6 +104,7 @@ PROVIDERS = {
             "step-3.5-flash",
             "Doubao-Seed-2.0-mini",
             "Doubao-Seed-2.0-lite",
+            "MiniMax-M2.7",
         ],
         "graph_models": [
             "qwen3.5-plus",
@@ -165,6 +120,7 @@ PROVIDERS = {
             "step-3.5-flash",
             "Doubao-Seed-2.0-mini",
             "Doubao-Seed-2.0-lite",
+            "MiniMax-M2.7",
         ],
     },
 }

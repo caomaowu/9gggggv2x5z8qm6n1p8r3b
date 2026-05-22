@@ -94,7 +94,11 @@ async def execute_round(db, task_id: str, ws_manager=None, *, analyze_result: di
     # ── ② 获取分析结果 ──
     if analyze_result is None:
         # 未启用预分析：同步调用分析 API（首轮 / 崩溃恢复）
-        analyze_result = await _call_analyze_api(task["asset"], task["timeframe"])
+        analyze_result = await _call_analyze_api(
+            task["asset"], task["timeframe"],
+            model_provider=task.get("model_provider"),
+            model_name=task.get("model_name"),
+        )
         if analyze_result is None:
             _log.warning(f"分析 API 调用失败，跳过本轮 task={task_id}")
             return None
@@ -219,24 +223,29 @@ async def execute_round(db, task_id: str, ws_manager=None, *, analyze_result: di
 #  内部辅助
 # ═══════════════════════════════════════════
 
-async def _call_analyze_api(asset: str, timeframe: str) -> dict | None:
+async def _call_analyze_api(asset: str, timeframe: str,
+                           model_provider: str | None = None,
+                           model_name: str | None = None) -> dict | None:
     """调用现有后端分析 API，返回标准化结果"""
     import logging
     _log = logging.getLogger("simulation")
 
+    body: dict = {
+        "asset": asset,
+        "timeframe": timeframe,
+        "data_source": "quant_api",
+        "data_method": "latest",
+        "kline_count": settings.DEFAULT_KLINE_COUNT,
+    }
+    if model_provider:
+        body["model_provider"] = model_provider
+    if model_name:
+        body["model_name"] = model_name
+
     for attempt in range(settings.ANALYZE_RETRY_COUNT + 1):
         try:
             async with httpx.AsyncClient(timeout=settings.ANALYZE_TIMEOUT) as client:
-                resp = await client.post(
-                    settings.ANALYZE_API_URL,
-                    json={
-                        "asset": asset,
-                        "timeframe": timeframe,
-                        "data_source": "quant_api",
-                        "data_method": "latest",
-                        "kline_count": settings.DEFAULT_KLINE_COUNT,
-                    },
-                )
+                resp = await client.post(settings.ANALYZE_API_URL, json=body)
                 resp.raise_for_status()
                 data = resp.json()
                 _log.info(f"分析 API 调用成功: {asset} {timeframe} direction={data.get('decision',{}).get('direction','?')}")
@@ -350,7 +359,9 @@ def _get_latest_kline_close(timeframe: str) -> str:
 # ═══════════════════════════════════════════
 
 
-async def pre_analyze(asset: str, timeframe: str) -> dict:
+async def pre_analyze(asset: str, timeframe: str,
+                      model_provider: str | None = None,
+                      model_name: str | None = None) -> dict:
     """K线收盘前提前调用分析 API，获取交易方向预测。
 
     task_manager 在收盘前 ``PRE_ANALYZE_OFFSET`` 秒调用此函数，
@@ -362,5 +373,5 @@ async def pre_analyze(asset: str, timeframe: str) -> dict:
         成功: 完整的分析结果字典（direction / score / confidence / ...）
         失败: 空字典 ``{}``（execute_round 收到空字典会记录 SKIP 回合）
     """
-    result = await _call_analyze_api(asset, timeframe)
+    result = await _call_analyze_api(asset, timeframe, model_provider=model_provider, model_name=model_name)
     return result if result is not None else {}

@@ -86,6 +86,21 @@ def root():
     return {"service": "QuantAgent Simulation", "version": "0.1.0"}
 
 
+@app.get("/api/models")
+async def list_models():
+    """返回可用 LLM 模型列表（代理主后端）。"""
+    import httpx
+    # models 在 v1 router 下: /api/v1/models
+    base = settings.ANALYZE_API_URL.rstrip("/")
+    if base.endswith("/analyze"):
+        base = base[: -len("/analyze")]
+    models_url = f"{base}/models"
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(models_url)
+        resp.raise_for_status()
+        return resp.json()
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     if _ws_manager is None:

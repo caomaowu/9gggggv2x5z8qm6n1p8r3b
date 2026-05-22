@@ -48,7 +48,9 @@ class TaskManager:
                           bet_mode: str = "fixed", bet_amount: float = 100.0,
                           bet_percent: float | None = None,
                           fee_rate: float = 0.0,
-                          initial_capital: float = 10000.0) -> dict:
+                          initial_capital: float = 10000.0,
+                          model_provider: str | None = None,
+                          model_name: str | None = None) -> dict:
         task_data = {
             "id": str(uuid.uuid4()),
             "asset": asset,
@@ -60,6 +62,8 @@ class TaskManager:
             "fee_rate": fee_rate,
             "initial_capital": initial_capital,
             "current_capital": initial_capital,
+            "model_provider": model_provider,
+            "model_name": model_name,
             "total_rounds": 0,
             "wins": 0,
             "losses": 0,
@@ -85,12 +89,7 @@ class TaskManager:
 
         await update_task_status(self._db, task_id, "RUNNING")
 
-        # 立即执行首轮（不用等 K 线收盘）
-        self._active_tasks[task_id] = asyncio.create_task(
-            self._wrap_execute_round(task_id, self._db, task_id, self._ws)
-        )
-
-        # 同时注册后续调度
+        # 注册调度：到点触发，不做首轮立即执行
         self._schedule_next(task_id, task["timeframe"])
 
         if self._ws:
@@ -160,42 +159,21 @@ class TaskManager:
 
     async def recover_on_startup(self) -> None:
         """启动时恢复所有 RUNNING 任务"""
+        import logging
+        _log = logging.getLogger("simulation")
         running = await get_running_tasks(self._db)
         for task in running:
-            # 结算上一局（如有）
+            # 崩溃恢复：未结算回合直接标记 SKIP（K线已过，实时价不可靠）
             unsettled = await get_unsettled_round(self._db, task["id"])
             if unsettled:
-                # 用实时价格作为结算价（和 execute_round 保持一致）
-                settle_price = await _fetch_current_price(task["asset"])
-                if settle_price is None:
-                    import logging
-                    logging.getLogger("simulation").warning(
-                        f"恢复时无法获取当前价格，跳过结算 task={task['id']}"
-                    )
-                    # 不结算，直接进入调度
-                else:
-                    direction = unsettled["bet_direction"]
-                    entry_price = unsettled.get("trigger_kline_close") or 0
+                _log.warning(
+                    f"崩溃恢复: 跳过未结算回合 round={unsettled['id']} "
+                    f"task={task['id']} dir={unsettled.get('bet_direction')}"
+                )
+                await settle_round(self._db, unsettled["id"], 0.0, "SKIP", 0.0)
 
-                    if direction == "long":
-                        won = settle_price > entry_price
-                    elif direction == "short":
-                        won = settle_price < entry_price
-                    else:
-                        won = False
-
-                    result = "WIN" if won else "LOSE"
-                    pnl = calculate_pnl(direction, result, unsettled["bet_amount"], task["fee_rate"])
-                    new_capital = task["current_capital"] + pnl
-
-                    await settle_round(self._db, unsettled["id"], settle_price, result, pnl)
-                    await update_task_capital(self._db, task["id"], new_capital, result)
-
-            # 重新入调度 + 立即执行一轮
+            # 重新入调度（到点触发，不立即执行）
             self._schedule_next(task["id"], task["timeframe"])
-            self._active_tasks[task["id"]] = asyncio.create_task(
-                self._wrap_execute_round(task["id"], self._db, task["id"], self._ws)
-            )
 
     # ── 内部 ──
 
@@ -209,7 +187,7 @@ class TaskManager:
     def _schedule_next(self, task_id: str, timeframe: str) -> None:
         """调度下一轮：预分析（收盘前） + 执行（收盘时）双回调"""
         next_close = KlineScheduler.calc_next_kline_close(timeframe)
-        offset = settings.PRE_ANALYZE_OFFSETS.get(timeframe, 60)
+        offset = settings.pre_analyze_offsets.get(timeframe, 70)
         pre_trigger = next_close - offset
 
         # ① 预分析事件：收盘前 offset 秒触发
@@ -246,7 +224,11 @@ class TaskManager:
             return
 
         _log.info(f"预分析开始: {task['asset']} {task['timeframe']} task={task_id}")
-        result = await pre_analyze(task["asset"], task["timeframe"])
+        result = await pre_analyze(
+            task["asset"], task["timeframe"],
+            model_provider=task.get("model_provider"),
+            model_name=task.get("model_name"),
+        )
         self._pre_analysis[task_id] = result
         if result:
             _log.info(f"预分析完成: {task['asset']} dir={result.get('direction', '?')} task={task_id}")

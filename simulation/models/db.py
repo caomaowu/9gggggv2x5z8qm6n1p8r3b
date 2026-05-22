@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     worst_lose_streak   INTEGER NOT NULL DEFAULT 0,
     current_streak      TEXT DEFAULT NULL,
     last_kline_ts       TEXT,
+    model_provider  TEXT DEFAULT NULL,
+    model_name      TEXT DEFAULT NULL,
     created_at      TEXT NOT NULL,
     updated_at      TEXT NOT NULL
 )
@@ -87,7 +89,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_rounds_trigger ON rounds(task_id, trigger_
 
 
 async def init_db(db_path: str | None = None) -> aiosqlite.Connection:
-    """初始化数据库：创建表 + 索引，返回连接"""
+    """初始化数据库：创建表 + 索引 + 迁移，返回连接"""
     path = db_path or settings.DB_PATH
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     db = await aiosqlite.connect(path)
@@ -100,6 +102,12 @@ async def init_db(db_path: str | None = None) -> aiosqlite.Connection:
         stmt = stmt.strip()
         if stmt:
             await db.execute(stmt)
+    # 已有数据库的列迁移（兼容旧库，新库 DDL 已包含）
+    for col, col_def in [("model_provider", "TEXT DEFAULT NULL"), ("model_name", "TEXT DEFAULT NULL")]:
+        try:
+            await db.execute(f"ALTER TABLE tasks ADD COLUMN {col} {col_def}")
+        except aiosqlite.OperationalError:
+            pass  # 列已存在
     await db.commit()
     return db
 
@@ -124,9 +132,13 @@ async def create_task(db: aiosqlite.Connection, data: dict) -> str:
     """创建任务，返回 task_id"""
     await db.execute(
         """INSERT INTO tasks (id, asset, timeframe, status, bet_amount, bet_mode, bet_percent,
-           fee_rate, initial_capital, current_capital, created_at, updated_at)
+           fee_rate, initial_capital, current_capital,
+           model_provider, model_name,
+           created_at, updated_at)
            VALUES (:id, :asset, :timeframe, :status, :bet_amount, :bet_mode, :bet_percent,
-           :fee_rate, :initial_capital, :current_capital, :created_at, :updated_at)""",
+           :fee_rate, :initial_capital, :current_capital,
+           :model_provider, :model_name,
+           :created_at, :updated_at)""",
         data,
     )
     await db.commit()

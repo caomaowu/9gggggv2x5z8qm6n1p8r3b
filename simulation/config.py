@@ -26,23 +26,32 @@ class Settings(BaseSettings):
     DB_PATH: str = str(Path(__file__).parent / "data" / "simulation.db")
 
     # ── K线调度 ──
-    KLINE_BUFFER_SECONDS: int = 0
+    KLINE_BUFFER_SECONDS: int = 4
 
-    # ── 预分析提前量（K线收盘前多少秒启动预分析）──
-    # 策略：短周期提前50s、长周期提前70s，确保分析完成时有足够入场时间
-    PRE_ANALYZE_OFFSETS: dict[str, int] = {
-        "5m": 50,
-        "15m": 50,
-        "1h": 70,
-        "4h": 70,
-        "1d": 70,
-    }
+    # ── 预分析提前量（K线收盘前多少秒启动预分析），可按周期在 .env 单独覆盖 ──
+    PRE_ANALYZE_OFFSET_5M: int = 70
+    PRE_ANALYZE_OFFSET_15M: int = 70
+    PRE_ANALYZE_OFFSET_1H: int = 70
+    PRE_ANALYZE_OFFSET_4H: int = 70
+    PRE_ANALYZE_OFFSET_1D: int = 70
+
+    @property
+    def pre_analyze_offsets(self) -> dict[str, int]:
+        return {
+            "5m": self.PRE_ANALYZE_OFFSET_5M,
+            "15m": self.PRE_ANALYZE_OFFSET_15M,
+            "1h": self.PRE_ANALYZE_OFFSET_1H,
+            "4h": self.PRE_ANALYZE_OFFSET_4H,
+            "1d": self.PRE_ANALYZE_OFFSET_1D,
+        }
 
     # ── 默认参数 ──
     DEFAULT_INITIAL_CAPITAL: float = 10000.0
     DEFAULT_BET_AMOUNT: float = 100.0
     DEFAULT_FEE_RATE: float = 0.0
     DEFAULT_KLINE_COUNT: int = 100
+    DEFAULT_MODEL_PROVIDER: str = ""
+    DEFAULT_MODEL_NAME: str = ""
 
     # ── WebSocket ──
     WS_HEARTBEAT_INTERVAL: int = 30

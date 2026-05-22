@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSimStore } from '../store/useSimStore';
 import type { BetMode } from '../types';
 
@@ -23,14 +23,36 @@ const inputClass = "w-full bg-surface-900 border border-border rounded-lg px-3 p
 const selectClass = "w-full bg-surface-900 border border-border rounded-lg px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/30 transition-all duration-150 appearance-none cursor-pointer";
 
 export default function CreateTaskModal({ open, onClose }: Props) {
-  const { addTask } = useSimStore();
+  const { addTask, fetchModels, availableModels } = useSimStore();
   const [asset, setAsset] = useState('BTC-USDT');
   const [timeframe, setTimeframe] = useState('4h');
   const [betMode, setBetMode] = useState('fixed');
   const [betAmount, setBetAmount] = useState(100);
   const [feeRate, setFeeRate] = useState(0.002);
   const [initialCapital, setInitialCapital] = useState(10000);
+  const [selectedProvider, setSelectedProvider] = useState('');
+  const [selectedModel, setSelectedModel] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      fetchModels();
+    }
+  }, [open, fetchModels]);
+
+  const uniqueProviders = useMemo(() => {
+    const seen = new Set<string>();
+    return availableModels.filter(m => {
+      if (seen.has(m.provider)) return false;
+      seen.add(m.provider);
+      return true;
+    });
+  }, [availableModels]);
+
+  const filteredModels = useMemo(() => {
+    if (!selectedProvider) return [];
+    return availableModels.filter(m => m.provider === selectedProvider);
+  }, [availableModels, selectedProvider]);
 
   if (!open) return null;
 
@@ -38,7 +60,15 @@ export default function CreateTaskModal({ open, onClose }: Props) {
     if (submitting) return;
     setSubmitting(true);
     try {
-      await addTask({ asset, timeframe, bet_mode: betMode as BetMode, bet_amount: betAmount, fee_rate: feeRate, initial_capital: initialCapital });
+      await addTask({
+        asset,
+        timeframe,
+        bet_mode: betMode as BetMode,
+        bet_amount: betAmount,
+        fee_rate: feeRate,
+        initial_capital: initialCapital,
+        ...(selectedProvider ? { model_provider: selectedProvider, model_name: selectedModel } : {}),
+      });
     } catch {
       // addTask 失败时静默关闭，backend 错误不阻塞 UI
     } finally {
@@ -151,6 +181,42 @@ export default function CreateTaskModal({ open, onClose }: Props) {
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-text-muted">USDT</span>
             </div>
           </FormField>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="LLM 提供商">
+              <select
+                className={selectClass}
+                value={selectedProvider}
+                onChange={e => {
+                  setSelectedProvider(e.target.value);
+                  setSelectedModel('');
+                }}
+              >
+                <option value="">默认 (环境变量)</option>
+                {uniqueProviders.map(p => (
+                  <option key={p.provider} value={p.provider}>
+                    {p.provider_label}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <FormField label="LLM 模型">
+              <select
+                className={selectClass}
+                value={selectedModel}
+                onChange={e => setSelectedModel(e.target.value)}
+                disabled={!selectedProvider}
+              >
+                <option value="">默认 (环境变量)</option>
+                {filteredModels.map(m => (
+                  <option key={m.model} value={m.model}>
+                    {m.model}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          </div>
         </div>
 
         {/* 底部按钮 */}

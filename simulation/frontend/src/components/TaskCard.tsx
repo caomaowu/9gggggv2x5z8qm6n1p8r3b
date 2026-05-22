@@ -126,6 +126,11 @@ export default function TaskCard({ task, onEdit }: Props) {
           </span>
         </div>
         <div className="text-[11px] text-text-muted font-medium">{task.timeframe}</div>
+        <div className="text-[10px] text-text-muted/60 font-mono truncate">
+          {task.model_name
+            ? (task.model_provider ? `${task.model_provider} / ${task.model_name}` : task.model_name)
+            : '模型: 默认'}
+        </div>
       </div>
 
       {/* 资金信息 */}

@@ -8,11 +8,12 @@ import type {
   BetMode,
   TaskCreateRequest,
   ConnectionStatus,
+  ModelInfo,
 } from '../types';
 import {
   listTasks, createTask, startTask, stopTask, deleteTask,
   getStats, getEquity, getRounds, updateTask as updateTaskClient,
-  clearTaskRounds,
+  clearTaskRounds, fetchModels as fetchModelsClient,
 } from '../api/client';
 
 interface ToastItem {
@@ -34,11 +35,12 @@ interface SimState {
   toasts: ToastItem[];
   connectionStatus: ConnectionStatus;
   reconnectAttempt: number;
+  availableModels: ModelInfo[];
 
   // 操作
   fetchTasks: () => Promise<void>;
   selectTask: (id: string | null) => void;
-  addTask: (req: { asset: string; timeframe: string; bet_mode: BetMode; bet_amount: number; fee_rate: number; initial_capital: number }) => Promise<void>;
+  addTask: (req: { asset: string; timeframe: string; bet_mode: BetMode; bet_amount: number; fee_rate: number; initial_capital: number; model_provider?: string; model_name?: string }) => Promise<void>;
   startSelected: () => Promise<void>;
   stopSelected: () => Promise<void>;
   deleteSelected: () => Promise<void>;
@@ -49,6 +51,7 @@ interface SimState {
   removeToast: (id: string) => void;
   setConnectionStatus: (status: ConnectionStatus, attempt?: number) => void;
   clearSelectedRounds: () => Promise<void>;
+  fetchModels: () => Promise<void>;
 
   // WebSocket 处理
   handleWsMessage: (msg: WsMessage) => void;
@@ -67,6 +70,7 @@ export const useSimStore = create<SimState>((set, get) => ({
   toasts: [],
   connectionStatus: 'connecting',
   reconnectAttempt: 0,
+  availableModels: [],
 
   async fetchTasks() {
     const tasks = await listTasks();
@@ -79,7 +83,16 @@ export const useSimStore = create<SimState>((set, get) => ({
   },
 
   async addTask(req) {
-    const task = await createTask(req);
+    const task = await createTask({
+      asset: req.asset,
+      timeframe: req.timeframe,
+      bet_mode: req.bet_mode,
+      bet_amount: req.bet_amount,
+      fee_rate: req.fee_rate,
+      initial_capital: req.initial_capital,
+      model_provider: req.model_provider || null,
+      model_name: req.model_name || null,
+    });
     // 直接插入列表顶部，不依赖 fetchTasks
     set((s) => ({ tasks: [task, ...s.tasks] }));
     get().addToast({
@@ -120,6 +133,15 @@ export const useSimStore = create<SimState>((set, get) => ({
     set({ stats: null, equity: [], rounds: [], roundsTotal: 0, latestRound: null });
     await get().fetchTasks();
     if (get().selectedTaskId === id) await get().loadTaskData(id);
+  },
+
+  async fetchModels() {
+    try {
+      const models = await fetchModelsClient();
+      set({ availableModels: models });
+    } catch {
+      // 静默失败，models 列表保持空数组
+    }
   },
 
   async updateTask(id: string, req: Partial<TaskCreateRequest>) {

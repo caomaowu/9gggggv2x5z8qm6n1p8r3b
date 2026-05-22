@@ -5,6 +5,7 @@ import type {
   StatsResponse,
   EquityPoint,
   RoundListResponse,
+  ModelInfo,
 } from '../types';
 
 const api = axios.create({ baseURL: '/api' });
@@ -62,4 +63,10 @@ export async function getRounds(id: string, offset = 0, limit = 50): Promise<Rou
 
 export async function clearTaskRounds(id: string): Promise<void> {
   await api.delete(`/tasks/${id}/rounds`);
+}
+
+// ── 模型 ──
+export async function fetchModels(): Promise<ModelInfo[]> {
+  const { data } = await api.get('/models');
+  return (data as { models: ModelInfo[] }).models;
 }

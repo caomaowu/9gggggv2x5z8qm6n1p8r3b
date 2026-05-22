@@ -27,6 +27,8 @@ async def create_task(req: TaskCreateRequest, tm: TaskManager = Depends(get_task
         bet_percent=req.bet_percent,
         fee_rate=req.fee_rate,
         initial_capital=req.initial_capital,
+        model_provider=req.model_provider,
+        model_name=req.model_name,
     )
     return TaskResponse(**task)
 
@@ -69,6 +71,8 @@ async def update_task(task_id: str, req: TaskUpdateRequest, tm: TaskManager = De
         bet_mode=req.bet_mode.value if req.bet_mode else None,
         bet_percent=req.bet_percent,
         fee_rate=req.fee_rate,
+        model_provider=req.model_provider,
+        model_name=req.model_name,
     )
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")

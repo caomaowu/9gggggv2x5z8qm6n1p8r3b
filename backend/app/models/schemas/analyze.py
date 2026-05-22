@@ -16,6 +16,10 @@ class AnalyzeRequest(BaseModel):
     use_current_time: bool = False
     
     ai_version: str = "original"
+
+    # 按任务指定模型 (可选，不传则使用环境变量默认值)
+    model_provider: Optional[str] = None
+    model_name: Optional[str] = None
     
     # Multi-Timeframe Mode
     multi_timeframe_mode: bool = False

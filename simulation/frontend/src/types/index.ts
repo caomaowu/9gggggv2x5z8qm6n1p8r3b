@@ -21,6 +21,14 @@ export interface TaskCreateRequest {
   bet_percent?: number | null;
   fee_rate?: number;
   initial_capital?: number;
+  model_provider?: string | null;
+  model_name?: string | null;
+}
+
+export interface ModelInfo {
+  provider: string;
+  provider_label: string;
+  model: string;
 }
 
 // ── 响应 ──
@@ -43,6 +51,8 @@ export interface TaskResponse {
   worst_lose_streak: number;
   current_streak: string | null;
   last_kline_ts: string | null;
+  model_provider: string | null;
+  model_name: string | null;
   created_at: string;
   updated_at: string;
 }

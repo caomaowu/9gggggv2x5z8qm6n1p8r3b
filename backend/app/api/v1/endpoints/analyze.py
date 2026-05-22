@@ -9,6 +9,7 @@ from app.utils.id_manager import get_result_id_manager
 from app.utils.analysis_log import get_analysis_logger
 from app.core.config import settings
 from app.core.events import check_env_changes
+from app.core.providers import PROVIDERS
 import logging
 import pandas as pd
 from typing import Any
@@ -431,6 +432,14 @@ async def analyze_market(
         engine_config = {
             "decision_agent_version": request.ai_version,
         }
+        if request.model_name:
+            engine_config["indicator_llm_model"] = request.model_name
+            engine_config["structure_llm_model"] = request.model_name
+            engine_config["mechanics_llm_model"] = request.model_name
+        if request.model_provider:
+            engine_config["indicator_llm_provider"] = request.model_provider
+            engine_config["structure_llm_provider"] = request.model_provider
+            engine_config["mechanics_llm_provider"] = request.model_provider
             
         trading_engine = TradingEngine(config=engine_config)
 

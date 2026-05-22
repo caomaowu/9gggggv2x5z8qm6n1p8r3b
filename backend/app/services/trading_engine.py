@@ -101,6 +101,9 @@ class TradingEngine:
         override_indicator_temp = None
         override_structure_temp = None
         override_mechanics_temp = None
+        override_indicator_provider = None
+        override_structure_provider = None
+        override_mechanics_provider = None
 
         if config:
             override_indicator_model = config.get("indicator_llm_model")
@@ -109,18 +112,24 @@ class TradingEngine:
             override_indicator_temp = config.get("indicator_llm_temperature")
             override_structure_temp = config.get("structure_llm_temperature")
             override_mechanics_temp = config.get("mechanics_llm_temperature")
+            override_indicator_provider = config.get("indicator_llm_provider")
+            override_structure_provider = config.get("structure_llm_provider")
+            override_mechanics_provider = config.get("mechanics_llm_provider")
 
         self.indicator_llm = self._create_brale_llm(
             "indicator", override_indicator_model, override_indicator_temp,
             default_temp=getattr(settings, 'BRALE_INDICATOR_TEMPERATURE', 0.2),
+            provider_override=override_indicator_provider,
         )
         self.structure_llm = self._create_brale_llm(
             "structure", override_structure_model, override_structure_temp,
             default_temp=getattr(settings, 'BRALE_STRUCTURE_TEMPERATURE', 0.1),
+            provider_override=override_structure_provider,
         )
         self.mechanics_llm = self._create_brale_llm(
             "mechanics", override_mechanics_model, override_mechanics_temp,
             default_temp=getattr(settings, 'BRALE_MECHANICS_TEMPERATURE', 0.2),
+            provider_override=override_mechanics_provider,
         )
 
         self.graph_setup = SetGraph(
@@ -130,12 +139,12 @@ class TradingEngine:
         )
         self.graph = self.graph_setup.set_graph()
 
-    def _create_brale_llm(self, agent_name: str, model: str | None, temperature: float | None,
-                          default_temp: float) -> ChatOpenAI:
+    def _create_brale_llm(self, agent_name: str, model: str | None = None, temperature: float | None = None,
+                          default_temp: float = 0.1, provider_override: str | None = None) -> ChatOpenAI:
         provider_attr = f"BRALE_{agent_name.upper()}_PROVIDER"
         model_attr = f"BRALE_{agent_name.upper()}_MODEL"
 
-        provider = getattr(settings, provider_attr, None) or settings.AGENT_PROVIDER
+        provider = provider_override or getattr(settings, provider_attr, None) or settings.AGENT_PROVIDER
         default_model = getattr(settings, model_attr, None) or settings.AGENT_MODEL
 
         actual_model = model or default_model

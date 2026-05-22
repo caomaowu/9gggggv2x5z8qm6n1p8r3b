@@ -63,6 +63,8 @@ class TaskCreateRequest(BaseModel):
     bet_percent: float | None = Field(default=None, gt=0, le=1.0, description="百分比押注比例")
     fee_rate: float = Field(default=0.0, ge=0, lt=1.0, description="手续费率")
     initial_capital: float = Field(default=10000.0, gt=0, description="初始资金")
+    model_provider: str | None = Field(default=None, max_length=50, description="LLM 供应商, e.g. modelscope, deepseek")
+    model_name: str | None = Field(default=None, max_length=100, description="LLM 模型名, e.g. Qwen/Qwen3-Next-80B-A3B-Instruct")
 
     @field_validator("timeframe")
     @classmethod
@@ -90,6 +92,8 @@ class TaskUpdateRequest(BaseModel):
     bet_mode: BetMode | None = Field(default=None)
     bet_percent: float | None = Field(default=None, gt=0, le=1.0)
     fee_rate: float | None = Field(default=None, ge=0, lt=1.0)
+    model_provider: str | None = Field(default=None, max_length=50)
+    model_name: str | None = Field(default=None, max_length=100)
 
 
 # ── Response models ──────────────────────────────────────────────────────
@@ -118,6 +122,8 @@ class TaskResponse(BaseModel):
     worst_lose_streak: int
     current_streak: str | None = None
     last_kline_ts: str | None = None
+    model_provider: str | None = None
+    model_name: str | None = None
     created_at: str
     updated_at: str
 
