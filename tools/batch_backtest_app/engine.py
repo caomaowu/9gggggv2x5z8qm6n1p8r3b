@@ -166,15 +166,17 @@ def _extract_low(item: Dict[str, Any]) -> Optional[float]:
     return None
 
 
-def _extract_model_from_response(result: Dict[str, Any], key: str) -> str:
-    """从 brale-core API 响应 llm_config 中提取模型名称。
+def _extract_brale_configs(result: Dict[str, Any]) -> Dict[str, str]:
+    """从 API 响应 llm_config 中提取 Brale 三个 Agent 的模型名。
 
-    key: "agent" 或 "graph"
-    返回模型名，若不存在则返回空字符串。
+    返回字典，键名对应 .env 中的 BRALE_*_MODEL。
     """
     llm_config = result.get("llm_config") or {}
-    section = llm_config.get(key) or {}
-    return str(section.get("model", "") or "")
+    configs: Dict[str, str] = {}
+    for agent in ("indicator", "structure", "mechanics"):
+        section = llm_config.get(agent) or {}
+        configs[f"BRALE_{agent.upper()}_MODEL"] = str(section.get("model", "") or "")
+    return configs
 
 
 def _normalize_action(action: Any) -> str:
@@ -295,8 +297,9 @@ def migrate_output_csv_in_place(output_csv: str, fieldnames: List[str]) -> None:
         "kline_count",
         "future_kline_count",
         "error",
-        "AGENT_MODEL",
-        "GRAPH_MODEL",
+        "BRALE_INDICATOR_MODEL",
+        "BRALE_STRUCTURE_MODEL",
+        "BRALE_MECHANICS_MODEL",
         "回测模式",
         "资金_初始",
         "资金_当前",
@@ -584,8 +587,7 @@ def run_one_task(
             "kline_count": kline_count,
             "future_kline_count": future_kline_count,
             "error": "",
-            "AGENT_MODEL": _extract_model_from_response(result, "agent"),
-            "GRAPH_MODEL": _extract_model_from_response(result, "graph"),
+            **_extract_brale_configs(result),
             "逆势_有偏离": adverse_has,
             "逆势_偏离次数": adverse_count,
             "逆势_最大偏离%": adverse_max_pct,
@@ -625,8 +627,9 @@ def run_one_task(
             "kline_count": kline_count,
             "future_kline_count": future_kline_count,
             "error": str(e),
-            "AGENT_MODEL": "",
-            "GRAPH_MODEL": "",
+            "BRALE_INDICATOR_MODEL": "",
+            "BRALE_STRUCTURE_MODEL": "",
+            "BRALE_MECHANICS_MODEL": "",
             "逆势_有偏离": "",
             "逆势_偏离次数": "",
             "逆势_最大偏离%": "",
@@ -992,8 +995,7 @@ def run_one_task_with_funds(
             "平仓原因": exit_reason,
             "本次盈亏": f"{float(pnl):+.2f}",
             "本次盈亏百分比": f"{float(pnl_pct):+.2f}%" if pnl_pct is not None else "N/A",
-            "AGENT_MODEL": _extract_model_from_response(result, "agent"),
-            "GRAPH_MODEL": _extract_model_from_response(result, "graph"),
+            **_extract_brale_configs(result),
         }
 
         # 添加仓位状态到返回结果
@@ -1040,8 +1042,9 @@ def run_one_task_with_funds(
             "平仓原因": "执行失败",
             "本次盈亏": "+0.00",
             "本次盈亏百分比": "N/A",
-            "AGENT_MODEL": "",
-            "GRAPH_MODEL": "",
+            "BRALE_INDICATOR_MODEL": "",
+            "BRALE_STRUCTURE_MODEL": "",
+            "BRALE_MECHANICS_MODEL": "",
         }
         # 添加仓位状态到返回结果（异常情况下保持当前状态）
         result_row["_is_aggressive"] = position_state.get("is_aggressive", False)

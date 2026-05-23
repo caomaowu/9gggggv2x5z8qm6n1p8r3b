@@ -116,6 +116,8 @@ class TradingEngine:
             override_structure_provider = config.get("structure_llm_provider")
             override_mechanics_provider = config.get("mechanics_llm_provider")
 
+        self._resolved_agent_configs: Dict[str, Dict[str, Any]] = {}
+
         self.indicator_llm = self._create_brale_llm(
             "indicator", override_indicator_model, override_indicator_temp,
             default_temp=getattr(settings, 'BRALE_INDICATOR_TEMPERATURE', 0.2),
@@ -157,6 +159,13 @@ class TradingEngine:
         api_key = getattr(settings, cfg["api_key_env"], "")
         if not api_key:
             raise ValueError(f"API Key not found for provider {provider}. Set {cfg['api_key_env']} in .env")
+
+        # 保存解析后的配置，供外部（如 analyze.py 构造 llm_config）读取
+        self._resolved_agent_configs[agent_name] = {
+            "provider": provider,
+            "model": actual_model,
+            "temperature": actual_temp,
+        }
 
         return ChatOpenAI(
             model=actual_model,

@@ -32,8 +32,10 @@ OUTPUT_FIELDNAMES = [
     "kline_count",
     "future_kline_count",
     "error",
-    "AGENT_MODEL",
-    "GRAPH_MODEL",
+    # Brale Agent 模型（对应 .env 中的 BRALE_*_MODEL）
+    "BRALE_INDICATOR_MODEL",
+    "BRALE_STRUCTURE_MODEL",
+    "BRALE_MECHANICS_MODEL",
     "回测模式",
     "资金_初始",
     "资金_当前",

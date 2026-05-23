@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Any, Tuple
+from typing import Any, Dict
 
 
 def _tools_dir() -> str:
@@ -37,16 +37,19 @@ def save_favorites(assets: list[str]) -> None:
         json.dump(list(assets), f, indent=2, ensure_ascii=False)
 
 
-def load_env_models() -> Tuple[str, str]:
-    """从 backend/.env 读取模型名称，兼容新旧两种 key 格式。
+def load_env_models() -> Dict[str, str]:
+    """从 backend/.env 读取 Brale 三个 Agent 的模型名。
 
-    优先读取 brale-core 重构后的 key（LLM_MODEL / BRALE_*_MODEL），
-    同时兼容旧 key（AGENT_MODEL / GRAPH_MODEL）。
-    agent_model 取 LLM_MODEL（默认模型），graph_model 同样取 LLM_MODEL
-    （重构后 Graph 不再独立配置模型）。
+    返回以 CSV 列名（BRALE_*_MODEL）为 key 的字典。
+    优先级：BRALE_XXX_MODEL > LLM_MODEL > AGENT_MODEL（兜底）。
     """
-    agent_model = ""
-    graph_model = ""
+    models: Dict[str, str] = {
+        "BRALE_INDICATOR_MODEL": "",
+        "BRALE_STRUCTURE_MODEL": "",
+        "BRALE_MECHANICS_MODEL": "",
+    }
+    llm_model = ""
+    agent_model_fallback = ""
     try:
         with open(ENV_PATH, "r", encoding="utf-8") as f:
             for raw_line in f:
@@ -54,34 +57,28 @@ def load_env_models() -> Tuple[str, str]:
                 if not line or line.startswith("#"):
                     continue
 
-                # 新 key（brale-core 重构后）
                 if line.startswith("LLM_MODEL="):
-                    val = line.split("=", 1)[1].strip()
-                    if val:
-                        agent_model = val
-                        graph_model = val  # Graph 使用相同默认模型
+                    llm_model = line.split("=", 1)[1].strip()
 
-                # 各 Agent 独立模型（如果配置了，优先使用 Indicator Agent 的模型）
                 elif line.startswith("BRALE_INDICATOR_MODEL="):
-                    val = line.split("=", 1)[1].strip()
-                    if val:
-                        agent_model = val
+                    models["BRALE_INDICATOR_MODEL"] = line.split("=", 1)[1].strip()
+                elif line.startswith("BRALE_STRUCTURE_MODEL="):
+                    models["BRALE_STRUCTURE_MODEL"] = line.split("=", 1)[1].strip()
+                elif line.startswith("BRALE_MECHANICS_MODEL="):
+                    models["BRALE_MECHANICS_MODEL"] = line.split("=", 1)[1].strip()
 
-                # 兼容旧 key
                 elif line.startswith("AGENT_MODEL="):
-                    val = line.split("=", 1)[1].strip()
-                    if val and not agent_model:
-                        agent_model = val
-                elif line.startswith("GRAPH_MODEL="):
-                    val = line.split("=", 1)[1].strip()
-                    if val and not graph_model:
-                        graph_model = val
+                    agent_model_fallback = line.split("=", 1)[1].strip()
 
-        return agent_model, graph_model
     except FileNotFoundError:
-        return "", ""
-    except Exception:
-        return agent_model, graph_model
+        pass
+
+    # 兜底：各 Agent 若未配置，依次回退到 LLM_MODEL → AGENT_MODEL
+    for key in models:
+        if not models[key]:
+            models[key] = llm_model or agent_model_fallback
+
+    return models
 
 
 def get_presets_list() -> list[str]:

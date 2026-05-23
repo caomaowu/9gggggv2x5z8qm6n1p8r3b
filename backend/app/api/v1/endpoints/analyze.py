@@ -709,18 +709,40 @@ async def analyze_market(
         # 这里就不再生成 summary_chart 了，避免生成用户不想要的“奇怪图表”。
         result['summary_chart_base64'] = None
 
+        # llm_config 从 TradingEngine 实例读取实际使用的模型名和 provider，
+        # 而非 settings 全局默认值（后者会忽略 per-agent 覆盖和 request.model_name）
+        indicator_cfg = trading_engine._resolved_agent_configs.get("indicator", {})
+        structure_cfg = trading_engine._resolved_agent_configs.get("structure", {})
+        mechanics_cfg = trading_engine._resolved_agent_configs.get("mechanics", {})
+
         result['llm_config'] = {
             "agent": {
-                "provider": agent_provider,
-                "name": agent_provider,
-                "model": agent_cfg_dict.get("model"),
-                "temperature": agent_cfg_dict.get("temperature"),
+                "provider": indicator_cfg.get("provider", agent_provider),
+                "name": indicator_cfg.get("provider", agent_provider),
+                "model": indicator_cfg.get("model", agent_cfg_dict.get("model")),
+                "temperature": indicator_cfg.get("temperature", agent_cfg_dict.get("temperature")),
             },
             "graph": {
-                "provider": graph_provider,
-                "name": graph_provider,
-                "model": graph_cfg_dict.get("model"),
-                "temperature": graph_cfg_dict.get("temperature"),
+                "provider": structure_cfg.get("provider", agent_provider),
+                "name": structure_cfg.get("provider", agent_provider),
+                "model": structure_cfg.get("model", agent_cfg_dict.get("model")),
+                "temperature": structure_cfg.get("temperature", agent_cfg_dict.get("temperature")),
+            },
+            # 每个 Brale agent 的独立配置（新增）
+            "indicator": {
+                "provider": indicator_cfg.get("provider", agent_provider),
+                "model": indicator_cfg.get("model", agent_cfg_dict.get("model")),
+                "temperature": indicator_cfg.get("temperature", agent_cfg_dict.get("temperature")),
+            },
+            "structure": {
+                "provider": structure_cfg.get("provider", agent_provider),
+                "model": structure_cfg.get("model", agent_cfg_dict.get("model")),
+                "temperature": structure_cfg.get("temperature", agent_cfg_dict.get("temperature")),
+            },
+            "mechanics": {
+                "provider": mechanics_cfg.get("provider", agent_provider),
+                "model": mechanics_cfg.get("model", agent_cfg_dict.get("model")),
+                "temperature": mechanics_cfg.get("temperature", agent_cfg_dict.get("temperature")),
             },
         }
 

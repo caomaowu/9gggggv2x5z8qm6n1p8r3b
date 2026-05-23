@@ -213,8 +213,9 @@ def parse_backtest_csv(filepath: str) -> Optional[pd.DataFrame]:
         "ai_version",
         "data_method",
         "result_id",
-        "AGENT_MODEL",
-        "GRAPH_MODEL",
+        "BRALE_INDICATOR_MODEL",
+        "BRALE_STRUCTURE_MODEL",
+        "BRALE_MECHANICS_MODEL",
         "回测模式",
     ]
     for col in str_cols:

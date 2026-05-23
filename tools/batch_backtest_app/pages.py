@@ -455,7 +455,7 @@ def render_execute(
         
         # --- 后台运行逻辑 ---
         if "后台" in exec_mode:
-            agent_model, graph_model = store.load_env_models()
+            env_models = store.load_env_models()
             daemon_cfg = {
                 "tasks_file": "", # 稍后设置
                 "output_file": output_csv,
@@ -468,8 +468,7 @@ def render_execute(
                 "defaults": defaults,
                 "backtest_mode": backtest_mode,
                 "funds_cfg": funds_cfg,
-                "agent_model": agent_model,
-                "graph_model": graph_model,
+                "env_models": env_models,
             }
             
             # 保存临时任务文件
@@ -593,13 +592,12 @@ def render_execute(
         def handle_one_result(result_row: dict[str, Any]) -> None:
             nonlocal completed, stats_wins_1, stats_losses_1, stats_wins_2, stats_losses_2, failed
 
-            agent_model, graph_model = store.load_env_models()
+            env_models = store.load_env_models()
             # 优先使用 engine 从 API 响应 llm_config 中提取的模型信息，
             # .env 读取仅作为回退（当 API 响应中缺失时）。
-            if agent_model and not result_row.get("AGENT_MODEL"):
-                result_row["AGENT_MODEL"] = agent_model
-            if graph_model and not result_row.get("GRAPH_MODEL"):
-                result_row["GRAPH_MODEL"] = graph_model
+            for col in ("BRALE_INDICATOR_MODEL", "BRALE_STRUCTURE_MODEL", "BRALE_MECHANICS_MODEL"):
+                if env_models.get(col) and not result_row.get(col):
+                    result_row[col] = env_models[col]
 
             result_row["回测模式"] = backtest_mode
 
