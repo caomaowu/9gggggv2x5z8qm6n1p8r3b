@@ -49,6 +49,7 @@ PROVIDERS = {
             "xiaomi/mimo-v2-flash:free",
             "stepfun/step-3.5-flash",
             "deepseek/deepseek-v4-flash",
+            "tencent/hy3-preview",
         ],
         "graph_models": [
             "anthropic/claude-haiku-4.5",
@@ -65,6 +66,7 @@ PROVIDERS = {
             "nvidia/nemotron-nano-12b-v2-vl:free",
             "stepfun/step-3.5-flash",
             "deepseek/deepseek-v4-flash",
+            "tencent/hy3-preview",
         ],
     },
     "soul": {
