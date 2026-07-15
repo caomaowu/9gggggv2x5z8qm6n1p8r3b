@@ -58,7 +58,7 @@ tools/**/*.csv
 tools/data/batch_backtest_progress.json
 tools/data/batch_backtest_status.json
 tools/data/batch_backtest_queue.json
-
+.sisyphus/
 .trae/
 tools/data/daemon_config.json
 tools/data/daemon_config.json

@@ -250,7 +250,8 @@ async def analyze_market(
                             # 处理索引列名
                             date_col = 'Date' if 'Date' in future_df_reset.columns else 'index'
                             if date_col in future_df_reset.columns:
-                                future_df_reset[date_col] = future_df_reset[date_col].dt.strftime('%Y-%m-%d %H:%M:%S')
+                                # 转为北京时间显示
+                                future_df_reset[date_col] = (future_df_reset[date_col] + pd.Timedelta(hours=8)).dt.strftime('%Y-%m-%d %H:%M:%S')
                                 future_df_reset.rename(columns={date_col: 'datetime'}, inplace=True)
                             
                             # 转换为全小写列名
@@ -280,8 +281,10 @@ async def analyze_market(
                 # Calculate end time for 15m * 36 candles + buffer
                 # 36 candles * 15 min = 540 min = 9 hours
                 # Add buffer of 4 hours
-                start_dt = pd.to_datetime(future_start_str)
-                future_end_15m = start_dt + pd.Timedelta(hours=13) 
+                start_dt_beijing = pd.to_datetime(future_start_str)
+                # 转为 UTC 以便和 API 返回的 UTC 时间戳比较
+                start_dt = start_dt_beijing.tz_localize('Asia/Shanghai').tz_convert('UTC').tz_localize(None)
+                future_end_15m = start_dt_beijing + pd.Timedelta(hours=13) 
                 future_end_str_15m = future_end_15m.strftime("%Y-%m-%d %H:%M:%S")
 
                 logger.info(f"Fetching 15m future verification data (36 candles) from {future_start_str} to {future_end_str_15m}...")
@@ -320,7 +323,8 @@ async def analyze_market(
                         future_15m_reset = df_future_15m.reset_index()
                         date_col = 'Date' if 'Date' in future_15m_reset.columns else 'index'
                         if date_col in future_15m_reset.columns:
-                            future_15m_reset[date_col] = future_15m_reset[date_col].dt.strftime('%Y-%m-%d %H:%M:%S')
+                            # 转为北京时间显示
+                            future_15m_reset[date_col] = (future_15m_reset[date_col] + pd.Timedelta(hours=8)).dt.strftime('%Y-%m-%d %H:%M:%S')
                             future_15m_reset.rename(columns={date_col: 'datetime'}, inplace=True)
                         
                         future_15m_reset.columns = [str(c).lower() for c in future_15m_reset.columns]

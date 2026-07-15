@@ -4,6 +4,8 @@ QuantAgent 是一个基于多智能体（Multi-Agent）的量化交易分析系�
 
 本项目是 V2 重构版本，采用了前后端分离的现代化架构。
 
+这个项目只是为了预测下1-2根k线的走向！！！！
+这个项目只是为了预测下1-2根k线的走向！！！！
 ## 🏗 架构概览 (Architecture)
 
 - **后端 (Backend)**: Python + FastAPI
@@ -241,3 +243,5 @@ models = settings.get_available_models(provider="openrouter", role="agent")
 - 本项目依赖外部行情 API (如 webui.caomaowu.lol) 和 LLM API，请确保 `.env` 中的 Token 和 Key 配置正确。
 - 首次运行时，前端需要下载依赖，请保持网络通畅。
 - 配置系统已重构，确保 `.env` 文件中包含所有必需的环境变量。
+
+这个项目只是为了预测下1-2根k线的走向！！！！
