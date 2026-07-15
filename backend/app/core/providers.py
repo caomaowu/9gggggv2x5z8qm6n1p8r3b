@@ -113,6 +113,17 @@ PROVIDERS = {
             "gpt-5.2codex",
         ],
     },
+    "grok": {
+        "name": "Grok",
+        "base_url": "https://cli.huigong.xyz/v1",
+        "api_key_env": "GROK_API_KEY",
+        "agent_models": [
+            "grok-4.5",
+        ],
+        "graph_models": [
+            "grok-4.5",
+        ],
+    },
     "soul": {
         "name": "Soul",
         "base_url": "https://api.souimagery.fun/v1",

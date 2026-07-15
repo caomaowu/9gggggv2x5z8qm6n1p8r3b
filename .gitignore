@@ -63,3 +63,9 @@ tools/data/batch_backtest_queue.json
 tools/data/daemon_config.json
 tools/data/daemon_config.json
 caomao.xyz-ssl-bundle/
+
+# AI 工具本地会话状态
+.sisyphus/
+
+# 本地仿真数据库及 SQLite 运行时文件
+simulation/data/simulation.db*

@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     CODEX_API_KEY: str = ""
     SOUL_API_KEY: str = ""
     API302_API_KEY: str = ""
+    GROK_API_KEY: str = ""
     
     AGENT_PROVIDER: str = "modelscope"
     AGENT_MODEL: str = "Qwen/Qwen3-Next-80B-A3B-Instruct"
