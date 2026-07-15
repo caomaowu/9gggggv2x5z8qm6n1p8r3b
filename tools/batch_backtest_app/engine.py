@@ -1,10 +1,10 @@
 import csv
 import os
-import queue
+import random
 import re
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -12,6 +12,23 @@ import requests
 
 
 REQUIRED_TASK_FIELDS = {"task_id", "asset", "timeframe", "end_date", "end_time"}
+
+
+def _read_max_safe_workers() -> int:
+    """Return the process-wide safety limit, with a conservative default."""
+    try:
+        return max(1, int(os.environ.get("BATCH_BACKTEST_MAX_WORKERS", "32")))
+    except (TypeError, ValueError):
+        return 32
+
+
+MAX_SAFE_WORKERS = _read_max_safe_workers()
+
+
+def effective_worker_count(requested: int, task_count: int) -> int:
+    if task_count <= 0:
+        return 0
+    return min(max(1, int(requested)), task_count, MAX_SAFE_WORKERS)
 
 
 @dataclass(frozen=True)
@@ -344,50 +361,63 @@ def append_output_row(output_csv: str, fieldnames: List[str], row: Dict[str, Any
 
 
 class CsvWriter:
-    """线程安全CSV写入器，使用单线程队列模式避免多线程I/O争抢"""
+    """线程安全且可确认的 CSV 写入器。
+
+    write() 成功返回即代表该行已交给操作系统；stop() 会完成最终落盘确认。
+    写入错误直接反馈给主流程，不再由 daemon 写线程静默丢失。
+    """
 
     def __init__(self, output_csv: str, fieldnames: List[str]):
         self.output_csv = output_csv
-        self.fieldnames = fieldnames
-        self._queue: queue.Queue = queue.Queue()
-        self._thread: Optional[threading.Thread] = None
-        self._running = False
+        self.fieldnames = list(fieldnames)
+        self._lock = threading.Lock()
+        self._file: Any = None
+        self._writer: Optional[csv.DictWriter] = None
+        self._started = False
+        self.rows_written = 0
 
     def start(self) -> None:
-        os.makedirs(os.path.dirname(os.path.abspath(self.output_csv)), exist_ok=True)
-        self._running = True
-        self._thread = threading.Thread(target=self._writer_loop, daemon=True)
-        self._thread.start()
-
-    def _writer_loop(self) -> None:
-        with open(self.output_csv, "a", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=self.fieldnames)
-            while self._running:
-                try:
-                    row = self._queue.get(timeout=1.0)
-                    if row is None:
-                        continue
-                    writer.writerow({k: row.get(k, "") for k in self.fieldnames})
-                    f.flush()
-                except queue.Empty:
-                    continue
-            while True:
-                try:
-                    row = self._queue.get_nowait()
-                    if row is None:
-                        continue
-                    writer.writerow({k: row.get(k, "") for k in self.fieldnames})
-                    f.flush()
-                except queue.Empty:
-                    break
+        with self._lock:
+            if self._started:
+                raise RuntimeError("CSV 写入器已经启动")
+            os.makedirs(os.path.dirname(os.path.abspath(self.output_csv)), exist_ok=True)
+            self._file = open(self.output_csv, "a", encoding="utf-8", newline="")
+            self._writer = csv.DictWriter(self._file, fieldnames=self.fieldnames)
+            self._started = True
 
     def write(self, row: Dict[str, Any]) -> None:
-        self._queue.put(row)
+        with self._lock:
+            if not self._started or self._file is None or self._writer is None:
+                raise RuntimeError("CSV 写入器未启动或已经停止")
+            try:
+                self._writer.writerow({k: row.get(k, "") for k in self.fieldnames})
+                self._file.flush()
+                self.rows_written += 1
+            except Exception as exc:
+                raise RuntimeError(f"CSV 第 {self.rows_written + 1} 行写入失败: {exc}") from exc
 
     def stop(self) -> None:
-        self._running = False
-        if self._thread:
-            self._thread.join(timeout=5.0)
+        with self._lock:
+            if not self._started:
+                return
+            file_obj = self._file
+            self._file = None
+            self._writer = None
+            self._started = False
+            try:
+                if file_obj is not None:
+                    file_obj.flush()
+                    os.fsync(file_obj.fileno())
+            finally:
+                if file_obj is not None:
+                    file_obj.close()
+
+    def __enter__(self) -> "CsvWriter":
+        self.start()
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
+        self.stop()
 
 
 def _post_with_retry(
@@ -410,7 +440,8 @@ def _post_with_retry(
             last_error = e
             if attempt >= retries:
                 break
-            time.sleep(backoff_s * (2**attempt))
+            delay = backoff_s * (2**attempt)
+            time.sleep(delay + random.uniform(0.0, max(0.0, delay * 0.25)))
     raise RuntimeError(str(last_error) if last_error else "请求失败")
 
 
@@ -425,7 +456,6 @@ def run_one_task(
     defaults: Dict[str, Any],
 ) -> Dict[str, Any]:
     started = time.perf_counter()
-    session = requests.Session()
 
     task_id = (row.get("task_id") or "").strip()
     asset = (row.get("asset") or "").strip()
@@ -469,6 +499,7 @@ def run_one_task(
         payload["timeframe"] = timeframe
 
     url = f"{base_url}{analyze_path}"
+    session = requests.Session()
     try:
         result = _post_with_retry(
             session=session,
@@ -643,6 +674,8 @@ def run_one_task(
             "mechanics_匹配": "",
             "fusion_匹配": "",
         }
+    finally:
+        session.close()
 
 
 def _should_use_aggressive_mode(
@@ -708,7 +741,6 @@ def run_one_task_with_funds(
     use_aggressive_mode_only_profit: bool = True,
 ) -> tuple[Dict[str, Any], float]:
     started = time.perf_counter()
-    session = requests.Session()
 
     # 初始化仓位状态
     if position_state is None:
@@ -756,6 +788,7 @@ def run_one_task_with_funds(
         payload["timeframe"] = timeframe
 
     url = f"{base_url}{analyze_path}"
+    session = requests.Session()
     try:
         result = _post_with_retry(
             session=session,
@@ -1049,6 +1082,8 @@ def run_one_task_with_funds(
         # 添加仓位状态到返回结果（异常情况下保持当前状态）
         result_row["_is_aggressive"] = position_state.get("is_aggressive", False)
         return result_row, float(equity_before)
+    finally:
+        session.close()
 
 
 def run_tasks_concurrently(
@@ -1063,20 +1098,87 @@ def run_tasks_concurrently(
     *,
     max_workers: int,
 ):
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [
-            executor.submit(
-                run_one_task,
-                base_url,
-                analyze_path,
-                timeout_s,
-                retries,
-                backoff_s,
-                hold_threshold,
-                row,
-                defaults,
-            )
-            for row in rows
-        ]
-        for fut in as_completed(futures):
-            yield fut.result()
+    worker_count = effective_worker_count(max_workers, len(rows))
+    if worker_count == 0:
+        return
+
+    def submit(executor: ThreadPoolExecutor, row: Dict[str, str]) -> Future:
+        return executor.submit(
+            run_one_task,
+            base_url,
+            analyze_path,
+            timeout_s,
+            retries,
+            backoff_s,
+            hold_threshold,
+            row,
+            defaults,
+        )
+
+    row_iterator = iter(rows)
+    with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="backtest") as executor:
+        pending: Dict[Future, Dict[str, str]] = {}
+        for _ in range(worker_count):
+            try:
+                row = next(row_iterator)
+            except StopIteration:
+                break
+            pending[submit(executor, row)] = row
+
+        while pending:
+            done, _ = wait(pending, return_when=FIRST_COMPLETED)
+            for future in done:
+                row = pending.pop(future)
+                try:
+                    yield future.result()
+                except Exception as exc:
+                    yield _unexpected_failure_row(row, defaults, exc)
+
+                try:
+                    next_row = next(row_iterator)
+                except StopIteration:
+                    continue
+                pending[submit(executor, next_row)] = next_row
+
+
+def _unexpected_failure_row(
+    row: Dict[str, str], defaults: Dict[str, Any], exc: Exception
+) -> Dict[str, Any]:
+    timeframe_raw = row.get("timeframes") or row.get("timeframe")
+    timeframes = parse_timeframes(timeframe_raw, str(defaults.get("timeframe", "")))
+    timeframe = "+".join(timeframes) if len(timeframes) > 1 else (timeframes[0] if timeframes else "")
+
+    def safe_int(name: str, fallback: int) -> int:
+        try:
+            return int(float(row.get(name) or defaults.get(name) or fallback))
+        except (TypeError, ValueError):
+            return fallback
+
+    return {
+        "task_id": str(row.get("task_id") or "").strip(),
+        "asset": str(row.get("asset") or "").strip(),
+        "timeframe": timeframe,
+        "end_date": normalize_end_date(row.get("end_date")),
+        "end_time": normalize_end_time(row.get("end_time")),
+        "分析时的价格": "N/A",
+        "未来第一根K线的价格": "N/A",
+        "未来第二根K线的价格": "N/A",
+        "ai_decision": "ERROR",
+        "is_correct": "Error",
+        "is_correct_1": "Error",
+        "is_correct_2": "Error",
+        "profit_pct_1": "N/A",
+        "profit_pct_2": "N/A",
+        "cumulative_win_rate_1": "",
+        "cumulative_win_rate_2": "",
+        "duration_s": 0.0,
+        "result_id": "",
+        "ai_version": str(row.get("ai_version") or defaults.get("ai_version") or "").strip(),
+        "data_method": str(row.get("data_method") or defaults.get("data_method") or "").strip(),
+        "kline_count": safe_int("kline_count", 100),
+        "future_kline_count": safe_int("future_kline_count", 13),
+        "error": f"任务线程异常: {exc}",
+        "BRALE_INDICATOR_MODEL": "",
+        "BRALE_STRUCTURE_MODEL": "",
+        "BRALE_MECHANICS_MODEL": "",
+    }

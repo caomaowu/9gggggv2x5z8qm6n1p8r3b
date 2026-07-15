@@ -8,7 +8,7 @@ TOOLS_DIR = os.path.dirname(CURRENT_DIR)
 if TOOLS_DIR not in sys.path:
     sys.path.insert(0, TOOLS_DIR)
 
-from batch_backtest_app import core, pages, store
+from batch_backtest_app import core, engine, pages, store
 
 
 def run_app() -> None:
@@ -50,7 +50,16 @@ def run_app() -> None:
     cfg = {
         "backend_url": st.sidebar.text_input("后端接口地址", value="http://localhost:8000/api/v1"),
         "analyze_path": st.sidebar.text_input("分析接口路径", value="/analyze/"),
-        "concurrency": st.sidebar.number_input("并发数", min_value=1, max_value=1000, value=6),
+        "concurrency": st.sidebar.number_input(
+            "并发数",
+            min_value=1,
+            max_value=1000,
+            value=6,
+            help=(
+                f"为保护后端和结果完整性，单进程默认最多使用 {engine.MAX_SAFE_WORKERS} 个工作线程；"
+                "可通过 BATCH_BACKTEST_MAX_WORKERS 环境变量调整。"
+            ),
+        ),
         "timeout": st.sidebar.number_input("超时时间（秒）", min_value=1.0, value=600.0),
         "retries": st.sidebar.number_input("重试次数", min_value=0, value=2),
         "hold_threshold": st.sidebar.number_input("观望阈值", min_value=0.0, value=0.002, format="%.4f"),
