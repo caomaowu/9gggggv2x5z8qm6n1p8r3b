@@ -74,6 +74,28 @@ PROVIDERS = {
 
         ],
     },
+    "krill": {
+        "name": "Krill",
+        "base_url": "https://api.cdn-krill-ai.com/codex/v1",
+        "api_key_env": "KRILL_API_KEY",
+        "agent_models": [
+            "gpt-5.5",
+        ],
+        "graph_models": [
+            "gpt-5.5",
+        ],
+    },
+    "grok": {
+        "name": "Grok",
+        "base_url": "https://cli.huigong.xyz/v1",
+        "api_key_env": "GROK_API_KEY",
+        "agent_models": [
+            "grok-4.5",
+        ],
+        "graph_models": [
+            "grok-4.5",
+        ],
+    },
     "302ai": {
         "name": "302AI",
         "base_url": "https://api.302.ai/v1",

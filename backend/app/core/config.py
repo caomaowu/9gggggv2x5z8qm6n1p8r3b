@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     ARK_API_KEY: str = ""
     CODEX_API_KEY: str = ""
     SOUL_API_KEY: str = ""
+    KRILL_API_KEY: str = ""
+    GROK_API_KEY: str = ""
     API302_API_KEY: str = ""
 
     # ---------- Brale Agent per-agent model override (可选) ----------
