@@ -261,7 +261,11 @@ def main():
 
         else:
             # Concurrent Mode for Normal Backtest
-            print(f"Running in Normal Mode (Concurrency: {concurrency})...")
+            effective_concurrency = engine.effective_worker_count(concurrency, len(tasks))
+            print(
+                f"Running in Normal Mode (requested concurrency: {concurrency}, "
+                f"effective concurrency: {effective_concurrency})..."
+            )
             
             # Use engine's generator
             iterator = engine.run_tasks_concurrently(
@@ -338,6 +342,11 @@ def main():
                 store.save_daemon_progress(progress)
 
         csv_writer.stop()
+        if csv_writer.rows_written != completed:
+            raise RuntimeError(
+                f"Result integrity check failed: completed={completed}, "
+                f"written={csv_writer.rows_written}"
+            )
 
         # 5. Finish
         progress["status"] = "已完成"
@@ -359,6 +368,13 @@ def main():
             pass
             
     finally:
+        # stop() 可重复调用；异常路径也必须关闭并完成最后一次落盘。
+        writer = locals().get("csv_writer")
+        if writer is not None:
+            try:
+                writer.stop()
+            except Exception as e:
+                print(f"Failed to close result CSV: {e}")
         # Cleanup Status
         # store.save_daemon_status({}) # Or keep it for inspection? 
         # Better to keep it but mark as done? No, remove PID so UI knows it's gone.

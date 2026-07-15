@@ -541,6 +541,12 @@ def render_execute(
                     to_run.append(row)
 
         st.info(f"任务总数：{len(tasks)} | 将执行：{len(to_run)} | 跳过：{skipped_count}")
+        effective_workers = engine.effective_worker_count(int(cfg["concurrency"]), len(to_run))
+        if int(cfg["concurrency"]) > engine.MAX_SAFE_WORKERS:
+            st.warning(
+                f"并发数 {int(cfg['concurrency'])} 已启用稳定性保护，本批实际使用 "
+                f"{effective_workers} 个工作线程。"
+            )
         if not to_run:
             summary = {
                 "total_tasks": len(tasks),
@@ -573,7 +579,11 @@ def render_execute(
             st.error(f"❌ 写入批次分隔行出错：{e}")
 
         csv_writer = engine.CsvWriter(output_csv, core.OUTPUT_FIELDNAMES)
-        csv_writer.start()
+        try:
+            csv_writer.start()
+        except Exception as e:
+            st.error(f"❌ 无法打开结果文件，回测尚未启动：{e}")
+            return
 
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -624,10 +634,7 @@ def render_execute(
             result_row["cumulative_win_rate_1"] = f"{win_rate_1:.2f}%" if total_valid_1 > 0 else "无"
             result_row["cumulative_win_rate_2"] = f"{win_rate_2:.2f}%" if total_valid_2 > 0 else "无"
 
-            try:
-                csv_writer.write(result_row)
-            except Exception as e:
-                st.error(f"❌ 写入CSV出错：{e}")
+            csv_writer.write(result_row)
 
             completed += 1
             progress_bar.progress(completed / len(to_run))
@@ -663,57 +670,85 @@ def render_execute(
             else:
                 result_table.dataframe(core.style_df(df), use_container_width=True)
 
-        if backtest_mode == "带资金回测":
-            if funds_cfg is None:
-                st.error("请先填写资金回测参数")
-                return
-            # 初始化仓位状态
-            position_state = {"is_aggressive": False}
-            for i, row in enumerate(to_run):
-                result_row, equity = engine.run_one_task_with_funds(
-                    base_url=base_url,
-                    analyze_path=analyze_path,
-                    timeout_s=float(cfg["timeout"]),
-                    retries=int(cfg["retries"]),
-                    backoff_s=1.0,
-                    hold_threshold=float(cfg["hold_threshold"]),
-                    row=row,
-                    defaults=defaults,
-                    initial_equity=float(funds_cfg["initial_equity"]),
-                    equity_before=float(equity) if equity is not None else float(funds_cfg["initial_equity"]),
-                    position_mode=str(funds_cfg.get("position_mode", "固定百分比")),
-                    allocation_pct=float(funds_cfg["allocation_pct"]),
-                    fixed_amount=float(funds_cfg.get("fixed_amount", 1000.0)),
-                    contract_multiplier=float(funds_cfg["contract_multiplier"]),
-                    slippage_pct=float(funds_cfg["slippage_pct"]),
-                    force_close_pct=float(funds_cfg["force_close_pct"]),
-                    trigger_order=str(funds_cfg["trigger_order"]),
-                    # 阶梯仓位策略参数
-                    position_state=position_state,
-                    conservative_base_ratio=float(funds_cfg.get("conservative_base_ratio", 30.0)),
-                    aggressive_threshold_pct=float(funds_cfg.get("aggressive_threshold_pct", 150.0)),
-                    conservative_threshold_pct=float(funds_cfg.get("conservative_threshold_pct", 110.0)),
-                    use_aggressive_mode_only_profit=bool(funds_cfg.get("use_aggressive_mode_only_profit", True)),
+        execution_error: Optional[Exception] = None
+        try:
+            if backtest_mode == "带资金回测":
+                if funds_cfg is None:
+                    raise ValueError("请先填写资金回测参数")
+                # 初始化仓位状态
+                position_state = {"is_aggressive": False}
+                for i, row in enumerate(to_run):
+                    result_row, equity = engine.run_one_task_with_funds(
+                        base_url=base_url,
+                        analyze_path=analyze_path,
+                        timeout_s=float(cfg["timeout"]),
+                        retries=int(cfg["retries"]),
+                        backoff_s=1.0,
+                        hold_threshold=float(cfg["hold_threshold"]),
+                        row=row,
+                        defaults=defaults,
+                        initial_equity=float(funds_cfg["initial_equity"]),
+                        equity_before=(
+                            float(equity)
+                            if equity is not None
+                            else float(funds_cfg["initial_equity"])
+                        ),
+                        position_mode=str(funds_cfg.get("position_mode", "固定百分比")),
+                        allocation_pct=float(funds_cfg["allocation_pct"]),
+                        fixed_amount=float(funds_cfg.get("fixed_amount", 1000.0)),
+                        contract_multiplier=float(funds_cfg["contract_multiplier"]),
+                        slippage_pct=float(funds_cfg["slippage_pct"]),
+                        force_close_pct=float(funds_cfg["force_close_pct"]),
+                        trigger_order=str(funds_cfg["trigger_order"]),
+                        # 阶梯仓位策略参数
+                        position_state=position_state,
+                        conservative_base_ratio=float(
+                            funds_cfg.get("conservative_base_ratio", 30.0)
+                        ),
+                        aggressive_threshold_pct=float(
+                            funds_cfg.get("aggressive_threshold_pct", 150.0)
+                        ),
+                        conservative_threshold_pct=float(
+                            funds_cfg.get("conservative_threshold_pct", 110.0)
+                        ),
+                        use_aggressive_mode_only_profit=bool(
+                            funds_cfg.get("use_aggressive_mode_only_profit", True)
+                        ),
+                    )
+                    # 更新仓位状态
+                    position_state["is_aggressive"] = result_row.get("_is_aggressive", False)
+                    handle_one_result(result_row)
+            else:
+                result_iterator = engine.run_tasks_concurrently(
+                    base_url,
+                    analyze_path,
+                    float(cfg["timeout"]),
+                    int(cfg["retries"]),
+                    1.0,
+                    float(cfg["hold_threshold"]),
+                    to_run,
+                    defaults,
+                    max_workers=int(cfg["concurrency"]),
                 )
-                # 更新仓位状态
-                position_state["is_aggressive"] = result_row.get("_is_aggressive", False)
-                handle_one_result(result_row)
-        else:
-            result_iterator = engine.run_tasks_concurrently(
-                base_url,
-                analyze_path,
-                float(cfg["timeout"]),
-                int(cfg["retries"]),
-                1.0,
-                float(cfg["hold_threshold"]),
-                to_run,
-                defaults,
-                max_workers=int(cfg["concurrency"]),
-            )
-            for result_row in result_iterator:
-                handle_one_result(result_row)
+                for result_row in result_iterator:
+                    handle_one_result(result_row)
+        except Exception as e:
+            execution_error = e
+        finally:
+            try:
+                csv_writer.stop()
+            except Exception as e:
+                execution_error = execution_error or e
 
-        csv_writer.stop()
+        if execution_error is not None:
+            st.error(f"❌ 回测已停止，结果写入未能完整确认：{execution_error}")
+            return
+        if csv_writer.rows_written != completed:
+            st.error(
+                f"❌ 结果完整性校验失败：已完成 {completed} 个任务，但只确认写入 "
+                f"{csv_writer.rows_written} 行。"
+            )
+            return
 
         st.success("回测完成！")
         st.balloons()
