@@ -401,6 +401,10 @@ class TaskGeneratorApp:
         - 15m: xx:10-xx:14, xx:25-xx:29, xx:40-xx:44, xx:55-xx:59
         - 1d: 23:55-23:59
         """
+        return random.choice(self._get_random_time_candidates(timeframe))
+
+    def _get_random_time_candidates(self, timeframe):
+        """返回 timeframe 对应的全部合法随机时间，供无重复抽样使用。"""
         # Handle multi-tf: "4h+15m" -> use smallest timeframe
         if "+" in timeframe:
             parts = timeframe.split("+")
@@ -408,47 +412,33 @@ class TaskGeneratorApp:
             prio = {'1d':1440, '4h':240, '1h':60, '30m':30, '15m':15}
             parts.sort(key=lambda x: prio.get(x, 9999))
             base_tf = parts[0]
-            return self._generate_random_time(base_tf)
+            return self._get_random_time_candidates(base_tf)
 
-        minute = random.randint(55, 59)
-        hour = 0
-        
         if timeframe == '4h':
-            # 4小时收盘点通常是 0, 4, 8, 12, 16, 20 (UTC)
-            # 收盘前5分钟意味着小时数应该是 close_hour - 1
-            # 比如 4点收盘，时间是 3:55
-            # Close hours: 0, 4, 8, 12, 16, 20
-            # Target hours: 23, 3, 7, 11, 15, 19
-            target_hours = [23, 3, 7, 11, 15, 19]
-            hour = random.choice(target_hours)
-            
+            hours = [23, 3, 7, 11, 15, 19]
+            minute_ranges = [range(55, 60)]
         elif timeframe == '1h':
-            hour = random.randint(0, 23)
-            # 分钟已经在上面固定为 55-59
-            
+            hours = range(24)
+            minute_ranges = [range(55, 60)]
         elif timeframe == '30m':
-            hour = random.randint(0, 23)
-            # 30m 收盘点: 00, 30
-            # Ranges: xx:25-xx:29 (for 30 close), xx:55-xx:59 (for 00 close)
-            base_min = random.choice([25, 55])
-            minute = random.randint(base_min, base_min + 4)
-            
+            hours = range(24)
+            minute_ranges = [range(25, 30), range(55, 60)]
         elif timeframe == '15m':
-            hour = random.randint(0, 23)
-            # 15m closes: 00, 15, 30, 45
-            # Ranges: xx:10-14, xx:25-29, xx:40-44, xx:55-59
-            base_min = random.choice([10, 25, 40, 55])
-            minute = random.randint(base_min, base_min + 4)
-            
+            hours = range(24)
+            minute_ranges = [range(10, 15), range(25, 30), range(40, 45), range(55, 60)]
         elif timeframe == '1d':
-            hour = 23
-            
+            hours = [23]
+            minute_ranges = [range(55, 60)]
         else:
-            # 默认逻辑
-            hour = random.randint(0, 23)
-            minute = random.randint(55, 59)
-            
-        return f"{hour:02d}:{minute:02d}"
+            hours = range(24)
+            minute_ranges = [range(55, 60)]
+
+        return [
+            f"{hour:02d}:{minute:02d}"
+            for hour in hours
+            for minute_range in minute_ranges
+            for minute in minute_range
+        ]
 
     def _get_random_date(self, start_str, end_str):
         try:
@@ -840,6 +830,7 @@ class TaskGeneratorApp:
 
             tasks = []
             task_id = 1
+            seen_task_keys = set()
             
             # Check validation var existence safely
             should_validate = False
@@ -854,11 +845,16 @@ class TaskGeneratorApp:
                         if self.unique_daily_var.get() and d in seen_dates_for_asset:
                             continue
                         
-                        # Determine times to use for this day
-                        # Modified: Always pick ONE random time from the fixed list per day
-                        current_times = [random.choice(times_list)]
+                        # 每天仍生成一个任务，但完整任务时间不得重复。
+                        time_candidates = (self._get_random_time_candidates(tf)
+                                           if times_list == ["RANDOM"]
+                                           else list(dict.fromkeys(times_list)))
+                        current_times = [t for t in time_candidates
+                                         if (asset, tf, d, t) not in seen_task_keys]
+                        if not current_times:
+                            continue
 
-                        for t in current_times:
+                        for t in [random.choice(current_times)]:
                             if self.unique_daily_var.get() and d in seen_dates_for_asset:
                                 continue
 
@@ -885,6 +881,7 @@ class TaskGeneratorApp:
                                 "status": "Pending"
                             }
                             tasks.append(task)
+                            seen_task_keys.add((asset, tf, d, end_time_value))
                             task_id += 1
                             
                             if self.unique_daily_var.get():
@@ -908,11 +905,16 @@ class TaskGeneratorApp:
                         if self.unique_daily_var.get() and d in seen_dates_for_asset:
                             continue
 
-                        # Determine times to use for this day
-                        # Modified: Always pick ONE random time from the fixed list per day
-                        current_times = [random.choice(times_list)]
+                        # 日期可以重复；同一日期碰撞时改抽尚未使用的时间。
+                        time_candidates = (self._get_random_time_candidates(tf)
+                                           if times_list == ["RANDOM"]
+                                           else list(dict.fromkeys(times_list)))
+                        current_times = [t for t in time_candidates
+                                         if (asset, tf, d, t) not in seen_task_keys]
+                        if not current_times:
+                            continue
 
-                        for t in current_times:
+                        for t in [random.choice(current_times)]:
                             if self.unique_daily_var.get() and d in seen_dates_for_asset:
                                 continue
 
@@ -933,6 +935,7 @@ class TaskGeneratorApp:
                                 "status": "Pending"
                             }
                             tasks.append(task)
+                            seen_task_keys.add((asset, tf, d, end_time_value))
                             task_id += 1
 
                             if self.unique_daily_var.get():
