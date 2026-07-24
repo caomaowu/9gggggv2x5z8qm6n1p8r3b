@@ -1,6 +1,7 @@
 # 操作系统文件
 .DS_Store
 Thumbs.db
+.omo
 
 # 日志文件
 *.log
