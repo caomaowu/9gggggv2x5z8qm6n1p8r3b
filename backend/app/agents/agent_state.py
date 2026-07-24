@@ -79,3 +79,11 @@ class IndicatorAgentState(TypedDict):
     # Multi-timeframe support
     multi_timeframe_mode: Annotated[bool, "Flag indicating if multi-timeframe analysis is active"]
     timeframes: Annotated[List[str], "List of timeframes being analyzed"]
+
+    # Regime detection (L1) - deterministic market-state analysis injected before decision
+    regime: Annotated[str, "Detected market regime: TREND_UP/TREND_DOWN/RANGE/HIGH_VOL/UNKNOWN"]
+    regime_bias: Annotated[str, "Recommended playbook: FOLLOW_UP/FOLLOW_DOWN/FADE/ABSTAIN"]
+    regime_direction: Annotated[str, "Regime-suggested direction hint: LONG/SHORT/NONE"]
+    edge_score: Annotated[float, "Deterministic edge score 0-1 for rule-based abstention"]
+    regime_features: Annotated[dict, "Structured numeric features from regime analysis"]
+    regime_report: Annotated[str, "Human/LLM readable regime analysis report"]

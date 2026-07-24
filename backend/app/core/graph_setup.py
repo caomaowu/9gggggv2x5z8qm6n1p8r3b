@@ -23,6 +23,7 @@ from app.utils.graph_util import TechnicalTools
 from app.agents.indicator_agent import create_indicator_agent
 from app.agents.pattern_agent import create_pattern_agent
 from app.agents.trend_agent import create_trend_agent
+from app.utils.regime import analyze_regime
 
 
 class SetGraph:
@@ -180,12 +181,47 @@ class SetGraph:
         # 添加协调器节点
         graph.add_node("Sequential Coordinator", sequential_start_coordinator)
 
+        # L1: 确定性制度识别节点（协调器之后、决策之前）。
+        # 纯规则、无 LLM、无状态，不修改任何分析智能体，只向 state 注入制度特征。
+        def regime_analyzer(state):
+            try:
+                kline_data = state.get("kline_data")
+                time_frame = state.get("time_frame", "") or ""
+                result = analyze_regime(kline_data, time_frame)
+                print(
+                    f"🧭 制度识别: regime={result.get('regime')} "
+                    f"bias={result.get('recommended_bias')} "
+                    f"dir={result.get('suggested_direction')} "
+                    f"edge={result.get('edge_score')}"
+                )
+                return {
+                    "regime": result.get("regime", "UNKNOWN"),
+                    "regime_bias": result.get("recommended_bias", "ABSTAIN"),
+                    "regime_direction": result.get("suggested_direction", "NONE"),
+                    "edge_score": result.get("edge_score", 0.0),
+                    "regime_features": result.get("features", {}),
+                    "regime_report": result.get("report", "Regime analysis unavailable"),
+                }
+            except Exception as e:
+                print(f"⚠️ 制度识别失败（不影响主流程）: {e}")
+                return {
+                    "regime": "UNKNOWN",
+                    "regime_bias": "ABSTAIN",
+                    "regime_direction": "NONE",
+                    "edge_score": 0.0,
+                    "regime_features": {},
+                    "regime_report": f"Regime analysis failed: {e}",
+                }
+
+        graph.add_node("Regime Analyzer", regime_analyzer)
+
         # set start of graph
         graph.add_edge(START, "Sequential Coordinator")
+        graph.add_edge("Sequential Coordinator", "Regime Analyzer")
         if self.include_decision_agent:
-            graph.add_edge("Sequential Coordinator", "Decision Maker")
+            graph.add_edge("Regime Analyzer", "Decision Maker")
             graph.add_edge("Decision Maker", END)
         else:
-            graph.add_edge("Sequential Coordinator", END)
+            graph.add_edge("Regime Analyzer", END)
 
         return graph.compile()

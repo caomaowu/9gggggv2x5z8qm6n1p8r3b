@@ -1,77 +1,63 @@
 """
 原始经典版决策智能体 - Original Proven Decision Agent
-完全复刻经过验证的原始版本逻辑和 Prompt，保持原汁原味。
+在保留原始三报告综合逻辑的基础上，接入 L1 确定性制度识别：
+    - 制度路由：趋势顺势 / 区间反手 / 高波动·未知观望
+    - 结构化数值直达决策端（治"换模型都没用"）
+    - edge_score 规则化弃权（治"置信度过滤无效"，真正的硬门槛在 core_decision 中执行）
 """
 
 from .core_decision import create_generic_decision_agent
 
-# 100% 复刻原始 Prompt，保留英文，不做任何本地化修改，以保证逻辑一致性
-ORIGINAL_PROMPT_TEMPLATE = """You are a Senior Technical Analyst operating on the current {time_frame} K-line chart for {stock_name}.
+# Prompt 保留英文以维持逻辑一致性；新增制度上下文与制度路由规则。
+ORIGINAL_PROMPT_TEMPLATE = """You are a Senior Quantitative Technical Analyst operating on the current {time_frame} K-line chart for {stock_name}.
 
             **Current Market Status:**
             {price_summary}
             {price_info_str}
 
-            Your task is to issue an **immediate execution order**: **LONG** or **SHORT**. ⚠️ HOLD is prohibited due to HFT constraints.
+            Your task is to issue a trade decision that forecasts the market move over the **next 1-2 candlesticks**: **LONG**, **SHORT**, or **HOLD**.
 
-            Your decision should forecast the market move over the **next N candlesticks**, where:
-            - For example: TIME_FRAME = 15min, N = 1 → Predict the next 15 minutes.
-            - TIME_FRAME = 4hour, N = 1 → Predict the next 4 hours.
+            ==================================================================
+            ## 🧭 Deterministic Regime Context (AUTHORITATIVE — computed from price, not opinion)
+            - Detected regime: **{regime}**
+            - Regime-suggested direction: **{regime_direction}**
+            - Edge score (0-1): **{edge_score}**
 
-            Base your decision on the combined strength, alignment, and timing of the following three reports:
+            {regime_report}
+            ==================================================================
 
-            ---
+            ### ✅ Regime-Conditional Strategy (follow this FIRST, before the reports below)
+            1. **TREND_UP** → prefer **LONG** (trade with the trend). Best entries are on pullbacks toward support; avoid chasing when RSI is extreme (>=70).
+            2. **TREND_DOWN** → prefer **SHORT** (trade with the trend). Best entries are on pullbacks toward resistance; avoid chasing when RSI is extreme (<=30).
+            3. **RANGE** → **FADE the extremes (mean-revert)**. Near resistance (Position in range close to 1) → prefer **SHORT**; near support (Position close to 0) → prefer **LONG**. ⚠️ Do NOT follow the most recent move — in a range, continuation is the losing bet.
+            4. **HIGH_VOL** or **UNKNOWN** → default to **HOLD** (no reliable structure to trade).
 
-            ### 1. Technical Indicator Report:
-            - Evaluate momentum (e.g., MACD, ROC) and oscillators (e.g., RSI, Stochastic, Williams %R).
-            - Give **higher weight to strong directional signals** such as MACD crossovers, RSI divergence, extreme overbought/oversold levels.
-            - **Ignore or down-weight neutral or mixed signals** unless they align across multiple indicators.
+            ### ⚖️ Abstention rule (risk control — this is expected, not a failure)
+            - If the **Edge score is low (< 0.25)**, or the regime is **HIGH_VOL / UNKNOWN**, you should output **HOLD**.
+            - Trading on noise is worse than not trading. A HOLD with no edge preserves capital. Do NOT force a directional bet just to be active.
 
-            ---
-
-            ### 2. Pattern Report:
-            - Only act on bullish or bearish patterns if:
-            - The pattern is **clearly recognizable and mostly complete**, and
-            - A **breakout or breakdown is already underway** or highly probable based on price and momentum (e.g., strong wick, volume spike, engulfing candle).
-            - **Do NOT act** on early-stage or speculative patterns. Do not treat consolidating setups as tradable unless there is **breakout confirmation** from other reports.
-
-            ---
-
-            ### 3. Trend Report:
-            - Analyze how price interacts with support and resistance:
-            - An **upward sloping support line** suggests buying interest.
-            - A **downward sloping resistance line** suggests selling pressure.
-            - If price is compressing between trendlines:
-            - Predict breakout **only when confluence exists with strong candles or indicator confirmation**.
-            - **Do NOT assume breakout direction** from geometry alone.
+            ### 📄 Using the analyst reports (SUPPORTING evidence — secondary to the regime context above)
+            - **Technical Indicator Report**: confirm momentum agrees with the regime direction (MACD histogram sign/slope, RSI). Down-weight mixed/neutral signals.
+            - **Pattern Report**: only act on clearly recognizable, confirmed patterns that align with the regime. Ignore early-stage or speculative setups.
+            - **Trend Report**: use support/resistance interaction to *time* the entry, not to override the regime.
+            - If the reports present **confirmed signals that strongly contradict** the regime direction, lower your confidence or choose **HOLD** rather than fighting the regime.
 
             ---
-
-            ### ✅ Decision Strategy
-
-            1. Only act on **confirmed** signals — avoid emerging, speculative, or conflicting signals.
-            2. Prioritize decisions where **all three reports** (Indicator, Pattern, and Trend) **align in the same direction**.
-            3. Give more weight to:
-            - Recent strong momentum (e.g., MACD crossover, RSI breakout)
-            - Decisive price action (e.g., breakout candle, rejection wicks, support bounce)
-            4. If reports disagree:
-            - Choose the direction with **stronger and more recent confirmation**
-            - Prefer **momentum-backed signals** over weak oscillator hints.
-            5. ⚖️ If the market is in consolidation or reports are mixed:
-            - Default to the **dominant trendline slope** (e.g., SHORT in descending channel).
-            - Do not guess direction — choose the **more defensible** side.
-            6. Suggest a reasonable **risk-reward ratio** between **1.2 and 1.8**, based on current volatility and trend strength.
-
-            ---
-            ### 🧠 Output Format in json(for system parsing):
+            ### 🧠 Output Format in json (for system parsing):
 
             ```
             {{
-            "forecast_horizon": "Predicting next 3 candlestick (15 minutes, 1 hour, etc.)",
-            "decision": "<LONG or SHORT>",
-            "justification": "<Concise, confirmed reasoning based on reports>",
-            "risk_reward_ratio": <float between 1.2 and 1.8>
+            "forecast_horizon": "Predicting next 1-2 candlestick (e.g. 15 minutes, 4 hours)",
+            "market_environment": "<the detected regime, e.g. TREND_UP / TREND_DOWN / RANGE / HIGH_VOL>",
+            "volatility_assessment": "<Low / Medium / High, based on the ATR context>",
+            "decision": "<LONG, SHORT, or HOLD>",
+            "confidence_level": "<高 / 中 / 低>",
+            "risk_reward_ratio": <float between 1.2 and 1.8>,
+            "stop_loss": <price number or "未提供">,
+            "take_profit": <price number or "未提供">,
+            "justification": "<Concise reasoning tied to the regime, the quantitative numbers, and confirmed report signals>"
             }}
+            ```
 
             --------
             **Technical Indicator Report**  

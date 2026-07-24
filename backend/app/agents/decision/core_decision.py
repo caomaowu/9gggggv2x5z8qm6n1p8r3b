@@ -4,10 +4,68 @@
 """
 
 import sys
+import json
+import re
 from pathlib import Path
 
 from app.utils.llm_compat import invoke_llm_text
 from app.utils.prompt_template import render_prompt_template
+
+# L4: 确定性弃权门槛。edge_score 低于该值或制度为 HIGH_VOL/UNKNOWN 时强制 HOLD。
+# 阀值集中在此，便于后续在验证集上按期望值调参。
+EDGE_ABSTAIN_THRESHOLD = 0.25
+
+
+def _extract_decision_json(text: str):
+    """从 LLM 输出中提取决策 JSON，失败返回 None。"""
+    if not text or not str(text).strip():
+        return None
+    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL | re.IGNORECASE)
+    if m:
+        try:
+            return json.loads(m.group(1))
+        except json.JSONDecodeError:
+            pass
+    idx = text.find("{")
+    if idx >= 0:
+        try:
+            obj, _ = json.JSONDecoder().raw_decode(text[idx:])
+            if isinstance(obj, dict):
+                return obj
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return None
+
+
+def _apply_edge_gate(content: str, edge_score: float, regime: str):
+    """
+    L4 确定性弃权：若无可衡量优势，将方向性决策强制改为 HOLD。
+    只会将 LONG/SHORT 降为 HOLD，绝不会凭空制造交易。返回 (新content, 是否已门槛)。
+    """
+    try:
+        should_gate = (
+            regime in ("HIGH_VOL", "UNKNOWN")
+            or (edge_score is not None and edge_score < EDGE_ABSTAIN_THRESHOLD)
+        )
+        if not should_gate:
+            return content, False
+        obj = _extract_decision_json(content)
+        if not obj:
+            return content, False
+        decision = str(obj.get("decision", "")).upper().strip()
+        if decision not in ("LONG", "SHORT"):
+            return content, False
+        note = (
+            f"[Edge gate] Forced HOLD: edge_score={edge_score}, regime={regime} "
+            f"(below {EDGE_ABSTAIN_THRESHOLD} threshold / no reliable structure). "
+        )
+        obj["decision"] = "HOLD"
+        obj["confidence_level"] = "\u4f4e"
+        obj["justification"] = (note + str(obj.get("justification", "")))[:2000]
+        new_content = "```json\n" + json.dumps(obj, ensure_ascii=False, indent=2) + "\n```"
+        return new_content, True
+    except Exception:
+        return content, False
 
 try:
     from app.core.progress import update_agent_progress
@@ -68,6 +126,16 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
         
         latest_price = state.get("latest_price", None)
         price_info = state.get("price_info", "")
+
+        # Regime context (L1) injected by the Regime Analyzer node
+        regime = state.get("regime", "UNKNOWN")
+        regime_direction = state.get("regime_direction", "NONE")
+        regime_report = state.get("regime_report", "Regime analysis unavailable")
+        edge_score = state.get("edge_score", 0.0)
+        try:
+            edge_score = float(edge_score)
+        except (TypeError, ValueError):
+            edge_score = 0.0
         
         # 3. Data preprocessing
         if latest_price is not None:
@@ -117,7 +185,11 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
                 latest_price_str=latest_price_str,
                 indicator_report=indicator_report,
                 pattern_report=pattern_report,
-                trend_report=trend_report
+                trend_report=trend_report,
+                regime=regime,
+                regime_direction=regime_direction,
+                edge_score=edge_score,
+                regime_report=regime_report,
             )
         except KeyError as e:
             print(f"❌ Prompt 格式化错误: 缺少键值 {e}")
@@ -140,6 +212,13 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
         else:
             from langchain_core.messages import AIMessage
             response = AIMessage(content=content)
+
+        # L4: 确定性 edge 门槛（规则化弃权，不依赖 LLM 自觉）
+        content, _gated = _apply_edge_gate(content, edge_score, regime)
+        if _gated:
+            from langchain_core.messages import AIMessage
+            response = AIMessage(content=content)
+            print(f"⚖️ edge 门槛触发：已强制 HOLD (edge={edge_score}, regime={regime})")
 
         update_agent_progress("decision", 100, f"{agent_name}决策生成完成")
         
