@@ -17,6 +17,10 @@ OUTPUT_FIELDNAMES = [
     "未来第一根K线的价格",
     "未来第二根K线的价格",
     "ai_decision",
+    "ai_decision_k1",
+    "ai_decision_k2",
+    "confidence_k1",
+    "confidence_k2",
     "is_correct",
     "is_correct_1",
     "is_correct_2",
@@ -58,6 +62,10 @@ DEFAULT_EXECUTE_DISPLAY_COLS = [
     "end_date",
     "end_time",
     "ai_decision",
+    "ai_decision_k1",
+    "ai_decision_k2",
+    "confidence_k1",
+    "confidence_k2",
     "is_correct",
     "is_correct_1",
     "is_correct_2",
@@ -78,6 +86,10 @@ DEFAULT_RESULTS_DISPLAY_COLS = [
     "end_date",
     "end_time",
     "ai_decision",
+    "ai_decision_k1",
+    "ai_decision_k2",
+    "confidence_k1",
+    "confidence_k2",
     "is_correct",
     "is_correct_1",
     "is_correct_2",
@@ -340,6 +352,8 @@ def compute_summary_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     losses_1 = 0
     wins_2 = 0
     losses_2 = 0
+    holds_1 = 0
+    holds_2 = 0
     failed = 0
     funds_initial = None
     funds_final = None
@@ -357,6 +371,14 @@ def compute_summary_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
         except Exception:
             return None
 
+    def _prediction_action(row: dict[str, Any], horizon: int) -> str:
+        value = row.get(f"ai_decision_k{horizon}")
+        if value is None or (not isinstance(value, str) and pd.isna(value)) or not str(value).strip():
+            value = row.get("ai_decision")
+        if value is None or (not isinstance(value, str) and pd.isna(value)):
+            return ""
+        return str(value).strip().upper()
+
     for row in rows:
         v1_raw = row.get("is_correct_1")
         v2_raw = row.get("is_correct_2")
@@ -368,11 +390,15 @@ def compute_summary_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
             wins_1 += 1
         elif v1 == "False":
             losses_1 += 1
+        elif _prediction_action(row, 1) == "HOLD":
+            holds_1 += 1
 
         if v2 == "True":
             wins_2 += 1
         elif v2 == "False":
             losses_2 += 1
+        elif _prediction_action(row, 2) == "HOLD":
+            holds_2 += 1
 
         if v1 == "Error" or v2 == "Error":
             failed += 1
@@ -388,6 +414,10 @@ def compute_summary_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     total_valid_2 = wins_2 + losses_2
     win_rate_1 = (wins_1 / total_valid_1 * 100.0) if total_valid_1 > 0 else 0.0
     win_rate_2 = (wins_2 / total_valid_2 * 100.0) if total_valid_2 > 0 else 0.0
+    candidates_1 = total_valid_1 + holds_1
+    candidates_2 = total_valid_2 + holds_2
+    coverage_1 = (total_valid_1 / candidates_1 * 100.0) if candidates_1 > 0 else 0.0
+    coverage_2 = (total_valid_2 / candidates_2 * 100.0) if candidates_2 > 0 else 0.0
     funds_pnl = None
     funds_pnl_pct = None
     if funds_initial is not None and funds_final is not None:
@@ -402,9 +432,13 @@ def compute_summary_from_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "wins_1": wins_1,
         "losses_1": losses_1,
         "win_rate_1": win_rate_1,
+        "holds_1": holds_1,
+        "coverage_1": coverage_1,
         "wins_2": wins_2,
         "losses_2": losses_2,
         "win_rate_2": win_rate_2,
+        "holds_2": holds_2,
+        "coverage_2": coverage_2,
         "funds_initial": funds_initial,
         "funds_final": funds_final,
         "funds_pnl": funds_pnl,

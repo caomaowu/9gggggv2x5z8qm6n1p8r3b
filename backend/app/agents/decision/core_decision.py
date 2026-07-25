@@ -65,6 +65,15 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
         trend_report = state.get("trend_report", "Trend analysis unavailable")
         time_frame = state.get("time_frame", "Unknown")
         stock_name = state.get("stock_name", "Unknown trading pair")
+
+        # The first requested timeframe is always the scored/primary horizon.
+        # Remaining timeframes are context only and must never redefine K1/K2.
+        if is_multi_tf and timeframes:
+            primary_timeframe = str(timeframes[0])
+            context_timeframes = ", ".join(str(tf) for tf in timeframes[1:]) or "None"
+        else:
+            primary_timeframe = str(time_frame).split(",", 1)[0].strip()
+            context_timeframes = "None"
         
         latest_price = state.get("latest_price", None)
         price_info = state.get("price_info", "")
@@ -112,6 +121,8 @@ def create_generic_decision_agent(llm, prompt_template: str, agent_name: str, ag
                 prompt_template,
                 stock_name=stock_name,
                 time_frame=time_frame,
+                primary_timeframe=primary_timeframe,
+                context_timeframes=context_timeframes,
                 price_summary=price_summary,
                 price_info_str=price_info_str,
                 latest_price_str=latest_price_str,

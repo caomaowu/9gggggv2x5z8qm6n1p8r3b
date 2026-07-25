@@ -196,6 +196,39 @@ def _normalize_action(action: Any) -> str:
     return text or "HOLD"
 
 
+def _normalize_confidence(value: Any) -> Optional[float]:
+    parsed = _try_parse_float(value)
+    if parsed is None:
+        return None
+    if parsed > 1.0 and parsed <= 100.0:
+        parsed /= 100.0
+    return min(max(parsed, 0.0), 1.0)
+
+
+def _horizon_action(
+    decision: Dict[str, Any],
+    horizon: int,
+    min_confidence: float,
+) -> tuple[str, Optional[float]]:
+    """Extract one exact horizon and apply the selective-prediction gate.
+
+    Missing confidence is kept backward compatible for old result files. New
+    K1/K2 responses always include confidence and are gated by the UI value.
+    """
+    action = _normalize_action(
+        decision.get(f"k{horizon}_action")
+        or decision.get(f"k{horizon}_decision")
+        or decision.get("action")
+    )
+    confidence = _normalize_confidence(
+        decision.get(f"k{horizon}_confidence", decision.get("confidence"))
+    )
+    threshold = min(max(float(min_confidence), 0.0), 1.0)
+    if confidence is not None and confidence < threshold:
+        action = "HOLD"
+    return action, confidence
+
+
 def _judge_prediction_single_kline(
     action: str,
     analysis_price: Optional[float],
@@ -210,7 +243,7 @@ def _judge_prediction_single_kline(
         return "NoFutureData"
 
     if action not in {"LONG", "SHORT"}:
-        return "未知"
+        return "Hold"
 
     if action == "LONG":
         return "True" if future_close > analysis_price else "False"
@@ -501,7 +534,8 @@ def run_one_task(
         )
 
         decision = result.get("decision") or {}
-        action = _normalize_action(decision.get("action"))
+        action_1, confidence_1 = _horizon_action(decision, 1, hold_threshold)
+        action_2, confidence_2 = _horizon_action(decision, 2, hold_threshold)
 
         analysis_price = _try_parse_float(decision.get("entry_point"))
         if analysis_price is None:
@@ -523,23 +557,23 @@ def run_one_task(
             if future_close_2 is not None:
                 change_2_pct = (future_close_2 - analysis_price) / analysis_price * 100.0
 
-        is_correct_1 = _judge_prediction_single_kline(action, analysis_price, future_close_1)
-        is_correct_2 = _judge_prediction_single_kline(action, analysis_price, future_close_2)
+        is_correct_1 = _judge_prediction_single_kline(action_1, analysis_price, future_close_1)
+        is_correct_2 = _judge_prediction_single_kline(action_2, analysis_price, future_close_2)
 
         profit_pct_1_str = "N/A"
         profit_pct_2_str = "N/A"
         if analysis_price is not None and analysis_price != 0:
             if future_close_1 is not None:
                 raw_pct_1 = (future_close_1 - analysis_price) / analysis_price * 100.0
-                if action == "LONG":
+                if action_1 == "LONG":
                     profit_pct_1_str = f"{raw_pct_1:+.2f}%"
-                elif action == "SHORT":
+                elif action_1 == "SHORT":
                     profit_pct_1_str = f"{-raw_pct_1:+.2f}%"
             if future_close_2 is not None:
                 raw_pct_2 = (future_close_2 - analysis_price) / analysis_price * 100.0
-                if action == "LONG":
+                if action_2 == "LONG":
                     profit_pct_2_str = f"{raw_pct_2:+.2f}%"
-                elif action == "SHORT":
+                elif action_2 == "SHORT":
                     profit_pct_2_str = f"{-raw_pct_2:+.2f}%"
 
         duration_s = round(time.perf_counter() - started, 3)
@@ -560,7 +594,11 @@ def run_one_task(
                 if future_close_2 is not None and change_2_pct is not None
                 else (f"{future_close_2:.6f}" if future_close_2 is not None else "N/A")
             ),
-            "ai_decision": action,
+            "ai_decision": action_2,
+            "ai_decision_k1": action_1,
+            "ai_decision_k2": action_2,
+            "confidence_k1": f"{confidence_1:.4f}" if confidence_1 is not None else "N/A",
+            "confidence_k2": f"{confidence_2:.4f}" if confidence_2 is not None else "N/A",
             "is_correct": is_correct_2 if is_correct_2 else "",
             "is_correct_1": is_correct_1 if is_correct_1 else "",
             "is_correct_2": is_correct_2 if is_correct_2 else "",
@@ -588,6 +626,10 @@ def run_one_task(
             "未来第一根K线的价格": "N/A",
             "未来第二根K线的价格": "N/A",
             "ai_decision": "ERROR",
+            "ai_decision_k1": "ERROR",
+            "ai_decision_k2": "ERROR",
+            "confidence_k1": "N/A",
+            "confidence_k2": "N/A",
             "is_correct": "Error",
             "is_correct_1": "Error",
             "is_correct_2": "Error",
@@ -729,7 +771,10 @@ def run_one_task_with_funds(
         )
 
         decision = result.get("decision") or {}
-        action = _normalize_action(decision.get("action"))
+        action_1, confidence_1 = _horizon_action(decision, 1, hold_threshold)
+        action_2, confidence_2 = _horizon_action(decision, 2, hold_threshold)
+        # Funds mode retains its existing K2 exit semantics.
+        action = action_2
 
         analysis_price = _try_parse_float(decision.get("entry_point"))
         if analysis_price is None:
@@ -751,23 +796,23 @@ def run_one_task_with_funds(
             if future_close_2 is not None:
                 change_2_pct = (future_close_2 - analysis_price) / analysis_price * 100.0
 
-        is_correct_1 = _judge_prediction_single_kline(action, analysis_price, future_close_1)
-        is_correct_2 = _judge_prediction_single_kline(action, analysis_price, future_close_2)
+        is_correct_1 = _judge_prediction_single_kline(action_1, analysis_price, future_close_1)
+        is_correct_2 = _judge_prediction_single_kline(action_2, analysis_price, future_close_2)
 
         profit_pct_1_str = "N/A"
         profit_pct_2_str = "N/A"
         if analysis_price is not None and analysis_price != 0:
             if future_close_1 is not None:
                 raw_pct_1 = (future_close_1 - analysis_price) / analysis_price * 100.0
-                if action == "LONG":
+                if action_1 == "LONG":
                     profit_pct_1_str = f"{raw_pct_1:+.2f}%"
-                elif action == "SHORT":
+                elif action_1 == "SHORT":
                     profit_pct_1_str = f"{-raw_pct_1:+.2f}%"
             if future_close_2 is not None:
                 raw_pct_2 = (future_close_2 - analysis_price) / analysis_price * 100.0
-                if action == "LONG":
+                if action_2 == "LONG":
                     profit_pct_2_str = f"{raw_pct_2:+.2f}%"
-                elif action == "SHORT":
+                elif action_2 == "SHORT":
                     profit_pct_2_str = f"{-raw_pct_2:+.2f}%"
 
         slippage = max(0.0, float(slippage_pct)) / 100.0
@@ -929,6 +974,10 @@ def run_one_task_with_funds(
                 else (f"{future_close_2:.6f}" if future_close_2 is not None else "N/A")
             ),
             "ai_decision": action,
+            "ai_decision_k1": action_1,
+            "ai_decision_k2": action_2,
+            "confidence_k1": f"{confidence_1:.4f}" if confidence_1 is not None else "N/A",
+            "confidence_k2": f"{confidence_2:.4f}" if confidence_2 is not None else "N/A",
             "is_correct": is_correct_2 if is_correct_2 else "",
             "is_correct_1": is_correct_1 if is_correct_1 else "",
             "is_correct_2": is_correct_2 if is_correct_2 else "",
@@ -975,6 +1024,10 @@ def run_one_task_with_funds(
             "未来第一根K线的价格": "N/A",
             "未来第二根K线的价格": "N/A",
             "ai_decision": "ERROR",
+            "ai_decision_k1": "ERROR",
+            "ai_decision_k2": "ERROR",
+            "confidence_k1": "N/A",
+            "confidence_k2": "N/A",
             "is_correct": "Error",
             "is_correct_1": "Error",
             "is_correct_2": "Error",
@@ -1092,6 +1145,10 @@ def _unexpected_failure_row(
         "未来第一根K线的价格": "N/A",
         "未来第二根K线的价格": "N/A",
         "ai_decision": "ERROR",
+        "ai_decision_k1": "ERROR",
+        "ai_decision_k2": "ERROR",
+        "confidence_k1": "N/A",
+        "confidence_k2": "N/A",
         "is_correct": "Error",
         "is_correct_1": "Error",
         "is_correct_2": "Error",

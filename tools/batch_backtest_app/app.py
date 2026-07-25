@@ -62,7 +62,15 @@ def run_app() -> None:
         ),
         "timeout": st.sidebar.number_input("超时时间（秒）", min_value=1.0, value=600.0),
         "retries": st.sidebar.number_input("重试次数", min_value=0, value=2),
-        "hold_threshold": st.sidebar.number_input("观望阈值", min_value=0.0, value=0.002, format="%.4f"),
+        "hold_threshold": st.sidebar.number_input(
+            "最低预测置信度",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.70,
+            step=0.01,
+            format="%.2f",
+            help="K1/K2 独立应用；低于阈值记为 HOLD。结果页同时显示覆盖率，目标不低于 35%。",
+        ),
     }
 
     st.sidebar.subheader("默认参数")
@@ -70,7 +78,7 @@ def run_app() -> None:
         {
             "default_kline_count": st.sidebar.number_input("默认K线数量", value=40),
             "default_future_kline_count": st.sidebar.number_input("默认未来K线数量", value=13),
-            "default_ai_version": st.sidebar.text_input("默认模型版本", value="original"),
+            "default_ai_version": st.sidebar.text_input("默认模型版本", value="lite"),
             "default_data_method": st.sidebar.text_input("默认数据方法", value="to_end"),
         }
     )

@@ -6,17 +6,21 @@
 from .core_decision import create_generic_decision_agent
 
 # 100% 复刻原始 Prompt，保留英文，不做任何本地化修改，以保证逻辑一致性
-ORIGINAL_PROMPT_TEMPLATE = """You are a Senior Technical Analyst operating on the current {time_frame} K-line chart for {stock_name}.
+ORIGINAL_PROMPT_TEMPLATE = """You are a Senior Technical Analyst forecasting the next two closed candles for {stock_name}.
+
+            **Strict horizon contract:**
+            - Primary/scored timeframe: {primary_timeframe}
+            - Context-only timeframes: {context_timeframes}
+            - K1 is the first fully closed {primary_timeframe} candle after the cutoff.
+            - K2 is the second fully closed {primary_timeframe} candle after the cutoff.
+            - Compare each future close independently with the current analysis price.
+            - Never substitute a context timeframe or a self-selected horizon.
 
             **Current Market Status:**
             {price_summary}
             {price_info_str}
 
-            Your task is to issue an **immediate execution order**: **LONG** or **SHORT**. ⚠️ HOLD is prohibited due to HFT constraints.
-
-            Your decision should forecast the market move over the **next N candlesticks**, where:
-            - For example: TIME_FRAME = 15min, N = 1 → Predict the next 15 minutes.
-            - TIME_FRAME = 4hour, N = 1 → Predict the next 4 hours.
+            Your task is to issue two independent forecasts: K1 and K2. Use HOLD instead of forcing a guess when neither direction has a confirmed edge.
 
             Base your decision on the combined strength, alignment, and timing of the following three reports:
 
@@ -57,20 +61,20 @@ ORIGINAL_PROMPT_TEMPLATE = """You are a Senior Technical Analyst operating on th
             4. If reports disagree:
             - Choose the direction with **stronger and more recent confirmation**
             - Prefer **momentum-backed signals** over weak oscillator hints.
-            5. ⚖️ If the market is in consolidation or reports are mixed:
-            - Default to the **dominant trendline slope** (e.g., SHORT in descending channel).
-            - Do not guess direction — choose the **more defensible** side.
-            6. Suggest a reasonable **risk-reward ratio** between **1.2 and 1.8**, based on current volatility and trend strength.
+            5. If the market is in consolidation or reports are mixed, use HOLD unless one side still has clear confirmation.
+            6. Confidence is the probability that the selected LONG/SHORT direction is correct. HOLD confidence must be below 0.70.
 
             ---
             ### 🧠 Output Format in json(for system parsing):
 
             ```
             {{
-            "forecast_horizon": "Predicting next 3 candlestick (15 minutes, 1 hour, etc.)",
-            "decision": "<LONG or SHORT>",
-            "justification": "<Concise, confirmed reasoning based on reports>",
-            "risk_reward_ratio": <float between 1.2 and 1.8>
+            "primary_timeframe": "{primary_timeframe}",
+            "k1_decision": "<LONG, SHORT, or HOLD>",
+            "k1_confidence": <float between 0.0 and 1.0>,
+            "k2_decision": "<LONG, SHORT, or HOLD>",
+            "k2_confidence": <float between 0.0 and 1.0>,
+            "justification": "<Concise K1 and K2 reasoning based on the reports>"
             }}
 
             --------
@@ -82,6 +86,8 @@ ORIGINAL_PROMPT_TEMPLATE = """You are a Senior Technical Analyst operating on th
 
             **Trend Report**  
             {trend_report}
+
+            Return valid JSON only, without markdown fences or extra text.
 
         """
 

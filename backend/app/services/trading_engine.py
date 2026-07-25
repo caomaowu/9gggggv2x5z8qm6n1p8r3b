@@ -300,11 +300,21 @@ class TradingEngine:
                         
                         decision_json = json.loads(decision_str)
                         
-                        # Normalize field names to match frontend AnalysisResult.tsx expectations
+                        k1_action = decision_json.get("k1_decision") or decision_json.get("decision", "HOLD")
+                        k2_action = decision_json.get("k2_decision") or decision_json.get("decision", "HOLD")
+                        k1_confidence = decision_json.get("k1_confidence", decision_json.get("confidence_level", decision_json.get("confidence", 0)))
+                        k2_confidence = decision_json.get("k2_confidence", decision_json.get("confidence_level", decision_json.get("confidence", 0)))
+
+                        # Keep legacy fields for the frontend while exposing the exact
+                        # independently scored K1/K2 contract to the backtest engine.
                         normalized_decision = {
-                            "action": decision_json.get("decision", "HOLD"),
+                            "action": k2_action,
+                            "k1_action": k1_action,
+                            "k2_action": k2_action,
+                            "k1_confidence": k1_confidence,
+                            "k2_confidence": k2_confidence,
                             "reasoning": decision_json.get("decision_rationale") or decision_json.get("justification", ""),
-                            "confidence": decision_json.get("confidence_level", "0"),
+                            "confidence": k2_confidence,
                             "signal_type": decision_json.get("market_environment", "N/A"),
                             "stop_loss": decision_json.get("stop_loss"),
                             "take_profit": decision_json.get("take_profit"),

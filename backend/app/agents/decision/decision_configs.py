@@ -7,9 +7,9 @@
 DECISION_AGENT_VERSIONS = {
     "original": {
         "name": "原始经典版",
-        "description": "经过实战验证的原始高频交易逻辑，保留英文Prompt，强制二选一",
+        "description": "严格信号确认版，分别预测主周期 K1/K2，支持观望",
         "characteristics": [
-            "决策范围：LONG/SHORT（HFT约束）",
+            "决策范围：K1/K2 独立 LONG/SHORT/HOLD",
             "Prompt语言：英文 (Original)",
             "风险回报比：1.2-1.8",
             "核心逻辑：三报告一致性优先"
@@ -20,7 +20,7 @@ DECISION_AGENT_VERSIONS = {
             "🎯 英文原版Prompt"
         ],
         "limitations": [
-            "❌ 不支持观望 (HOLD prohibited)",
+            "❌ 严格确认可能降低覆盖率",
             "❌ 不包含最新市场环境分类逻辑"
         ]
     },

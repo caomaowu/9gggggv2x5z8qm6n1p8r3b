@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from app.models.schemas.analyze import AnalyzeRequest
-from app.services.market_data import MarketDataService
+from app.services.market_data import MarketDataService, rebuild_partial_candle_from_1m
 from app.services.trading_engine import TradingEngine
 from app.services.history_service import history_service
 from app.core.progress import update_analysis_progress
@@ -112,53 +112,48 @@ async def analyze_market(
             
             timeframe_for_result = timeframe
             
-        # 哈雷酱修复：在回测模式(to_end)下，修正最后一根K线的收盘价，消除未来函数
-        # 获取该时刻的真实价格（通过 1m K线），并覆盖主数据的 Close
+        # Rebuild the in-progress historical candle from 1m bars available at
+        # the cutoff. Replacing Close alone leaks future High/Low/Volume.
         if request.data_method == "to_end" and end_dt_str:
             try:
-                # 获取截止到 end_dt_str 的最新 1m 价格
-                real_price_df = market_service.get_ohlcv_data(
+                cutoff_utc = (
+                    pd.Timestamp(end_dt_str)
+                    .tz_localize("Asia/Shanghai")
+                    .tz_convert("UTC")
+                    .tz_localize(None)
+                )
+                frames = df if isinstance(df, dict) else {timeframe_for_result: df}
+                earliest_start = min(pd.Timestamp(frame.index[-1]) for frame in frames.values() if not frame.empty)
+                if earliest_start.tzinfo is not None:
+                    earliest_start = earliest_start.tz_convert("UTC").tz_localize(None)
+                fetch_start = (
+                    (earliest_start - pd.Timedelta(minutes=1))
+                    .tz_localize("UTC")
+                    .tz_convert("Asia/Shanghai")
+                    .strftime("%Y-%m-%d %H:%M:%S")
+                )
+                minute_df = market_service.get_ohlcv_data(
                     symbol=request.asset,
                     timeframe="1m",
-                    limit=1,
+                    limit=300,
+                    start_date=fetch_start,
                     end_date=end_dt_str
                 )
-                
-                if real_price_df is not None and not real_price_df.empty:
-                    real_close = float(real_price_df.iloc[-1]['Close'])
-                    logger.info(f"[{result_id}] Correcting latest price to {real_close} (from 1m data at {end_dt_str})")
-                    
-                    def fix_last_candle(dataframe):
-                        if dataframe is None or dataframe.empty:
-                            return dataframe
-                        # 使用副本以避免警告，虽然这里可能已经是副本
-                        df_copy = dataframe.copy()
-                        last_idx = df_copy.index[-1]
-                        
-                        # 修正 Close
-                        df_copy.loc[last_idx, 'Close'] = real_close
-                        
-                        # 修正 High/Low 以保持一致性 (如果 Close 超出了范围)
-                        if real_close > df_copy.loc[last_idx, 'High']:
-                            df_copy.loc[last_idx, 'High'] = real_close
-                        if real_close < df_copy.loc[last_idx, 'Low']:
-                            df_copy.loc[last_idx, 'Low'] = real_close
-                            
-                        return df_copy
-
-                    # 应用修正
-                    if isinstance(df, dict):
-                        new_multi_df = {}
-                        for tf, sub_df in df.items():
-                            new_multi_df[tf] = fix_last_candle(sub_df)
-                        df = new_multi_df
-                    else:
-                        df = fix_last_candle(df)
+                if minute_df is not None and not minute_df.empty:
+                    rebuilt = {
+                        tf: rebuild_partial_candle_from_1m(frame, minute_df, cutoff_utc, tf)
+                        for tf, frame in frames.items()
+                    }
+                    df = rebuilt if isinstance(df, dict) else rebuilt[timeframe_for_result]
+                    logger.info(f"[{result_id}] Rebuilt cutoff candle OHLCV from 1m data at {end_dt_str}")
                 else:
-                    logger.warning(f"[{result_id}] Failed to fetch real price for correction at {end_dt_str}")
+                    raise RuntimeError(f"No 1m data available for cutoff reconstruction at {end_dt_str}")
             except Exception as e:
-                logger.error(f"[{result_id}] Error correcting latest price: {e}")
-                # 出错不阻断，继续使用原始数据
+                logger.error(f"[{result_id}] Error rebuilding cutoff candle: {e}")
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Unable to build leakage-free cutoff candle: {e}",
+                )
 
         # 哈雷酱添加：如果是在做回测（to_end 或 date_range），且请求了未来K线，则获取“未来”数据用于验证
         future_kline_list = []

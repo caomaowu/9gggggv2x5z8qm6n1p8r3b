@@ -16,6 +16,68 @@ from app.services.market_data_v5_parser import (
 
 logger = logging.getLogger(__name__)
 
+
+def _timeframe_to_timedelta(timeframe: str) -> pd.Timedelta | None:
+    text = str(timeframe or "").strip().lower()
+    try:
+        if text.endswith("mo"):
+            return pd.Timedelta(days=31 * int(text[:-2]))
+        if text.endswith("w"):
+            return pd.Timedelta(weeks=int(text[:-1]))
+        if text.endswith("d"):
+            return pd.Timedelta(days=int(text[:-1]))
+        if text.endswith("h"):
+            return pd.Timedelta(hours=int(text[:-1]))
+        if text.endswith("m"):
+            return pd.Timedelta(minutes=int(text[:-1]))
+    except (TypeError, ValueError):
+        return None
+    return None
+
+
+def rebuild_partial_candle_from_1m(
+    frame: pd.DataFrame,
+    minute_frame: pd.DataFrame,
+    cutoff: pd.Timestamp,
+    timeframe: str,
+) -> pd.DataFrame:
+    """Rebuild the last in-progress candle using only 1m bars before cutoff."""
+    if frame is None or frame.empty or minute_frame is None or minute_frame.empty:
+        return frame
+
+    result = frame.copy()
+    candle_start = pd.Timestamp(result.index[-1])
+    cutoff_ts = pd.Timestamp(cutoff)
+    if candle_start.tzinfo is not None:
+        candle_start = candle_start.tz_convert("UTC").tz_localize(None)
+    if cutoff_ts.tzinfo is not None:
+        cutoff_ts = cutoff_ts.tz_convert("UTC").tz_localize(None)
+
+    duration = _timeframe_to_timedelta(timeframe)
+    if duration is None or cutoff_ts <= candle_start or cutoff_ts - candle_start > duration:
+        return result
+
+    minute_data = minute_frame.copy()
+    minute_index = pd.DatetimeIndex(minute_data.index)
+    if minute_index.tz is not None:
+        minute_index = minute_index.tz_convert("UTC").tz_localize(None)
+    minute_data.index = minute_index
+    partial = minute_data[(minute_data.index >= candle_start) & (minute_data.index < cutoff_ts)]
+    required = {"Open", "High", "Low", "Close", "Volume"}
+    if partial.empty or not required.issubset(partial.columns):
+        return result
+
+    values = {
+        "Open": float(partial.iloc[0]["Open"]),
+        "High": float(partial["High"].max()),
+        "Low": float(partial["Low"].min()),
+        "Close": float(partial.iloc[-1]["Close"]),
+        "Volume": float(partial["Volume"].sum()),
+    }
+    for column, value in values.items():
+        result.loc[result.index[-1], column] = value
+    return result
+
 class MarketDataService:
     """
     Service for fetching market data via OKX v5 transparent proxy.

@@ -596,12 +596,14 @@ def render_execute(
         stats_losses_1 = 0
         stats_wins_2 = 0
         stats_losses_2 = 0
+        stats_holds_1 = 0
+        stats_holds_2 = 0
         failed = 0
 
         equity = float(funds_cfg["initial_equity"]) if funds_cfg else None
 
         def handle_one_result(result_row: dict[str, Any]) -> None:
-            nonlocal completed, stats_wins_1, stats_losses_1, stats_wins_2, stats_losses_2, failed
+            nonlocal completed, stats_wins_1, stats_losses_1, stats_wins_2, stats_losses_2, stats_holds_1, stats_holds_2, failed
 
             agent_model, graph_model = store.load_env_models()
             if agent_model:
@@ -617,11 +619,15 @@ def render_execute(
                 stats_wins_1 += 1
             elif is_correct_1 == "False":
                 stats_losses_1 += 1
+            elif str(result_row.get("ai_decision_k1") or result_row.get("ai_decision") or "").upper() == "HOLD":
+                stats_holds_1 += 1
 
             if is_correct_2 == "True":
                 stats_wins_2 += 1
             elif is_correct_2 == "False":
                 stats_losses_2 += 1
+            elif str(result_row.get("ai_decision_k2") or result_row.get("ai_decision") or "").upper() == "HOLD":
+                stats_holds_2 += 1
 
             if is_correct_1 == "Error" or is_correct_2 == "Error":
                 failed += 1
@@ -757,6 +763,8 @@ def render_execute(
         total_valid_2 = stats_wins_2 + stats_losses_2
         final_win_rate_1 = (stats_wins_1 / total_valid_1 * 100.0) if total_valid_1 > 0 else 0.0
         final_win_rate_2 = (stats_wins_2 / total_valid_2 * 100.0) if total_valid_2 > 0 else 0.0
+        coverage_1 = total_valid_1 / (total_valid_1 + stats_holds_1) * 100.0 if total_valid_1 + stats_holds_1 > 0 else 0.0
+        coverage_2 = total_valid_2 / (total_valid_2 + stats_holds_2) * 100.0 if total_valid_2 + stats_holds_2 > 0 else 0.0
         total_duration_s = round(time.time() - start_time, 3)
         funds_initial = None
         funds_final = None
@@ -787,9 +795,13 @@ def render_execute(
             "wins_1": stats_wins_1,
             "losses_1": stats_losses_1,
             "win_rate_1": final_win_rate_1,
+            "holds_1": stats_holds_1,
+            "coverage_1": coverage_1,
             "wins_2": stats_wins_2,
             "losses_2": stats_losses_2,
             "win_rate_2": final_win_rate_2,
+            "holds_2": stats_holds_2,
+            "coverage_2": coverage_2,
             "total_duration_s": total_duration_s,
             "funds_initial": funds_initial,
             "funds_final": funds_final,
@@ -827,9 +839,13 @@ def render_results(*, cfg: dict[str, Any], state: MutableMapping[str, Any], core
                         "wins_1": s.get("wins_1", 0),
                         "losses_1": s.get("losses_1", 0),
                         "win_rate_1": s.get("win_rate_1", 0.0),
+                        "holds_1": s.get("holds_1", 0),
+                        "coverage_1": s.get("coverage_1", 0.0),
                         "wins_2": s.get("wins_2", s["wins"]),
                         "losses_2": s.get("losses_2", s["losses"]),
                         "win_rate_2": s.get("win_rate_2", s["win_rate"]),
+                        "holds_2": s.get("holds_2", 0),
+                        "coverage_2": s.get("coverage_2", 0.0),
                         "total_duration_s": 0.0,
                         "funds_initial": s.get("funds_initial"),
                         "funds_final": s.get("funds_final"),
@@ -857,10 +873,24 @@ def render_results(*, cfg: dict[str, Any], state: MutableMapping[str, Any], core
     col_r3.metric("失败", summary.get("failed") if summary else "无")
     col_r4.metric("K1胜率", f"{summary.get('win_rate_1', summary.get('win_rate', 0.0)):.2f}%" if summary else "无")
     col_r5.metric("K2胜率", f"{summary.get('win_rate_2', summary.get('win_rate', 0.0)):.2f}%" if summary else "无")
-    col_r6, col_r7, col_r8 = st.columns(3)
+    col_r6, col_r7, col_r8, col_r9, col_r10 = st.columns(5)
     col_r6.metric("K1胜场/负场", f"{summary.get('wins_1', 0)}/{summary.get('losses_1', 0)}" if summary else "无")
     col_r7.metric("K2胜场/负场", f"{summary.get('wins_2', summary.get('wins', 0))}/{summary.get('losses_2', summary.get('losses', 0))}" if summary else "无")
     col_r8.metric("总耗时", f"{summary.get('total_duration_s', 0.0):.1f}秒" if summary else "无")
+    col_r9.metric("K1覆盖率", f"{summary.get('coverage_1', 0.0):.2f}%" if summary else "无")
+    col_r10.metric("K2覆盖率", f"{summary.get('coverage_2', 0.0):.2f}%" if summary else "无")
+
+    if summary and (summary.get("coverage_1", 0.0) < 35.0 or summary.get("coverage_2", 0.0) < 35.0):
+        st.warning("至少一个预测周期的交易覆盖率低于 35%，请适当降低最低预测置信度后重跑。")
+
+    if summary:
+        target_k1 = summary.get("win_rate_1", 0.0) >= 65.0 and summary.get("coverage_1", 0.0) >= 35.0
+        target_k2 = summary.get("win_rate_2", 0.0) >= 65.0 and summary.get("coverage_2", 0.0) >= 35.0
+        target_text = f"K1：{'达标' if target_k1 else '未达标'} ｜ K2：{'达标' if target_k2 else '未达标'}"
+        if target_k1 and target_k2:
+            st.success(f"预测目标达标（正确率 ≥65%，覆盖率 ≥35%）— {target_text}")
+        else:
+            st.info(f"预测目标检查（正确率 ≥65%，覆盖率 ≥35%）— {target_text}")
 
     if summary:
         funds_initial = summary.get("funds_initial")
