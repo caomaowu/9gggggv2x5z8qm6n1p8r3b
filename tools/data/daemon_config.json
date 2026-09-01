@@ -3,7 +3,7 @@
   "output_file": "/root/data/9gggggv2x5z8qm6n1p8r3b/tools/backtest_results.csv",
   "backend_url": "http://localhost:8000/api/v1",
   "analyze_path": "/analyze/",
-  "concurrency": 70,
+  "concurrency": 5,
   "task_delay": 1.6,
   "timeout": 600.0,
   "retries": 2,
@@ -20,6 +20,6 @@
   },
   "backtest_mode": "普通回测",
   "funds_cfg": null,
-  "agent_model": "gpt-5.2",
-  "graph_model": "gpt-5.2"
+  "agent_model": "Pro/moonshotai/Kimi-K2.5",
+  "graph_model": "Pro/moonshotai/Kimi-K2.5"
 }
